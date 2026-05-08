@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ML artifacts
+*.safetensors
+*.bin
+*.gguf
+Qwen*/
+models/
+artifacts/
+*/artifacts/
+
+# Datasets
+*.csv
+!**/tests/**/*.csv
+
+# uv
+.uv/
+uv.lock
+
+# AI harness / local agent config
+.claude/
+.opencode/
+.cursor/
+.windsurf/
+.roo/
+.aider*
+.agent/
+.agents/
+.planning/
+*/.planning/
+
+# IDE
+.idea/
+.vscode/
+*.swp

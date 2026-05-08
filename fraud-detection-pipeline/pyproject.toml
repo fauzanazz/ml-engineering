@@ -1,0 +1,26 @@
+[project]
+name = "fraud-detection-pipeline"
+version = "0.1.0"
+description = "Minimal fraud detection pipeline with one LightGBM baseline."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "lightgbm>=4.0.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.4.0",
+]
+
+[project.scripts]
+fraud-detect-train = "fraud_detection.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fraud_detection"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
