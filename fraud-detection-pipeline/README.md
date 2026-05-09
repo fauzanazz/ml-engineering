@@ -26,6 +26,8 @@ Dataset lokal:
 data/creditcard.csv
 ```
 
+Raw dataset is not committed. Download source and setup notes: [Dataset Source](docs/dataset.md).
+
 Kolom:
 
 - `Time`
