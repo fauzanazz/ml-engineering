@@ -39,6 +39,7 @@ def write_artifacts(
         "recall": result.metrics.recall,
         "f1": result.metrics.f1,
         "pr_auc": result.metrics.pr_auc,
+        "roc_auc": result.metrics.roc_auc,
     }
     if result.val_metrics is not None:
         if result.val_threshold is not None:
@@ -47,12 +48,15 @@ def write_artifacts(
         metrics["val_recall"] = result.val_metrics.recall
         metrics["val_f1"] = result.val_metrics.f1
         metrics["val_pr_auc"] = result.val_metrics.pr_auc
+        metrics["val_roc_auc"] = result.val_metrics.roc_auc
 
     if result.predict_proba_latency_s is not None:
         metrics["predict_proba_latency_s"] = result.predict_proba_latency_s
         metrics["inference_latency_s"] = result.predict_proba_latency_s  # backward compat alias
     if result.predict_proba_latency_per_row_s is not None:
         metrics["predict_proba_latency_per_row_s"] = result.predict_proba_latency_per_row_s
+    if result.single_row_latency_s is not None:
+        metrics["single_row_latency_s"] = result.single_row_latency_s
 
     if result.split_counts is not None:
         sc = result.split_counts

@@ -13,7 +13,7 @@ def sample_result():
         predictions=[],
         training_accuracy=0.999,
         test_accuracy=0.998,
-        metrics=ClassificationMetrics(precision=0.81, recall=1.0, f1=0.90, pr_auc=0.97),
+        metrics=ClassificationMetrics(precision=0.81, recall=1.0, f1=0.90, pr_auc=0.97, roc_auc=0.95),
     )
 
 

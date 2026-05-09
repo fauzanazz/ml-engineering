@@ -1,9 +1,11 @@
 import pytest
 import pandas as pd
+from unittest.mock import MagicMock, call
+import numpy as np
 from lightgbm import LGBMClassifier
 
 from fraud_detection.models import LightGbmFactory, ModelFactory
-from fraud_detection.training import compute_scale_pos_weight, train_one_batch
+from fraud_detection.training import _measure_single_row_latency, compute_scale_pos_weight, train_one_batch
 
 
 def _three_way_csv(tmp_path) -> object:
@@ -288,6 +290,74 @@ def test_predict_proba_latency_per_row_s_equals_batch_divided_by_rows(tmp_path):
     n_rows = len(result.predictions)
     expected = result.predict_proba_latency_s / n_rows
     assert result.predict_proba_latency_per_row_s == pytest.approx(expected)
+
+
+def test_train_one_batch_result_has_single_row_latency(tmp_path):
+    result = train_one_batch(
+        data_path=_minimal_csv(tmp_path),
+        model_factory=LightGbmFactory(),
+        batch_size=6,
+        test_size=0.5,
+    )
+
+    assert result.single_row_latency_s is not None
+    assert result.single_row_latency_s >= 0.0
+
+
+def test_train_one_batch_with_val_size_result_has_single_row_latency(tmp_path):
+    result = train_one_batch(
+        data_path=_three_way_csv(tmp_path),
+        model_factory=LightGbmFactory(),
+        batch_size=10,
+        test_size=0.2,
+        val_size=0.2,
+    )
+
+    assert result.single_row_latency_s is not None
+    assert result.single_row_latency_s >= 0.0
+
+
+def test_measure_single_row_latency_calls_predict_proba_warmup_plus_n_repeats():
+    """Helper does 1 warmup + n_repeats timed calls, all on 1-row input."""
+    n_repeats = 3
+    one_row = pd.DataFrame({"a": [1.0]})
+
+    mock_model = MagicMock()
+    mock_model.predict_proba.return_value = np.array([[0.6, 0.4]])
+
+    _measure_single_row_latency(mock_model, one_row, n_repeats=n_repeats)
+
+    assert mock_model.predict_proba.call_count == 1 + n_repeats
+    for c in mock_model.predict_proba.call_args_list:
+        arg = c.args[0]
+        assert len(arg) == 1, f"expected 1-row input, got {len(arg)} rows"
+
+
+def test_measure_single_row_latency_returns_none_for_model_without_predict_proba():
+    class _NoProbaModel:
+        def predict(self, X):
+            return [0] * len(X)
+
+    one_row = pd.DataFrame({"a": [1.0]})
+    result = _measure_single_row_latency(_NoProbaModel(), one_row)
+    assert result is None
+
+
+def test_measure_single_row_latency_returns_none_not_raises_is_propagated(tmp_path):
+    """single_row_latency_s=None when helper returns None (no predict_proba)."""
+    from unittest.mock import patch
+
+    result_holder = {}
+
+    with patch("fraud_detection.training._measure_single_row_latency", return_value=None):
+        result = train_one_batch(
+            data_path=_minimal_csv(tmp_path),
+            model_factory=LightGbmFactory(),
+            batch_size=6,
+            test_size=0.5,
+        )
+
+    assert result.single_row_latency_s is None
 
 
 def test_custom_factory_receives_scale_pos_weight_not_ignored(tmp_path):

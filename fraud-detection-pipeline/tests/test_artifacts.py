@@ -19,6 +19,7 @@ def sample_result():
             recall=1.0,
             f1=0.90,
             pr_auc=0.97,
+            roc_auc=0.95,
         ),
     )
 
@@ -48,6 +49,7 @@ def test_write_artifacts_creates_metrics_json(tmp_path, sample_result, sample_co
     assert data["recall"] == pytest.approx(1.0)
     assert data["f1"] == pytest.approx(0.90)
     assert data["pr_auc"] == pytest.approx(0.97)
+    assert data["roc_auc"] == pytest.approx(0.95)
 
 
 def test_write_artifacts_creates_config_json(tmp_path, sample_result, sample_config):
@@ -214,9 +216,9 @@ def test_write_artifacts_includes_val_metrics_when_present(tmp_path, sample_conf
         predictions=[],
         training_accuracy=0.999,
         test_accuracy=0.998,
-        metrics=ClassificationMetrics(precision=0.81, recall=1.0, f1=0.90, pr_auc=0.97),
+        metrics=ClassificationMetrics(precision=0.81, recall=1.0, f1=0.90, pr_auc=0.97, roc_auc=0.95),
         val_threshold=0.3,
-        val_metrics=ClassificationMetrics(precision=0.75, recall=0.92, f1=0.82, pr_auc=0.88),
+        val_metrics=ClassificationMetrics(precision=0.75, recall=0.92, f1=0.82, pr_auc=0.88, roc_auc=0.91),
         threshold_objective="f1",
     )
     run_dir = tmp_path / "run-val"
@@ -229,6 +231,7 @@ def test_write_artifacts_includes_val_metrics_when_present(tmp_path, sample_conf
     assert data["val_recall"] == pytest.approx(0.92)
     assert data["val_f1"] == pytest.approx(0.82)
     assert data["val_pr_auc"] == pytest.approx(0.88)
+    assert data["val_roc_auc"] == pytest.approx(0.91)
 
 
 def test_write_artifacts_includes_latency_fields_in_metrics(tmp_path, sample_config):
@@ -236,7 +239,7 @@ def test_write_artifacts_includes_latency_fields_in_metrics(tmp_path, sample_con
         predictions=[],
         training_accuracy=0.999,
         test_accuracy=0.998,
-        metrics=ClassificationMetrics(precision=0.81, recall=1.0, f1=0.90, pr_auc=0.97),
+        metrics=ClassificationMetrics(precision=0.81, recall=1.0, f1=0.90, pr_auc=0.97, roc_auc=0.95),
         predict_proba_latency_s=0.0042,
         predict_proba_latency_per_row_s=0.0014,
     )
@@ -249,6 +252,33 @@ def test_write_artifacts_includes_latency_fields_in_metrics(tmp_path, sample_con
     assert data["predict_proba_latency_per_row_s"] == pytest.approx(0.0014)
     # backward-compat alias
     assert data["inference_latency_s"] == pytest.approx(0.0042)
+
+
+def test_write_artifacts_includes_single_row_latency_in_metrics(tmp_path, sample_config):
+    result = TrainingResult(
+        predictions=[],
+        training_accuracy=0.999,
+        test_accuracy=0.998,
+        metrics=ClassificationMetrics(precision=0.81, recall=1.0, f1=0.90, pr_auc=0.97, roc_auc=0.95),
+        predict_proba_latency_s=0.0042,
+        predict_proba_latency_per_row_s=0.0014,
+        single_row_latency_s=0.00035,
+    )
+    run_dir = tmp_path / "run-single-row-latency"
+
+    write_artifacts(run_dir, result=result, config=sample_config)
+
+    data = json.loads((run_dir / "metrics.json").read_text())
+    assert data["single_row_latency_s"] == pytest.approx(0.00035)
+
+
+def test_write_artifacts_omits_single_row_latency_when_none(tmp_path, sample_result, sample_config):
+    run_dir = tmp_path / "run-no-single-row"
+
+    write_artifacts(run_dir, result=sample_result, config=sample_config)
+
+    data = json.loads((run_dir / "metrics.json").read_text())
+    assert "single_row_latency_s" not in data
 
 
 def test_write_artifacts_omits_latency_fields_when_none(tmp_path, sample_result, sample_config):

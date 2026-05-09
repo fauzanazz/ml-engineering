@@ -191,7 +191,7 @@ def _base_result(**kwargs) -> TrainingResult:
         predictions=[],
         training_accuracy=0.99,
         test_accuracy=0.98,
-        metrics=ClassificationMetrics(precision=0.8, recall=0.9, f1=0.85, pr_auc=0.92),
+        metrics=ClassificationMetrics(precision=0.8, recall=0.9, f1=0.85, pr_auc=0.92, roc_auc=0.94),
         **kwargs,
     )
 
@@ -206,7 +206,7 @@ def test_val_threshold_omitted_when_val_metrics_absent(tmp_path):
 def test_val_threshold_present_when_val_metrics_present(tmp_path):
     result = _base_result(
         val_threshold=0.3,
-        val_metrics=ClassificationMetrics(precision=0.7, recall=0.88, f1=0.78, pr_auc=0.85),
+        val_metrics=ClassificationMetrics(precision=0.7, recall=0.88, f1=0.78, pr_auc=0.85, roc_auc=0.90),
     )
     write_artifacts(tmp_path / "run", result=result, config={})
     data = json.loads((tmp_path / "run" / "metrics.json").read_text())

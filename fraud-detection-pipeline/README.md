@@ -50,7 +50,7 @@ Fraud sangat jarang:
 | 4 | 2026-05-09 | Run logging + artifacts | Tambah artifact writer untuk `config.json`, `metrics.json`, model artifact, dan historical run log. |
 | 5 | 2026-05-08 | Threshold tuning for recall | Tambah `--decision-threshold` dan threshold sweep. Belakangan dicatat sebagai exploratory karena threshold dipilih dari test set. |
 | 6 | 2026-05-09 | Feature engineering + validation split | Tambah train/validation/test split, train-only feature engineering, validation-only threshold tuning, duplicate/leakage handling. |
-| 7 | 2026-05-09 | Multi-model comparison + latency | Tambah Logistic Regression, Decision Tree depth 2, Random Forest, XGBoost, model selection CLI, joblib artifacts, dan latency metric. |
+| 7 | 2026-05-09 | Hyperparameter tuning | Tambah randomized hyperparameter search untuk LightGBM, Random Forest, dan XGBoost; tambah ROC AUC dan single-row latency untuk evaluasi online scoring. |
 
 Detail tiap step:
 
@@ -60,6 +60,7 @@ Detail tiap step:
 - [Step 4: Run Logging and Artifacts](docs/features/step-4-run-logging-and-artifacts.md)
 - [Step 5: Threshold Tuning for Recall](docs/features/step-5-threshold-tuning-for-recall.md)
 - [Step 6: Feature Engineering & Validation Split](docs/features/step-6-feature-engineering-validation-split.md)
+- [Step 7: Hyperparameter Tuning](docs/features/step-7-hyperparameter-tuning.md)
 - [Historical Run Log](docs/run-log.md)
 - [Artifact Security](docs/artifact-security.md)
 
@@ -75,6 +76,7 @@ raw CSV
  -> remove exact feature overlap across splits
  -> fit FeaturePipeline on train only
  -> transform train / validation / test
+ -> optionally tune hyperparameters on train-only CV
  -> train model on train
  -> tune threshold on validation
  -> evaluate once on test
@@ -155,11 +157,19 @@ Current interpretation:
 - **XGBoost**: best F1 and precision, but recall lower.
 - **Logistic Regression**: fastest and strong simple baseline.
 
-For fraud goal where missed fraud is expensive, current strongest candidate is:
+For fraud goal where missed fraud is expensive, current strongest candidate from the original comparison is:
 
 ```text
 Random Forest
 ```
+
+Latest documented tuned LightGBM run (`--tune-n-iter 100`) reached `recall=1.0000`, `roc_auc=0.9999`, and `f1=0.9286` with best params:
+
+```text
+{'subsample': 0.6, 'num_leaves': 127, 'n_estimators': 200, 'max_depth': 3, 'learning_rate': 0.01}
+```
+
+See [Step 7: Hyperparameter Tuning](docs/features/step-7-hyperparameter-tuning.md).
 
 ## Metrics
 
@@ -171,16 +181,19 @@ Current metrics logged:
 - `recall`
 - `f1`
 - `pr_auc`
+- `roc_auc`
 - `val_threshold`
 - `val_precision`
 - `val_recall`
 - `val_f1`
 - `val_pr_auc`
+- `val_roc_auc`
 - `split_train`
 - `split_val`
 - `split_test`
 - `predict_proba_latency_s`
 - `predict_proba_latency_per_row_s`
+- `single_row_latency_s`
 - `inference_latency_s` — backward-compatible alias
 
 ## Artifacts
@@ -237,10 +250,8 @@ uv run fraud-detect-train \
 
 Recommended next steps:
 
-1. Add **ROC AUC** alongside PR AUC for completeness.
-2. Add **single-row latency** for online fraud scoring.
-3. Add `score_transaction` / `predict_one` API.
-4. Add safe model loading path with trust checks.
-5. Evaluate bigger batch or full dataset.
-6. Tune Random Forest and XGBoost hyperparameters.
-7. Add streaming-style inference test.
+1. Add `score_transaction` / `predict_one` API.
+2. Add safe model loading path with trust checks.
+3. Persist tuning metadata as a dedicated artifact report.
+4. Evaluate bigger batch or full dataset.
+5. Add streaming-style inference test.

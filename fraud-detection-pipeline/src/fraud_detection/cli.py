@@ -97,6 +97,18 @@ def parse_args(argv: list[str] | None = None):
         default="lightgbm",
         help="model to train (default: lightgbm)",
     )
+    parser.add_argument(
+        "--tune",
+        action="store_true",
+        default=False,
+        help="run randomized hyperparameter search before training (lightgbm, random-forest, xgboost)",
+    )
+    parser.add_argument(
+        "--tune-n-iter",
+        type=int,
+        default=10,
+        help="number of RandomizedSearchCV iterations for --tune (default: 10)",
+    )
     parsed = parser.parse_args(argv)
     if parsed.target_recall is not None and parsed.threshold_objective != "target-recall":
         parser.error("--target-recall requires --threshold-objective target-recall")
@@ -109,6 +121,13 @@ def parse_args(argv: list[str] | None = None):
             "--decision-threshold cannot be set when --val-size is provided; "
             "threshold is selected automatically on the validation set"
         )
+    _TUNABLE_MODELS = {"lightgbm", "random-forest", "xgboost"}
+    if parsed.tune and parsed.model not in _TUNABLE_MODELS:
+        parser.error(f"--tune only supports {sorted(_TUNABLE_MODELS)}, got '{parsed.model}'")
+    if parsed.tune_n_iter < 1:
+        parser.error(f"--tune-n-iter must be >= 1, got {parsed.tune_n_iter}")
+    if parsed.tune_n_iter > 200:
+        parser.error(f"--tune-n-iter must be <= 200, got {parsed.tune_n_iter}")
     return parsed
 
 
@@ -117,7 +136,41 @@ def main(argv: list[str] | None = None) -> None:
     from fraud_detection.metrics import SklearnMetricsAdapter
 
     args = parse_args(argv)
-    factory = FACTORY_MAP[args.model]()
+
+    if args.tune:
+        from fraud_detection.data import load_time_split_batch, load_three_way_split
+        from fraud_detection.tuning import tune_lightgbm, tune_random_forest, tune_xgboost
+
+        if args.val_size is not None:
+            train_features, _, _, train_target, _, _ = load_three_way_split(
+                args.data_path,
+                val_size=args.val_size,
+                test_size=args.test_size,
+                target_column=args.target_column,
+                batch_size=args.batch_size,
+            )
+        else:
+            train_features, _, train_target, _ = load_time_split_batch(
+                args.data_path,
+                args.batch_size,
+                args.target_column,
+                args.test_size,
+            )
+        _tune_dispatch = {
+            "lightgbm": tune_lightgbm,
+            "random-forest": tune_random_forest,
+            "xgboost": tune_xgboost,
+        }
+        tune_fn = _tune_dispatch[args.model]
+        try:
+            tuning_result = tune_fn(train_features, train_target, n_iter=args.tune_n_iter)
+        except ValueError as exc:
+            raise SystemExit(f"error: tuning failed — {exc}") from exc
+        print(f"tuning_best_score={tuning_result.best_score:.4f}")
+        print(f"tuning_best_params={tuning_result.best_params}")
+        factory = tuning_result.best_factory
+    else:
+        factory = FACTORY_MAP[args.model]()
     result = train_one_batch(
         data_path=args.data_path,
         model_factory=factory,
@@ -136,11 +189,17 @@ def main(argv: list[str] | None = None) -> None:
     print(f"precision={m.precision:.4f}")
     print(f"recall={m.recall:.4f}")
     print(f"f1={m.f1:.4f}")
-    print(f"pr_auc={m.pr_auc:.4f}")
+    import math
+    roc_auc_str = (
+        f"nan (undefined: single-class labels)" if math.isnan(m.roc_auc) else f"{m.roc_auc:.4f}"
+    )
+    print(f"pr_auc={m.pr_auc:.4f} roc_auc={roc_auc_str}")
     if result.predict_proba_latency_s is not None:
         print(f"predict_proba_latency_s={result.predict_proba_latency_s:.6f}")
     if result.predict_proba_latency_per_row_s is not None:
         print(f"predict_proba_latency_per_row_s={result.predict_proba_latency_per_row_s:.9f}")
+    if result.single_row_latency_s is not None:
+        print(f"single_row_latency_s={result.single_row_latency_s:.9f}")
 
     if args.threshold_sweep:
         rows = sweep_thresholds(result.test_labels, result.test_scores)

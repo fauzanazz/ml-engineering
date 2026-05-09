@@ -18,6 +18,7 @@ def sample_result():
             recall=1.0,
             f1=0.90,
             pr_auc=0.97,
+            roc_auc=0.95,
         ),
     )
 

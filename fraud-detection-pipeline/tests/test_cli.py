@@ -31,6 +31,30 @@ def test_main_prints_latency_fields(tmp_path, capsys):
     assert "predict_proba_latency_per_row_s=" in captured.out
 
 
+def test_main_prints_single_row_latency(tmp_path, capsys):
+    main([
+        "--data-path", str(_minimal_csv(tmp_path)),
+        "--batch-size", "6",
+        "--test-size", "0.5",
+        "--no-artifacts",
+    ])
+
+    captured = capsys.readouterr()
+    assert "single_row_latency_s=" in captured.out
+
+
+def test_main_prints_roc_auc(tmp_path, capsys):
+    main([
+        "--data-path", str(_minimal_csv(tmp_path)),
+        "--batch-size", "6",
+        "--test-size", "0.5",
+        "--no-artifacts",
+    ])
+
+    captured = capsys.readouterr()
+    assert "roc_auc=" in captured.out
+
+
 def test_parse_args_reads_training_options():
     args = parse_args(
         [
@@ -183,3 +207,50 @@ def test_parse_args_allows_custom_threshold_without_val_size():
         "--decision-threshold", "0.3",
     ])
     assert args.decision_threshold == pytest.approx(0.3)
+
+
+# ---------------------------------------------------------------------------
+# ROC AUC nan display
+# ---------------------------------------------------------------------------
+
+
+def _single_class_csv(tmp_path):
+    """All test rows same class → roc_auc is undefined (nan)."""
+    data_path = tmp_path / "single_class.csv"
+    pd.DataFrame(
+        {
+            "Time": [1, 2, 3, 4, 5, 6],
+            "V1": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+            "V2": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+            "Amount": [1.0, 1.1, 1.2, 1.3, 1.4, 1.5],
+            # train = first 3 rows (mixed), test = last 3 rows (all 0)
+            "Class": [0, 1, 0, 0, 0, 0],
+        }
+    ).to_csv(data_path, index=False)
+    return data_path
+
+
+def test_main_prints_roc_auc_nan_with_explanation(tmp_path, capsys):
+    main([
+        "--data-path", str(_single_class_csv(tmp_path)),
+        "--batch-size", "6",
+        "--test-size", "0.5",
+        "--no-artifacts",
+    ])
+
+    captured = capsys.readouterr()
+    assert "roc_auc=nan (undefined: single-class labels)" in captured.out
+
+
+def test_main_prints_roc_auc_numeric_for_normal_case(tmp_path, capsys):
+    main([
+        "--data-path", str(_minimal_csv(tmp_path)),
+        "--batch-size", "6",
+        "--test-size", "0.5",
+        "--no-artifacts",
+    ])
+
+    captured = capsys.readouterr()
+    # normal case: numeric value, no nan annotation
+    import re
+    assert re.search(r"roc_auc=\d+\.\d{4}", captured.out)

@@ -37,11 +37,31 @@ class TrainingResult:
     split_counts: SplitCounts | None = field(default=None, compare=False)
     predict_proba_latency_s: float | None = field(default=None, compare=False)
     predict_proba_latency_per_row_s: float | None = field(default=None, compare=False)
+    single_row_latency_s: float | None = field(default=None, compare=False)
 
     @property
     def inference_latency_s(self) -> float | None:
         """Alias for predict_proba_latency_s — backward compat."""
         return self.predict_proba_latency_s
+
+
+def _measure_single_row_latency(model, one_row, *, n_repeats: int = 5) -> float | None:
+    """Median latency for a single-row predict_proba call.
+
+    One warmup call runs first (excluded from timing) so JIT/cache effects
+    don't skew the first timed sample.
+
+    Returns None if model lacks predict_proba.
+    """
+    if not hasattr(model, "predict_proba"):
+        return None
+    model.predict_proba(one_row)  # warmup — excluded from timing
+    times = []
+    for _ in range(n_repeats):
+        t0 = time.perf_counter()
+        model.predict_proba(one_row)
+        times.append(time.perf_counter() - t0)
+    return float(np.median(times))
 
 
 def compute_scale_pos_weight(train_target: pd.Series) -> float:
@@ -112,6 +132,7 @@ def train_one_batch(
     )
     n_test_rows = len(test_labels)
     predict_proba_latency_per_row_s = predict_proba_latency_s / n_test_rows if n_test_rows > 0 else None
+    single_row_latency_s = _measure_single_row_latency(model, test_features.iloc[:1])
 
     return TrainingResult(
         predictions=test_predictions.tolist(),
@@ -124,6 +145,7 @@ def train_one_batch(
         split_counts=SplitCounts(train=len(train_target), test=len(test_target)),
         predict_proba_latency_s=predict_proba_latency_s,
         predict_proba_latency_per_row_s=predict_proba_latency_per_row_s,
+        single_row_latency_s=single_row_latency_s,
     )
 
 
@@ -187,6 +209,7 @@ def _train_with_validation(
     metrics = metrics_adapter.compute(test_labels, predictions=test_predictions, scores=test_scores)
     n_test_rows = len(test_labels)
     predict_proba_latency_per_row_s = predict_proba_latency_s / n_test_rows if n_test_rows > 0 else None
+    single_row_latency_s = _measure_single_row_latency(model, test_features.iloc[:1])
 
     return TrainingResult(
         predictions=test_predictions.tolist(),
@@ -203,4 +226,5 @@ def _train_with_validation(
         split_counts=SplitCounts(train=len(train_target), val=len(val_target), test=len(test_target)),
         predict_proba_latency_s=predict_proba_latency_s,
         predict_proba_latency_per_row_s=predict_proba_latency_per_row_s,
+        single_row_latency_s=single_row_latency_s,
     )
