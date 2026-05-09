@@ -2,16 +2,24 @@ from argparse import ArgumentParser, ArgumentTypeError
 from pathlib import Path
 
 from fraud_detection.artifacts import make_run_dir, write_artifacts
-from fraud_detection.models import LightGbmFactory
+from fraud_detection.models import FACTORY_MAP, LightGbmFactory
 from fraud_detection.thresholds import sweep_thresholds, validate_threshold
 from fraud_detection.training import train_one_batch
 
 
-def test_size(value: str) -> float:
+def _fraction(name: str, value: str) -> float:
     size = float(value)
     if not 0 < size < 1:
-        raise ArgumentTypeError("test_size must satisfy 0 < test_size < 1")
+        raise ArgumentTypeError(f"{name} must satisfy 0 < {name} < 1")
     return size
+
+
+def test_size(value: str) -> float:
+    return _fraction("test_size", value)
+
+
+def val_size(value: str) -> float:
+    return _fraction("val_size", value)
 
 
 def decision_threshold(value: str) -> float:
@@ -20,6 +28,13 @@ def decision_threshold(value: str) -> float:
         return validate_threshold(threshold)
     except ValueError as exc:
         raise ArgumentTypeError(str(exc)) from exc
+
+
+def target_recall(value: str) -> float:
+    recall = float(value)
+    if not (0.0 <= recall <= 1.0):
+        raise ArgumentTypeError(f"target_recall must satisfy 0 <= target_recall <= 1, got {recall}")
+    return recall
 
 
 def parse_args(argv: list[str] | None = None):
@@ -58,17 +73,51 @@ def parse_args(argv: list[str] | None = None):
         default=False,
         help="print precision/recall table across [0.05, 0.10, 0.20, 0.30, 0.50, 0.70, 0.80, 0.90, 0.95]",
     )
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--val-size",
+        type=val_size,
+        default=None,
+        help="fraction of data for validation set; enables three-way split and threshold selection",
+    )
+    parser.add_argument(
+        "--threshold-objective",
+        choices=["f1", "target-recall"],
+        default="f1",
+        help="objective for threshold selection on validation set (default: f1)",
+    )
+    parser.add_argument(
+        "--target-recall",
+        type=target_recall,
+        default=None,
+        help="minimum recall floor for target-recall objective (must be in [0, 1])",
+    )
+    parser.add_argument(
+        "--model",
+        choices=list(FACTORY_MAP.keys()),
+        default="lightgbm",
+        help="model to train (default: lightgbm)",
+    )
+    parsed = parser.parse_args(argv)
+    if parsed.target_recall is not None and parsed.threshold_objective != "target-recall":
+        parser.error("--target-recall requires --threshold-objective target-recall")
+    if parsed.val_size is None and parsed.threshold_objective != "f1":
+        parser.error("--val-size is required when --threshold-objective is not f1")
+    if parsed.val_size is None and parsed.target_recall is not None:
+        parser.error("--val-size is required when --target-recall is provided")
+    if parsed.val_size is not None and parsed.decision_threshold != 0.5:
+        parser.error(
+            "--decision-threshold cannot be set when --val-size is provided; "
+            "threshold is selected automatically on the validation set"
+        )
+    return parsed
 
 
 def main(argv: list[str] | None = None) -> None:
-    import numpy as np
-
     from fraud_detection.thresholds import apply_threshold
     from fraud_detection.metrics import SklearnMetricsAdapter
 
     args = parse_args(argv)
-    factory = LightGbmFactory()
+    factory = FACTORY_MAP[args.model]()
     result = train_one_batch(
         data_path=args.data_path,
         model_factory=factory,
@@ -77,6 +126,9 @@ def main(argv: list[str] | None = None) -> None:
         test_size=args.test_size,
         imbalance_strategy=args.imbalance_strategy,
         decision_threshold=args.decision_threshold,
+        val_size=args.val_size,
+        threshold_objective=args.threshold_objective,
+        target_recall=args.target_recall,
     )
     m = result.metrics
     print(f"training_accuracy={result.training_accuracy:.4f}")
@@ -85,6 +137,10 @@ def main(argv: list[str] | None = None) -> None:
     print(f"recall={m.recall:.4f}")
     print(f"f1={m.f1:.4f}")
     print(f"pr_auc={m.pr_auc:.4f}")
+    if result.predict_proba_latency_s is not None:
+        print(f"predict_proba_latency_s={result.predict_proba_latency_s:.6f}")
+    if result.predict_proba_latency_per_row_s is not None:
+        print(f"predict_proba_latency_per_row_s={result.predict_proba_latency_per_row_s:.9f}")
 
     if args.threshold_sweep:
         rows = sweep_thresholds(result.test_labels, result.test_scores)
@@ -105,7 +161,13 @@ def main(argv: list[str] | None = None) -> None:
             "test_size": args.test_size,
             "imbalance_strategy": args.imbalance_strategy,
             "model_name": type(factory).__name__,
+            "model_key": args.model,
             "decision_threshold": args.decision_threshold,
         }
+        if args.val_size is not None:
+            config["val_size"] = args.val_size
+            config["threshold_objective"] = args.threshold_objective
+            if args.target_recall is not None:
+                config["target_recall"] = args.target_recall
         write_artifacts(run_dir, result=result, config=config, model=result.model)
         print(f"artifacts saved to {run_dir}")

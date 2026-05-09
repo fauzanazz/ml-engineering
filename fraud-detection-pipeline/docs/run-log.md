@@ -99,3 +99,57 @@ uv run fraud-detect-train --data-path "data/creditcard.csv" --batch-size 50000 -
 Full sweep now covers lower (0.05, 0.10) and upper (0.70–0.95) thresholds. Thresholds 0.20–0.95 produce identical operating point (FP=175, FN=0) — model probabilities are saturated enough that raising the threshold past 0.20 doesn't change any classification. Lower thresholds 0.05/0.10 only add FP with no recall gain. Threshold 0.50 remains chosen for this batch.
 
 **Lihat juga:** [docs/features/step-5-threshold-tuning-for-recall.md](features/step-5-threshold-tuning-for-recall.md)
+
+---
+
+## Run 5 — Step 6 Feature Engineering & Validation Split (batch_size=50000, strategy=scale-pos-weight, val_size=0.1, objective=target-recall)
+
+**Perintah**
+```
+uv run fraud-detect-train --data-path "data/creditcard.csv" --batch-size 50000 --imbalance-strategy scale-pos-weight --val-size 0.1 --threshold-objective target-recall --target-recall 0.95
+```
+
+**Config**
+- batch_size: 50000
+- test_size: 0.2
+- val_size: 0.1
+- imbalance_strategy: scale-pos-weight
+- model: LightGbmFactory
+- threshold_objective: target-recall
+- target_recall: 0.95
+- val_threshold: 0.95
+
+**Effective Split Counts**
+- train: 34860
+- val: 4961
+- test: 9959
+
+Counts are lower than raw split sizes because duplicate rows are removed per split and cross-split exact feature overlaps are removed to reduce leakage.
+
+**Validation Metrics**
+- val_precision: 0.0182
+- val_recall: 1.0000
+- val_f1: 0.0357
+- val_pr_auc: 0.0294
+
+**Test Metrics**
+- training_accuracy: 0.9627
+- test_accuracy: 0.9864
+- precision: 0.2429
+- recall: 0.9773
+- f1: 0.3891
+- pr_auc: 0.3390
+
+**Artefak**
+`artifacts/runs/20260509T075706256334Z-d5b2dd38/`
+
+**Interpretasi**
+Step 6 fixes Step 5 test-peeking by selecting the operating threshold on validation only, then applying that threshold once to test. The chosen validation threshold is `0.95`, meeting the target recall objective on validation (`val_recall=1.0`). Test recall stays high (`0.9773`) and precision improves versus Run 4 (`0.2429` vs `0.2009`), with better f1 (`0.3891` vs `0.3346`) and pr_auc (`0.3390` vs `0.2750`). Validation pr_auc is very low (`0.0294`), so the validation slice may be noisy/small or score calibration remains weak.
+
+**Note on Step 5**
+Run 4 (Step 5) selected threshold by sweeping over test scores — test-peeking. Those metrics are exploratory only. Step 6 corrects this: threshold selection now uses validation set exclusively; test remains held-out.
+
+**Tests**
+164 passing (`uv run pytest -q`).
+
+**See:** [docs/features/step-6-feature-engineering-validation-split.md](features/step-6-feature-engineering-validation-split.md)

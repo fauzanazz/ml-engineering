@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 _DEFAULT_SWEEP = [0.05, 0.10, 0.20, 0.30, 0.50, 0.70, 0.80, 0.90, 0.95]
+_VALID_OBJECTIVES = {"f1", "target-recall"}
 
 
 @dataclass(frozen=True)
@@ -47,3 +48,54 @@ def sweep_thresholds(
             )
         )
     return rows
+
+
+def select_threshold_on_validation(
+    labels: np.ndarray,
+    scores: np.ndarray,
+    objective: str = "f1",
+    target_recall: float = 0.95,
+    thresholds: list[float] | None = None,
+) -> ThresholdRow:
+    """Select best threshold from validation sweep.
+
+    objective='f1'           → row with highest F1; tie-break: higher threshold.
+    objective='target-recall' → among rows with recall >= target_recall, pick
+                                highest precision; tie-break: higher recall,
+                                then higher threshold.
+                                Fallback when none qualify: max F1 row
+                                (same tie-break as f1 mode).
+
+    Args:
+        labels: ground-truth binary labels.
+        scores: predicted probabilities.
+        objective: 'f1' or 'target-recall'.
+        target_recall: required recall floor; only used when objective='target-recall'.
+        thresholds: custom threshold list; defaults to _DEFAULT_SWEEP.
+
+    Returns:
+        ThresholdRow with selected threshold and its metrics.
+
+    Raises:
+        ValueError: objective not in {'f1','target-recall'} or target_recall not in [0,1].
+    """
+    if objective not in _VALID_OBJECTIVES:
+        raise ValueError(f"objective must be one of {_VALID_OBJECTIVES}, got {objective!r}")
+    if not (0.0 <= target_recall <= 1.0):
+        raise ValueError(f"target_recall must satisfy 0 <= target_recall <= 1, got {target_recall}")
+
+    rows = sweep_thresholds(labels, scores, thresholds=thresholds or _DEFAULT_SWEEP)
+
+    def _f1_key(row: ThresholdRow) -> tuple:
+        return (row.f1, row.threshold)
+
+    if objective == "f1":
+        return max(rows, key=_f1_key)
+
+    # objective == 'target-recall'
+    qualifying = [r for r in rows if r.recall >= target_recall]
+    if qualifying:
+        return max(qualifying, key=lambda r: (r.precision, r.recall, r.threshold))
+
+    # fallback: no threshold meets target — pick max F1 (documented behaviour)
+    return max(rows, key=_f1_key)
