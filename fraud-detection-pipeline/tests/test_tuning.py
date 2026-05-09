@@ -228,7 +228,7 @@ def test_tune_xgboost_rejects_cv_exceeding_minority_count():
 
 
 def test_tune_random_forest_uses_stratified_kfold():
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
     from fraud_detection.tuning import tune_random_forest, _make_cv
     from sklearn.model_selection import StratifiedKFold
 
@@ -470,3 +470,223 @@ def test_tune_xgboost_does_not_import_lightgbm(monkeypatch):
     X, y = _minimal_xy()
     result = tuning.tune_xgboost(X, y, n_iter=2, cv=2, random_state=42)
     assert result.scoring == "roc_auc"
+
+
+# ---------------------------------------------------------------------------
+# Optuna TPE replaces HalvingRandomSearchCV
+# ---------------------------------------------------------------------------
+
+
+def test_tuning_module_does_not_import_halving_search_cv():
+    """tuning module must NOT expose HalvingRandomSearchCV — replaced by Optuna."""
+    import fraud_detection.tuning as tuning_mod
+
+    assert not hasattr(tuning_mod, "HalvingRandomSearchCV"), (
+        "HalvingRandomSearchCV must not be imported — replaced by Optuna TPE"
+    )
+
+
+def test_tuning_module_does_not_import_randomized_search_cv():
+    """tuning module must not expose RandomizedSearchCV."""
+    import fraud_detection.tuning as tuning_mod
+
+    assert not hasattr(tuning_mod, "RandomizedSearchCV"), (
+        "RandomizedSearchCV should not be imported in tuning module"
+    )
+
+
+def test_tuning_module_uses_optuna_tpe_sampler():
+    """tuning module must import optuna and expose TPESampler."""
+    import fraud_detection.tuning as tuning_mod
+
+    assert hasattr(tuning_mod, "optuna"), "optuna not imported in tuning module"
+
+
+def test_tune_random_forest_uses_optuna_study():
+    """tune_random_forest must use optuna.create_study internally."""
+    import optuna
+    from unittest.mock import patch, MagicMock
+    from fraud_detection.tuning import tune_random_forest
+
+    X, y = _minimal_xy()
+    real_create_study = optuna.create_study
+    captured = {}
+
+    def spy_create_study(**kwargs):
+        study = real_create_study(**kwargs)
+        captured["study"] = study
+        captured["direction"] = kwargs.get("direction")
+        captured["sampler"] = kwargs.get("sampler")
+        return study
+
+    with patch("fraud_detection.tuning.optuna.create_study", side_effect=spy_create_study):
+        tune_random_forest(X, y, n_iter=2, cv=2, random_state=42)
+
+    assert "study" in captured, "optuna.create_study was not called"
+    assert captured["direction"] == "maximize", (
+        f"study direction must be 'maximize' for ROC AUC, got {captured['direction']}"
+    )
+    assert isinstance(captured["sampler"], optuna.samplers.TPESampler), (
+        f"sampler must be TPESampler, got {type(captured['sampler'])}"
+    )
+
+
+def test_tune_lightgbm_uses_optuna_study():
+    """tune_lightgbm must use optuna.create_study with TPESampler."""
+    import optuna
+    from unittest.mock import patch
+    from fraud_detection.tuning import tune_lightgbm
+
+    X, y = _minimal_xy()
+    real_create_study = optuna.create_study
+    captured = {}
+
+    def spy_create_study(**kwargs):
+        study = real_create_study(**kwargs)
+        captured["sampler"] = kwargs.get("sampler")
+        captured["direction"] = kwargs.get("direction")
+        return study
+
+    with patch("fraud_detection.tuning.optuna.create_study", side_effect=spy_create_study):
+        tune_lightgbm(X, y, n_iter=1, cv=2, random_state=42)
+
+    assert isinstance(captured.get("sampler"), optuna.samplers.TPESampler), (
+        "tune_lightgbm must use TPESampler"
+    )
+    assert captured.get("direction") == "maximize"
+
+
+def test_tune_xgboost_uses_optuna_study():
+    """tune_xgboost must use optuna.create_study with TPESampler."""
+    import optuna
+    from unittest.mock import patch
+    from fraud_detection.tuning import tune_xgboost
+
+    X, y = _minimal_xy()
+    real_create_study = optuna.create_study
+    captured = {}
+
+    def spy_create_study(**kwargs):
+        study = real_create_study(**kwargs)
+        captured["sampler"] = kwargs.get("sampler")
+        return study
+
+    with patch("fraud_detection.tuning.optuna.create_study", side_effect=spy_create_study):
+        tune_xgboost(X, y, n_iter=2, cv=2, random_state=42)
+
+    assert isinstance(captured.get("sampler"), optuna.samplers.TPESampler), (
+        "tune_xgboost must use TPESampler"
+    )
+
+
+def test_tune_random_forest_n_iter_controls_trial_count():
+    """n_iter controls how many Optuna trials are run."""
+    import optuna
+    from unittest.mock import patch
+    from fraud_detection.tuning import tune_random_forest
+
+    X, y = _minimal_xy()
+    trial_counts = []
+    real_optimize = None
+
+    def spy_optimize(study_self_fn, n_trials, **kwargs):
+        trial_counts.append(n_trials)
+        return real_optimize(study_self_fn, n_trials=n_trials, **kwargs)
+
+    real_study = optuna.create_study(direction="maximize")
+    real_optimize = real_study.optimize.__func__  # unbound method
+
+    # Patch at the study instance level via create_study spy
+    real_create_study = optuna.create_study
+
+    studies = []
+
+    def capturing_create_study(**kwargs):
+        study = real_create_study(**kwargs)
+        studies.append(study)
+        return study
+
+    with patch("fraud_detection.tuning.optuna.create_study", side_effect=capturing_create_study):
+        tune_random_forest(X, y, n_iter=3, cv=2, random_state=42)
+
+    # study.optimize was called; best_trial must be accessible
+    assert len(studies) == 1
+    assert studies[0].best_trial is not None
+    assert len(studies[0].trials) == 3
+
+
+def test_tune_lightgbm_n_iter_controls_trial_count():
+    """n_iter=2 produces exactly 2 Optuna trials for lightgbm."""
+    import optuna
+    from unittest.mock import patch
+    from fraud_detection.tuning import tune_lightgbm
+
+    X, y = _minimal_xy()
+    real_create_study = optuna.create_study
+    studies = []
+
+    def capturing_create_study(**kwargs):
+        study = real_create_study(**kwargs)
+        studies.append(study)
+        return study
+
+    with patch("fraud_detection.tuning.optuna.create_study", side_effect=capturing_create_study):
+        tune_lightgbm(X, y, n_iter=2, cv=2, random_state=42)
+
+    assert len(studies[0].trials) == 2
+
+
+def test_tune_optuna_uses_full_data_cv_not_subsampled():
+    """Optuna CV must use all training rows — no resource subsampling."""
+    import optuna
+    from unittest.mock import patch
+    from fraud_detection.tuning import tune_random_forest
+    from sklearn.model_selection import cross_val_score
+
+    X, y = _minimal_xy()
+    cv_call_sizes = []
+    real_cross_val = cross_val_score
+
+    def spy_cross_val(estimator, X_cv, y_cv, **kwargs):
+        cv_call_sizes.append(len(X_cv))
+        return real_cross_val(estimator, X_cv, y_cv, **kwargs)
+
+    with patch("fraud_detection.tuning.cross_val_score", side_effect=spy_cross_val):
+        tune_random_forest(X, y, n_iter=2, cv=2, random_state=42)
+
+    # Every CV call must see the full training set
+    assert all(s == len(X) for s in cv_call_sizes), (
+        f"Some CV calls saw subsampled data: {cv_call_sizes}, expected all {len(X)}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# _larger_xy helper used by several tests
+# ---------------------------------------------------------------------------
+
+
+def _larger_xy(n: int = 100):
+    """Balanced dataset large enough to exercise full-data CV."""
+    import numpy as np
+
+    rng = np.random.default_rng(0)
+    X = pd.DataFrame({"V1": rng.standard_normal(n), "Amount": rng.exponential(10, n)})
+    y = pd.Series([i % 2 for i in range(n)])
+    return X, y
+
+
+def test_tune_random_forest_on_larger_balanced_data_no_warnings(recwarn):
+    """Optuna TPE on larger balanced data must produce zero single-class warnings."""
+    import warnings
+    from fraud_detection.tuning import tune_random_forest
+
+    X, y = _larger_xy(100)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        tune_random_forest(X, y, n_iter=3, cv=3, random_state=42)
+
+    single_class_warns = [
+        str(x.message) for x in w
+        if "single class" in str(x.message).lower() or "only one class" in str(x.message).lower()
+    ]
+    assert not single_class_warns, f"Single-class warnings: {single_class_warns}"

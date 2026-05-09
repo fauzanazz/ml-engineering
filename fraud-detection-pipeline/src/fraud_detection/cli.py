@@ -1,3 +1,4 @@
+import argparse
 from argparse import ArgumentParser, ArgumentTypeError
 from pathlib import Path
 
@@ -101,13 +102,23 @@ def parse_args(argv: list[str] | None = None):
         "--tune",
         action="store_true",
         default=False,
-        help="run randomized hyperparameter search before training (lightgbm, random-forest, xgboost)",
+        help="run adaptive hyperparameter search before training (lightgbm, random-forest, xgboost)",
+    )
+    parser.add_argument(
+        "--tune-n-candidates",
+        type=int,
+        default=10,
+        dest="tune_n_candidates",
+        help=(
+            "number of Optuna TPE trials for --tune adaptive search (default: 10, max: 500); "
+            "each trial evaluates one hyperparameter configuration via full-data StratifiedKFold CV"
+        ),
     )
     parser.add_argument(
         "--tune-n-iter",
         type=int,
-        default=10,
-        help="number of RandomizedSearchCV iterations for --tune (default: 10)",
+        dest="tune_n_candidates",
+        help=argparse.SUPPRESS,
     )
     parsed = parser.parse_args(argv)
     if parsed.target_recall is not None and parsed.threshold_objective != "target-recall":
@@ -124,10 +135,10 @@ def parse_args(argv: list[str] | None = None):
     _TUNABLE_MODELS = {"lightgbm", "random-forest", "xgboost"}
     if parsed.tune and parsed.model not in _TUNABLE_MODELS:
         parser.error(f"--tune only supports {sorted(_TUNABLE_MODELS)}, got '{parsed.model}'")
-    if parsed.tune_n_iter < 1:
-        parser.error(f"--tune-n-iter must be >= 1, got {parsed.tune_n_iter}")
-    if parsed.tune_n_iter > 200:
-        parser.error(f"--tune-n-iter must be <= 200, got {parsed.tune_n_iter}")
+    if parsed.tune_n_candidates < 1:
+        parser.error(f"--tune-n-candidates must be >= 1, got {parsed.tune_n_candidates}")
+    if parsed.tune_n_candidates > 500:
+        parser.error(f"--tune-n-candidates must be <= 500, got {parsed.tune_n_candidates}")
     return parsed
 
 
@@ -163,7 +174,7 @@ def main(argv: list[str] | None = None) -> None:
         }
         tune_fn = _tune_dispatch[args.model]
         try:
-            tuning_result = tune_fn(train_features, train_target, n_iter=args.tune_n_iter)
+            tuning_result = tune_fn(train_features, train_target, n_iter=args.tune_n_candidates)
         except ValueError as exc:
             raise SystemExit(f"error: tuning failed — {exc}") from exc
         print(f"tuning_best_score={tuning_result.best_score:.4f}")

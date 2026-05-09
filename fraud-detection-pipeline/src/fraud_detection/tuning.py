@@ -1,12 +1,17 @@
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+import optuna
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 from fraud_detection.models import Classifier, ModelFactory
+
+# Suppress optuna's per-trial INFO logs — keep warnings/errors visible.
+optuna.logging.set_verbosity(logging.WARNING)
 
 
 def _validate_tuning_inputs(
@@ -48,29 +53,44 @@ def _make_cv(n_splits: int, random_state: int) -> StratifiedKFold:
     return StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
 
 
-_RF_PARAM_DIST: dict[str, Any] = {
-    "n_estimators": [50, 100, 200],
-    "max_depth": [None, 5, 10, 20],
-    "min_samples_split": [2, 5, 10],
-    "min_samples_leaf": [1, 2, 4],
-    "max_features": ["sqrt", "log2", None],
+def _run_optuna_study(
+    objective_fn: Any,
+    n_trials: int,
+    random_state: int,
+) -> optuna.Study:
+    sampler = optuna.samplers.TPESampler(seed=random_state)
+    study = optuna.create_study(direction="maximize", sampler=sampler)
+    study.optimize(objective_fn, n_trials=n_trials, show_progress_bar=False)
+    return study
+
+
+_RF_PARAM_SPACE = {
+    "n_estimators": ([50, 100, 200], "categorical"),
+    "max_depth": ([None, 5, 10, 20], "categorical"),
+    "min_samples_split": ([2, 5, 10], "categorical"),
+    "min_samples_leaf": ([1, 2, 4], "categorical"),
+    "max_features": (["sqrt", "log2", None], "categorical"),
 }
 
-_XGB_PARAM_DIST: dict[str, Any] = {
-    "n_estimators": [50, 100, 200],
-    "max_depth": [3, 5, 7, 9],
-    "learning_rate": [0.01, 0.05, 0.1, 0.2, 0.3],
-    "subsample": [0.6, 0.8, 1.0],
-    "colsample_bytree": [0.6, 0.8, 1.0],
+_XGB_PARAM_SPACE = {
+    "n_estimators": ([50, 100, 200], "categorical"),
+    "max_depth": ([3, 5, 7, 9], "categorical"),
+    "learning_rate": ([0.01, 0.05, 0.1, 0.2, 0.3], "categorical"),
+    "subsample": ([0.6, 0.8, 1.0], "categorical"),
+    "colsample_bytree": ([0.6, 0.8, 1.0], "categorical"),
 }
 
-_LGBM_PARAM_DIST: dict[str, Any] = {
-    "n_estimators": [50, 100, 200],
-    "max_depth": [3, 5, 7, -1],
-    "learning_rate": [0.01, 0.05, 0.1, 0.2, 0.3],
-    "num_leaves": [15, 31, 63, 127],
-    "subsample": [0.6, 0.8, 1.0],
+_LGBM_PARAM_SPACE = {
+    "n_estimators": ([50, 100, 200], "categorical"),
+    "max_depth": ([3, 5, 7, -1], "categorical"),
+    "learning_rate": ([0.01, 0.05, 0.1, 0.2, 0.3], "categorical"),
+    "num_leaves": ([15, 31, 63, 127], "categorical"),
+    "subsample": ([0.6, 0.8, 1.0], "categorical"),
 }
+
+
+def _suggest_params(trial: optuna.Trial, space: dict[str, tuple]) -> dict[str, Any]:
+    return {name: trial.suggest_categorical(name, choices) for name, (choices, _) in space.items()}
 
 
 class _TunedRandomForestFactory:
@@ -142,21 +162,21 @@ def tune_random_forest(
 ) -> TuningResult:
     safe_cv = _validate_tuning_inputs(X, y, n_iter, scoring, cv)
     effective_cv = cv if cv is not None else safe_cv
-    search = RandomizedSearchCV(
-        RandomForestClassifier(random_state=random_state),
-        param_distributions=_RF_PARAM_DIST,
-        n_iter=n_iter,
-        scoring=scoring,
-        cv=_make_cv(effective_cv, random_state),
-        random_state=random_state,
-        n_jobs=n_jobs,
-    )
-    search.fit(X, y)
+    cv_splitter = _make_cv(effective_cv, random_state)
+
+    def objective(trial: optuna.Trial) -> float:
+        params = _suggest_params(trial, _RF_PARAM_SPACE)
+        estimator = RandomForestClassifier(**params, random_state=random_state)
+        scores = cross_val_score(estimator, X, y, cv=cv_splitter, scoring=scoring, n_jobs=n_jobs)
+        return float(np.mean(scores))
+
+    study = _run_optuna_study(objective, n_iter, random_state)
+    best_params = study.best_params
     return TuningResult(
-        best_params=search.best_params_,
-        best_score=float(search.best_score_),
+        best_params=best_params,
+        best_score=study.best_value,
         scoring=scoring,
-        best_factory=_TunedRandomForestFactory(search.best_params_, random_state),
+        best_factory=_TunedRandomForestFactory(best_params, random_state),
     )
 
 
@@ -174,25 +194,26 @@ def tune_xgboost(
 
     safe_cv = _validate_tuning_inputs(X, y, n_iter, scoring, cv)
     effective_cv = cv if cv is not None else safe_cv
-    search = RandomizedSearchCV(
-        XGBClassifier(
+    cv_splitter = _make_cv(effective_cv, random_state)
+
+    def objective(trial: optuna.Trial) -> float:
+        params = _suggest_params(trial, _XGB_PARAM_SPACE)
+        estimator = XGBClassifier(
+            **params,
             random_state=random_state,
             eval_metric="logloss",
             verbosity=0,
-        ),
-        param_distributions=_XGB_PARAM_DIST,
-        n_iter=n_iter,
-        scoring=scoring,
-        cv=_make_cv(effective_cv, random_state),
-        random_state=random_state,
-        n_jobs=n_jobs,
-    )
-    search.fit(X, y)
+        )
+        scores = cross_val_score(estimator, X, y, cv=cv_splitter, scoring=scoring, n_jobs=n_jobs)
+        return float(np.mean(scores))
+
+    study = _run_optuna_study(objective, n_iter, random_state)
+    best_params = study.best_params
     return TuningResult(
-        best_params=search.best_params_,
-        best_score=float(search.best_score_),
+        best_params=best_params,
+        best_score=study.best_value,
         scoring=scoring,
-        best_factory=_TunedXGBoostFactory(search.best_params_, random_state),
+        best_factory=_TunedXGBoostFactory(best_params, random_state),
     )
 
 
@@ -210,19 +231,19 @@ def tune_lightgbm(
 
     safe_cv = _validate_tuning_inputs(X, y, n_iter, scoring, cv)
     effective_cv = cv if cv is not None else safe_cv
-    search = RandomizedSearchCV(
-        LGBMClassifier(random_state=random_state, verbose=-1),
-        param_distributions=_LGBM_PARAM_DIST,
-        n_iter=n_iter,
-        scoring=scoring,
-        cv=_make_cv(effective_cv, random_state),
-        random_state=random_state,
-        n_jobs=n_jobs,
-    )
-    search.fit(X, y)
+    cv_splitter = _make_cv(effective_cv, random_state)
+
+    def objective(trial: optuna.Trial) -> float:
+        params = _suggest_params(trial, _LGBM_PARAM_SPACE)
+        estimator = LGBMClassifier(**params, random_state=random_state, verbose=-1)
+        scores = cross_val_score(estimator, X, y, cv=cv_splitter, scoring=scoring, n_jobs=n_jobs)
+        return float(np.mean(scores))
+
+    study = _run_optuna_study(objective, n_iter, random_state)
+    best_params = study.best_params
     return TuningResult(
-        best_params=search.best_params_,
-        best_score=float(search.best_score_),
+        best_params=best_params,
+        best_score=study.best_value,
         scoring=scoring,
-        best_factory=_TunedLightGbmFactory(search.best_params_, random_state),
+        best_factory=_TunedLightGbmFactory(best_params, random_state),
     )

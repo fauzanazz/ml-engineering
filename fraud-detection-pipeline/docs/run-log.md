@@ -153,3 +153,54 @@ Run 4 (Step 5) selected threshold by sweeping over test scores — test-peeking.
 164 passing (`uv run pytest -q`).
 
 **See:** [docs/features/step-6-feature-engineering-validation-split.md](features/step-6-feature-engineering-validation-split.md)
+
+---
+
+## Run 7 — Step 7: Optuna TPE Hyperparameter Tuning, 500 Candidates
+
+**Command pattern**
+
+```bash
+uv run fraud-detect-train --data-path data/creditcard.csv --batch-size 10000 \
+  --model <model> --tune --tune-n-candidates 500 --no-artifacts
+```
+
+**Models tuned**
+
+- `lightgbm`
+- `random-forest`
+- `xgboost`
+
+**Results**
+
+| Model | Tuning CV ROC AUC | Precision | Recall | F1 | PR AUC | ROC AUC | Single-row latency |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **Random Forest** | 0.9990 | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | 0.003094500s |
+| LightGBM | 0.9997 | 0.8667 | **1.0000** | 0.9286 | 0.9897 | 0.9999 | **0.000319167s** |
+| XGBoost | **0.9998** | 0.8571 | 0.9231 | 0.8889 | 0.9757 | 0.9998 | 0.000534916s |
+
+**Best model by held-out test metrics**
+
+```text
+Random Forest
+```
+
+Best params:
+
+```text
+{'n_estimators': 200, 'max_depth': 5, 'min_samples_split': 2, 'min_samples_leaf': 4, 'max_features': 'sqrt'}
+```
+
+**Best latency model**
+
+```text
+LightGBM
+```
+
+LightGBM keeps perfect recall (`1.0000`) with much lower single-row latency (`0.000319167s`) than Random Forest (`0.003094500s`).
+
+**Interpretasi**
+
+Random Forest is the current winner for this `batch_size=10000` research batch because it reaches perfect precision, recall, F1, PR AUC, and ROC AUC on held-out test. The result is promising but should be verified on a bigger batch or full dataset because perfect scores on a small fraud slice can be unstable.
+
+**See:** [docs/features/step-7-hyperparameter-tuning.md](features/step-7-hyperparameter-tuning.md)

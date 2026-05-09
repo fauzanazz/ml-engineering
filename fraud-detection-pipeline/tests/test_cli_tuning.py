@@ -31,16 +31,23 @@ def test_parse_args_tune_flag_sets_true():
     assert args.tune is True
 
 
-def test_parse_args_tune_n_iter_default():
+def test_parse_args_tune_n_candidates_default():
     args = parse_args(["--data-path", "data/creditcard.csv"])
 
-    assert args.tune_n_iter == 10
+    assert args.tune_n_candidates == 10
 
 
-def test_parse_args_tune_n_iter_custom():
-    args = parse_args(["--data-path", "data/creditcard.csv", "--tune-n-iter", "5"])
+def test_parse_args_tune_n_candidates_custom():
+    args = parse_args(["--data-path", "data/creditcard.csv", "--tune-n-candidates", "5"])
 
-    assert args.tune_n_iter == 5
+    assert args.tune_n_candidates == 5
+
+
+def test_parse_args_tune_n_iter_alias_maps_to_tune_n_candidates():
+    """--tune-n-iter is a legacy alias; must write to tune_n_candidates dest."""
+    args = parse_args(["--data-path", "data/creditcard.csv", "--tune-n-iter", "7"])
+
+    assert args.tune_n_candidates == 7
 
 
 def test_parse_args_tune_rejects_non_tunable_model():
@@ -83,7 +90,7 @@ def test_main_tune_prints_tuning_best_score_and_params(tmp_path, capsys):
         "--test-size", "0.5",
         "--no-artifacts",
         "--tune",
-        "--tune-n-iter", "2",
+        "--tune-n-candidates", "2",
         "--model", "random-forest",
     ])
 
@@ -101,7 +108,7 @@ def test_main_tune_xgboost_prints_tuning_fields(tmp_path, capsys):
         "--test-size", "0.5",
         "--no-artifacts",
         "--tune",
-        "--tune-n-iter", "2",
+        "--tune-n-candidates", "2",
         "--model", "xgboost",
     ])
 
@@ -120,7 +127,7 @@ def test_main_tune_then_trains_prints_accuracy(tmp_path, capsys):
         "--test-size", "0.5",
         "--no-artifacts",
         "--tune",
-        "--tune-n-iter", "2",
+        "--tune-n-candidates", "2",
         "--model", "random-forest",
     ])
 
@@ -135,20 +142,20 @@ def test_main_tune_then_trains_prints_accuracy(tmp_path, capsys):
 
 
 @pytest.mark.parametrize("bad", ["0", "-1", "-10"])
-def test_parse_args_rejects_tune_n_iter_less_than_1(bad):
+def test_parse_args_rejects_tune_n_candidates_less_than_1(bad):
     with pytest.raises(SystemExit):
         parse_args([
             "--data-path", "data/creditcard.csv",
-            "--tune-n-iter", bad,
+            "--tune-n-candidates", bad,
         ])
 
 
-def test_parse_args_accepts_tune_n_iter_of_1():
+def test_parse_args_accepts_tune_n_candidates_of_1():
     args = parse_args([
         "--data-path", "data/creditcard.csv",
-        "--tune-n-iter", "1",
+        "--tune-n-candidates", "1",
     ])
-    assert args.tune_n_iter == 1
+    assert args.tune_n_candidates == 1
 
 
 def _three_way_csv(tmp_path):
@@ -179,7 +186,7 @@ def test_main_tune_with_val_size_uses_training_split(tmp_path, capsys):
         "--val-size", "0.2",
         "--no-artifacts",
         "--tune",
-        "--tune-n-iter", "2",
+        "--tune-n-candidates", "2",
         "--model", "random-forest",
     ])
 
@@ -213,7 +220,7 @@ def test_main_tune_lightgbm_prints_tuning_fields(tmp_path, capsys):
         "--test-size", "0.5",
         "--no-artifacts",
         "--tune",
-        "--tune-n-iter", "1",
+        "--tune-n-candidates", "1",
         "--model", "lightgbm",
     ])
 
@@ -231,7 +238,7 @@ def test_main_tune_lightgbm_then_trains(tmp_path, capsys):
         "--test-size", "0.5",
         "--no-artifacts",
         "--tune",
-        "--tune-n-iter", "1",
+        "--tune-n-candidates", "1",
         "--model", "lightgbm",
     ])
 
@@ -245,9 +252,8 @@ def test_main_tune_lightgbm_then_trains(tmp_path, capsys):
 # ---------------------------------------------------------------------------
 
 
-def test_tune_help_text_describes_randomized_search():
-    """--tune help must mention 'randomized hyperparameter search', not 'AutoML'."""
-    import argparse
+def test_tune_help_text_describes_adaptive_search():
+    """--tune help must mention 'adaptive hyperparameter search', not 'AutoML'."""
     import io
     import contextlib
     buf = io.StringIO()
@@ -255,25 +261,46 @@ def test_tune_help_text_describes_randomized_search():
         with contextlib.redirect_stdout(buf):
             parse_args(["--data-path", "x", "--help"])
     help_text = buf.getvalue()
-    assert "randomized hyperparameter search" in help_text
+    assert "adaptive hyperparameter search" in help_text
     assert "AutoML" not in help_text
 
 
-@pytest.mark.parametrize("bad", ["201", "500", "1000"])
-def test_parse_args_rejects_tune_n_iter_above_200(bad):
+def test_tune_help_shows_tune_n_candidates_as_primary():
+    """--tune-n-candidates must appear in help; --tune-n-iter must not (suppressed)."""
+    import io
+    import contextlib
+    buf = io.StringIO()
+    with contextlib.suppress(SystemExit):
+        with contextlib.redirect_stdout(buf):
+            parse_args(["--data-path", "x", "--help"])
+    help_text = buf.getvalue()
+    assert "--tune-n-candidates" in help_text
+    assert "--tune-n-iter" not in help_text
+
+
+@pytest.mark.parametrize("bad", ["501", "1000", "5000"])
+def test_parse_args_rejects_tune_n_candidates_above_500(bad):
     with pytest.raises(SystemExit):
         parse_args([
             "--data-path", "data/creditcard.csv",
-            "--tune-n-iter", bad,
+            "--tune-n-candidates", bad,
         ])
 
 
-def test_parse_args_accepts_tune_n_iter_of_200():
+def test_parse_args_accepts_tune_n_candidates_of_500():
     args = parse_args([
         "--data-path", "data/creditcard.csv",
-        "--tune-n-iter", "200",
+        "--tune-n-candidates", "500",
     ])
-    assert args.tune_n_iter == 200
+    assert args.tune_n_candidates == 500
+
+
+def test_parse_args_accepts_tune_n_candidates_of_200():
+    args = parse_args([
+        "--data-path", "data/creditcard.csv",
+        "--tune-n-candidates", "200",
+    ])
+    assert args.tune_n_candidates == 200
 
 
 def test_main_tune_raises_system_exit_with_context_on_value_error(tmp_path, monkeypatch):
@@ -293,7 +320,7 @@ def test_main_tune_raises_system_exit_with_context_on_value_error(tmp_path, monk
             "--test-size", "0.5",
             "--no-artifacts",
             "--tune",
-            "--tune-n-iter", "2",
+            "--tune-n-candidates", "2",
             "--model", "random-forest",
         ])
 

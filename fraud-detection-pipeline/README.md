@@ -52,7 +52,7 @@ Fraud sangat jarang:
 | 4 | 2026-05-09 | Run logging + artifacts | Tambah artifact writer untuk `config.json`, `metrics.json`, model artifact, dan historical run log. |
 | 5 | 2026-05-08 | Threshold tuning for recall | Tambah `--decision-threshold` dan threshold sweep. Belakangan dicatat sebagai exploratory karena threshold dipilih dari test set. |
 | 6 | 2026-05-09 | Feature engineering + validation split | Tambah train/validation/test split, train-only feature engineering, validation-only threshold tuning, duplicate/leakage handling. |
-| 7 | 2026-05-09 | Hyperparameter tuning | Tambah randomized hyperparameter search untuk LightGBM, Random Forest, dan XGBoost; tambah ROC AUC dan single-row latency untuk evaluasi online scoring. |
+| 7 | 2026-05-09 | Hyperparameter tuning | Tambah adaptive hyperparameter search (Optuna TPE) untuk LightGBM, Random Forest, dan XGBoost; tambah ROC AUC dan single-row latency untuk evaluasi online scoring. |
 
 Detail tiap step:
 
@@ -165,11 +165,14 @@ For fraud goal where missed fraud is expensive, current strongest candidate from
 Random Forest
 ```
 
-Latest documented tuned LightGBM run (`--tune-n-iter 100`) reached `recall=1.0000`, `roc_auc=0.9999`, and `f1=0.9286` with best params:
+Latest documented Optuna TPE run (`--tune-n-candidates 500`, `batch_size=10000`) found **Random Forest** as the best held-out test model:
 
 ```text
-{'subsample': 0.6, 'num_leaves': 127, 'n_estimators': 200, 'max_depth': 3, 'learning_rate': 0.01}
+best_params={'n_estimators': 200, 'max_depth': 5, 'min_samples_split': 2, 'min_samples_leaf': 4, 'max_features': 'sqrt'}
+precision=1.0000 recall=1.0000 f1=1.0000 pr_auc=1.0000 roc_auc=1.0000
 ```
+
+LightGBM remains the best latency model with `recall=1.0000`, `roc_auc=0.9999`, and `single_row_latency_s=0.000319167`.
 
 See [Step 7: Hyperparameter Tuning](docs/features/step-7-hyperparameter-tuning.md).
 
