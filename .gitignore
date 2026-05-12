@@ -43,3 +43,6 @@ uv.lock
 .idea/
 .vscode/
 *.swp
+
+# ML production ecosystem private rules
+ml-production-ecosystem/.rules/
