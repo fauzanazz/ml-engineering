@@ -26,7 +26,7 @@ Dataset lokal:
 data/creditcard.csv
 ```
 
-Raw dataset is not committed. Download source and setup notes: [Dataset Source](docs/dataset.md).
+Raw dataset is not committed. Download source and setup notes: [Data README](data/README.md).
 
 Kolom:
 
@@ -133,7 +133,9 @@ uv run fraud-detect-train \
   --model random-forest
 ```
 
-## Latest Model Comparison
+## Model Comparison
+
+### Non-tuned comparison
 
 Config:
 
@@ -153,17 +155,19 @@ target_recall=0.95
 | Random Forest | 0.5513 | **0.9773** | 0.7049 | **0.9669** | 0.004302s | 0.000000432s |
 | XGBoost | **0.9211** | 0.7955 | **0.8537** | 0.9399 | 0.001149s | 0.000000115s |
 
-Current interpretation:
+Interpretation:
 
-- **Random Forest**: best recall + best PR AUC, only `FN=1` in latest test run.
+- **Random Forest**: best recall + best PR AUC, only `FN=1` in this non-tuned test run.
 - **XGBoost**: best F1 and precision, but recall lower.
 - **Logistic Regression**: fastest and strong simple baseline.
 
-For fraud goal where missed fraud is expensive, current strongest candidate from the original comparison is:
+For fraud goal where missed fraud is expensive, strongest candidate from this non-tuned comparison is:
 
 ```text
 Random Forest
 ```
+
+### Tuned Optuna TPE comparison
 
 Latest documented Optuna TPE run (`--tune-n-candidates 500`, `batch_size=10000`) found **Random Forest** as the best held-out test model:
 
