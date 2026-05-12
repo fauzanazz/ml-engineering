@@ -6,6 +6,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
 
+[project.scripts]
+foundation-prepare-data = "recommendation.data:main"
+foundation-train-recommender = "recommendation.train:main"
+foundation-recommend = "recommendation.predict:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
@@ -13,7 +18,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "01-foundation"]
 
 
 [build-system]
@@ -21,4 +26,5 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["shared", "shared.deployment", "shared.model_storage", "shared.monitoring", "shared.observability"]
+packages = ["shared", "shared.deployment", "shared.model_storage", "shared.monitoring", "shared.observability", "recommendation"]
+package-dir = {recommendation = "01-foundation/recommendation"}

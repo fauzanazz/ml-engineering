@@ -1,0 +1,8 @@
+01-foundation/data/
+01-foundation/artifacts/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.DS_Store

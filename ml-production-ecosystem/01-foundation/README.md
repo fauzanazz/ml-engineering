@@ -2,24 +2,129 @@
 
 Purpose: build one simple ML application from scratch with production-oriented habits.
 
+This stage now uses a MovieLens 25M recommendation system as the first end-to-end local ML workflow.
+
 ## Scope
 
-Foundation starts with local/script-based model deployment and shared architecture contracts.
+Foundation is intentionally local/script-based. No API, Docker, Kubernetes, cloud, or CI/CD yet.
+
+Current pipeline:
+
+```text
+MovieLens 25M data
+ -> prepare/validate local dataset
+ -> train popularity recommender
+ -> save local artifact + metadata + metrics
+ -> load artifact for top-k recommendations
+ -> test workflow with small fixtures
+```
 
 Central docs:
 
-- [`../docs/foundation-scope.md`](../docs/foundation-scope.md)
-- [`../docs/foundation-architecture.md`](../docs/foundation-architecture.md)
+- [`../README.md`](../README.md)
+- [`../docs/learning-roadmap.md`](../docs/learning-roadmap.md)
 - [`../docs/mlops-tools-map.md`](../docs/mlops-tools-map.md)
-- [`../docs/best-practices.md`](../docs/best-practices.md)
+- [`../docs/run-log.md`](../docs/run-log.md)
+- [`../docs/features/step-1-foundation-scaffold-and-shared-architecture.md`](../docs/features/step-1-foundation-scaffold-and-shared-architecture.md)
+
+## Local Paths
+
+Ignored local runtime paths:
+
+```text
+01-foundation/data/
+01-foundation/artifacts/
+```
+
+These paths hold downloaded MovieLens files and generated model artifacts. They should not be committed.
+
+## Runtime Commands
+
+Run commands from project root:
+
+```bash
+cd ml-production-ecosystem
+```
+
+Prepare MovieLens 25M data:
+
+```bash
+uv run foundation-prepare-data --data-dir 01-foundation/data
+```
+
+Train baseline recommender:
+
+```bash
+uv run foundation-train-recommender \
+  --ratings-path 01-foundation/data/raw/ml-25m/ratings.csv \
+  --movies-path 01-foundation/data/raw/ml-25m/movies.csv \
+  --artifact-dir 01-foundation/artifacts \
+  --version foundation-flow-test
+```
+
+Generate top-k recommendations:
+
+```bash
+uv run foundation-recommend \
+  --artifact-path 01-foundation/artifacts/recommendation/foundation-flow-test \
+  --top-k 10
+```
+
+Run tests:
+
+```bash
+uv run pytest
+```
+
+## Current Model
+
+Model type: popularity baseline recommender.
+
+Inputs:
+
+- `ratings.csv`
+- `movies.csv`
+
+Output artifact:
+
+```text
+01-foundation/artifacts/recommendation/<version>/
+├── metadata.json
+├── metrics.json
+└── model.json
+```
+
+The recommender ranks movies using rating counts, positive-rating counts, and average rating. It is simple by design: useful as a baseline and easy to monitor before adding more advanced recommendation methods.
+
+## Example Result
+
+A full MovieLens 25M run returned top recommendations such as:
+
+1. `Shawshank Redemption, The (1994)`
+2. `Pulp Fiction (1994)`
+3. `Silence of the Lambs, The (1991)`
+4. `Forrest Gump (1994)`
+5. `Matrix, The (1999)`
 
 ## Target Learning Outcomes
 
 - Learn MLOps from scratch using one simple model project.
-- Understand model deployment, model storage, observability, and monitoring boundaries.
-- Build reusable foundations for later production-pattern and million-scale stages.
+- Understand data preparation, model training, artifact storage, prediction, simple metrics, and validation.
+- Build reusable foundations for later streaming simulation, drift detection, production patterns, and million-scale serving.
 - Document ML Engineering best practices in a portfolio-friendly way.
 
 ## Status
 
-Foundation scope and shared architecture skeleton initialized. Real model logic not started.
+Foundation now has a simple working local recommendation pipeline:
+
+- MovieLens 25M download/unpack/validation command works.
+- Popularity recommender training command works.
+- Local artifact generation works.
+- Recommendation command works.
+- Tests use tiny fixtures and do not require network or full MovieLens data.
+
+Current verification:
+
+```text
+8 passed
+```
