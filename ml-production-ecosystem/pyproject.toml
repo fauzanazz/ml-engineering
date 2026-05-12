@@ -4,12 +4,16 @@ version = "0.1.0"
 description = "Shared MLOps learning architecture for production ML engineering stages."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "confluent-kafka>=2.5.0",
+    "psycopg[binary]>=3.2.0",
+]
 
 [project.scripts]
 foundation-prepare-data = "recommendation.data:main"
 foundation-train-recommender = "recommendation.train:main"
 foundation-recommend = "recommendation.predict:main"
+foundation-rt-demo = "recommendation.rt_demo:main"
 
 [dependency-groups]
 dev = [

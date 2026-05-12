@@ -70,7 +70,15 @@ uv run foundation-recommend \
   --top-k 10
 ```
 
-Run tests:
+Run local production-like RT transport + warehouse demo:
+
+```bash
+docker compose up -d
+uv run foundation-rt-demo
+docker compose down
+```
+
+Run tests. These tests expect Docker services from `docker compose up -d` to be available:
 
 ```bash
 uv run pytest
@@ -106,6 +114,27 @@ A full MovieLens 25M run returned top recommendations such as:
 4. `Forrest Gump (1994)`
 5. `Matrix, The (1999)`
 
+## Local Production-Like RT Foundation
+
+The foundation stage includes a local production-like streaming path:
+
+```text
+recommendation request producer
+ -> Redpanda Kafka-compatible topic
+ -> Python consumer
+ -> PostgreSQL warehouse table
+ -> SQL readback
+```
+
+Concept mapping:
+
+| Local component | Production concept |
+|---|---|
+| Redpanda | Kafka-compatible real-time transport |
+| PostgreSQL | Warehouse stand-in for queryable durable records |
+| `foundation.recommendation.requests` | Kafka topic/stream |
+| `foundation-rt-demo` | End-to-end producer/consumer/warehouse workflow |
+
 ## Target Learning Outcomes
 
 - Learn MLOps from scratch using one simple model project.
@@ -123,8 +152,11 @@ Foundation now has a simple working local recommendation pipeline:
 - Recommendation command works.
 - Tests use tiny fixtures and do not require network or full MovieLens data.
 
-Current verification:
+Current verification requires local Docker services for RT/warehouse tests:
 
-```text
-8 passed
+```bash
+docker compose up -d
+uv run pytest
+uv run foundation-rt-demo
+docker compose down
 ```

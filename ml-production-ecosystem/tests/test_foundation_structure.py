@@ -25,10 +25,11 @@ def test_scale_folders_only_have_readme_docs() -> None:
         assert nested_docs == []
 
 
-def test_no_infra_cloud_ci_cd_files_added_this_session() -> None:
+def test_foundation_has_local_docker_compose_but_no_cloud_ci_cd_files() -> None:
+    assert (ROOT / "docker-compose.yml").exists()
+
     forbidden = [
         ROOT / "Dockerfile",
-        ROOT / "docker-compose.yml",
         ROOT / ".github",
         ROOT / "k8s",
         ROOT / "kubernetes",
@@ -37,4 +38,4 @@ def test_no_infra_cloud_ci_cd_files_added_this_session() -> None:
     ]
 
     for path in forbidden:
-        assert not path.exists(), f"Infra/cloud/CI file should not exist yet: {path}"
+        assert not path.exists(), f"Cloud/CI/CD file should not exist yet: {path}"
