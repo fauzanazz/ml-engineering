@@ -46,3 +46,6 @@ uv.lock
 
 # ML production ecosystem private rules
 ml-production-ecosystem/.rules/
+
+# ML production ecosystem local agent instructions
+ml-production-ecosystem/AGENTS.md

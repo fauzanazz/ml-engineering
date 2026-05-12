@@ -1,0 +1,24 @@
+[project]
+name = "ml-production-ecosystem"
+version = "0.1.0"
+description = "Shared MLOps learning architecture for production ML engineering stages."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["shared", "shared.deployment", "shared.model_storage", "shared.monitoring", "shared.observability"]

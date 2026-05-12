@@ -1,40 +1,43 @@
 # Learning Roadmap
 
-This workspace grows in stages. Each stage should be documented step by step, similar to `fraud-detection-pipeline/`.
+Roadmap ini menunjukkan urutan belajar dari local ML workflow sampai simulasi serving skala besar.
 
 ## Stage 1: Foundation
 
-Build one simple ML application with production habits from day one.
+Bangun satu aplikasi ML sederhana dengan kebiasaan production sejak awal.
 
-Expected future work:
-- define problem and dataset
-- train baseline model
-- expose simple prediction interface
-- add tests and reproducibility checks
-- document artifacts and decisions
+Target:
+- training script baseline
+- local model artifact
+- prediction script
+- metric sederhana
+- monitoring check sederhana
+- dokumentasi step-by-step
 
 ## Stage 2: Production Patterns
 
-Add common ML production app patterns after foundation is clear.
+Naik dari satu workflow menjadi beberapa pola umum production ML.
 
-Expected future work:
+Target:
 - batch inference
 - online inference
-- feature processing patterns
-- model registry/artifact patterns
-- monitoring and evaluation loops
+- model registry pattern
+- feature processing pattern
+- monitoring loop
+- service boundary yang lebih jelas
 
 ## Stage 3: Million Scale
 
-Explore high-scale serving patterns after production basics exist.
+Simulasikan sistem yang harus menangani request volume besar.
 
-Expected future work:
+Target:
 - load testing
-- async and queue-based architectures
-- caching strategies
+- queue-based inference
+- caching
 - horizontal scaling
-- reliability and degradation patterns
+- reliability pattern
+- degradation strategy
 
-## Rule
+## Platform Simulation Later
 
-Do not build stages all at once. Finish one learning slice, document it, verify it, then move forward.
+Minikube, Kubernetes, dan Kubeflow dapat masuk setelah foundation dan production pattern cukup jelas.
