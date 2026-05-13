@@ -1,0 +1,27 @@
+[project]
+name = "indonesian-banking-asr"
+version = "0.1.0"
+description = "Indonesian banking ASR synthetic dataset and training pipeline."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+banking-asr-generate-text = "indonesian_banking_asr.synthetic.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/indonesian_banking_asr"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

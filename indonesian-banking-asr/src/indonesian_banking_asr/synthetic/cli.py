@@ -1,0 +1,84 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from indonesian_banking_asr.synthetic.audit import write_jsonl
+from indonesian_banking_asr.synthetic.gemini import GeminiClient, load_gemini_config
+from indonesian_banking_asr.synthetic.paraphrase import DryRunParaphraser, RateLimitedParaphraser, paraphrase_rows_with_audit
+from indonesian_banking_asr.synthetic.pipeline import generate_manifest_rows
+from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
+from indonesian_banking_asr.synthetic.resume import filter_pending_rows, read_processed_utterance_ids
+from indonesian_banking_asr.synthetic.summary import build_generation_summary
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate synthetic banking ASR text manifest.")
+    parser.add_argument("--output-path", required=True, type=Path)
+    parser.add_argument("--seed", default=42, type=int)
+    parser.add_argument("--limit", default=None, type=int)
+    parser.add_argument("--paraphrase-mode", choices=("none", "dry-run", "live"), default="none")
+    parser.add_argument("--accepted-output-path", type=Path)
+    parser.add_argument("--rejected-output-path", type=Path)
+    parser.add_argument("--raw-output-path", type=Path)
+    parser.add_argument("--summary-output-path", type=Path)
+    parser.add_argument("--continue-on-error", action="store_true")
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--seconds-per-request", default=0.0, type=float)
+    parser.add_argument("--variant-count", default=5, type=int)
+    args = parser.parse_args()
+
+    rows = generate_manifest_rows(seed=args.seed, limit=args.limit)
+    write_jsonl(args.output_path, rows)
+
+    if args.paraphrase_mode != "none":
+        if args.accepted_output_path is None or args.rejected_output_path is None:
+            raise SystemExit("--accepted-output-path and --rejected-output-path are required for paraphrase mode")
+        pending_rows = rows
+        if args.resume:
+            processed = read_processed_utterance_ids(
+                [
+                    args.accepted_output_path,
+                    args.rejected_output_path,
+                    *([args.raw_output_path] if args.raw_output_path else []),
+                ]
+            )
+            pending_rows = filter_pending_rows(rows, processed)
+        paraphraser = _build_paraphraser(args.paraphrase_mode, args.seconds_per_request)
+        accepted, rejected, raw = paraphrase_rows_with_audit(
+            pending_rows,
+            paraphraser=paraphraser,
+            variant_count=args.variant_count,
+            continue_on_error=args.continue_on_error,
+        )
+        write_jsonl(args.accepted_output_path, accepted)
+        write_jsonl(args.rejected_output_path, rejected)
+        if args.raw_output_path is not None:
+            write_jsonl(args.raw_output_path, raw)
+        if args.summary_output_path is not None:
+            summary = build_generation_summary(
+                canonical_rows=rows,
+                pending_rows=pending_rows,
+                accepted_rows=accepted,
+                rejected_rows=rejected,
+                raw_rows=raw,
+                skipped_count=len(rows) - len(pending_rows),
+            )
+            write_jsonl(args.summary_output_path, [summary])
+
+
+def _build_paraphraser(mode: str, seconds_per_request: float):
+    if mode == "dry-run":
+        paraphraser = DryRunParaphraser()
+    else:
+        paraphraser = GeminiClient(load_gemini_config())
+    if seconds_per_request <= 0:
+        return paraphraser
+    return RateLimitedParaphraser(
+        paraphraser,
+        RateLimiter(seconds_per_request=seconds_per_request),
+    )
+
+
+if __name__ == "__main__":
+    main()

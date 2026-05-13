@@ -1,0 +1,144 @@
+- template_id: check_balance_001
+  intent: check_balance
+  text: "Saya mau cek saldo {product_name} nomor {account_number}."
+  entities:
+    - type: BANKING_TERM
+      slot: saldo
+      value: saldo
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: ACCOUNT_NUMBER
+      slot: account_number
+
+- template_id: check_transaction_history_001
+  intent: check_transaction_history
+  text: "Bisa bantu cek mutasi {product_name} saya tanggal {date}?"
+  entities:
+    - type: BANKING_TERM
+      slot: mutasi
+      value: mutasi
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: DATE
+      slot: date
+
+- template_id: check_installment_001
+  intent: check_installment
+  text: "Saya mau cek cicilan {product_name} sebesar {amount}."
+  entities:
+    - type: BANKING_TERM
+      slot: cicilan
+      value: cicilan
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: AMOUNT
+      slot: amount
+
+- template_id: credit_card_limit_001
+  intent: credit_card_limit
+  text: "Limit {product_name} saya tinggal berapa untuk kartu akhir {card_last4}?"
+  entities:
+    - type: BANKING_TERM
+      slot: limit
+      value: Limit
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: CARD_LAST4
+      slot: card_last4
+
+- template_id: loan_interest_rate_001
+  intent: loan_interest_rate
+  text: "Berapa suku bunga {product_name} saya sekarang {interest_rate}?"
+  entities:
+    - type: BANKING_TERM
+      slot: suku_bunga
+      value: suku bunga
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: INTEREST_RATE
+      slot: interest_rate
+
+- template_id: mortgage_interest_rate_001
+  intent: mortgage_interest_rate
+  text: "Interest rate {product_name} saya fixed atau floating di {interest_rate}?"
+  entities:
+    - type: BANKING_TERM
+      slot: interest_rate_term
+      value: Interest rate
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: INTEREST_RATE
+      slot: interest_rate
+
+- template_id: account_blocked_001
+  intent: account_blocked
+  text: "{product_name} nomor {account_number} saya terblokir setelah salah PIN."
+  entities:
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: ACCOUNT_NUMBER
+      slot: account_number
+    - type: BANKING_TERM
+      slot: terblokir
+      value: terblokir
+
+- template_id: card_blocked_001
+  intent: card_blocked
+  text: "{product_name} saya blocked untuk kartu akhir {card_last4}."
+  entities:
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: BANKING_TERM
+      slot: blocked
+      value: blocked
+    - type: CARD_LAST4
+      slot: card_last4
+
+- template_id: transfer_failed_001
+  intent: transfer_failed
+  text: "Transfer {transfer_method} sebesar {amount} dari rekening {account_number} gagal tapi saldo terpotong."
+  entities:
+    - type: TRANSFER_METHOD
+      slot: transfer_method
+    - type: AMOUNT
+      slot: amount
+    - type: ACCOUNT_NUMBER
+      slot: account_number
+    - type: BANKING_TERM
+      slot: saldo
+      value: saldo
+
+- template_id: virtual_account_payment_001
+  intent: virtual_account_payment
+  text: "Pembayaran {product_name} sebesar {amount} ke {merchant_name} belum masuk."
+  entities:
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: AMOUNT
+      slot: amount
+    - type: MERCHANT_NAME
+      slot: merchant_name
+
+- template_id: change_phone_number_001
+  intent: change_phone_number
+  text: "Saya mau ganti nomor HP untuk {product_name} rekening {account_number}."
+  entities:
+    - type: BANKING_TERM
+      slot: nomor_hp
+      value: nomor HP
+    - type: PRODUCT_NAME
+      slot: product_name
+    - type: ACCOUNT_NUMBER
+      slot: account_number
+
+- template_id: complaint_fee_charge_001
+  intent: complaint_fee_charge
+  text: "Saya mau komplain biaya admin {amount} yang terdebit dari {product_name}."
+  entities:
+    - type: BANKING_TERM
+      slot: biaya_admin
+      value: biaya admin
+    - type: AMOUNT
+      slot: amount
+    - type: PRODUCT_NAME
+      slot: product_name

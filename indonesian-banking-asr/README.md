@@ -45,10 +45,20 @@ banking templates
 | Step | Tanggal | Judul | Ringkasan |
 |---:|---|---|---|
 | 1 | 2026-05-13 | Synthetic Banking Dataset Design | Menetapkan strategi dataset sintetis berbasis template + Gemini API, entity schema, validation rules, dan referensi riset. |
+| 2 | 2026-05-13 | Synthetic Text Generator & Validator | Implementasi awal template renderer, entity span labeler, paraphrase validator, manifest builder, dan pilot CLI. |
+| 3 | 2026-05-13 | YAML Catalog, Entity Sampler & Gemini Prompt Test | Tambah YAML catalog 12 intents, deterministic entity sampler, deterministic split, multi-row manifest pipeline, dan Gemini prompt/parser tests. |
+| 4 | 2026-05-13 | Gemini Paraphrase Integration & Audit Outputs | Tambah Gemini env config, dry-run/live paraphrase modes, entity validation, accepted/rejected audit JSONL, dan live smoke test. |
+| 5 | 2026-05-13 | Gemini Retry, Continue-on-Error & Raw Audit | Tambah retry/backoff, continue-on-error per row, raw audit JSONL, dan CLI flags untuk live batch resilience. |
+| 6 | 2026-05-13 | Rate Limiter, Resume & Batch Summary | Tambah fixed-delay rate limiter, resume mode, batch summary JSONL, dan CLI flags untuk batch generation lebih aman. |
 
 Detail tiap step:
 
 - [Step 1: Synthetic Banking Dataset](docs/features/step-1-synthetic-banking-dataset.md)
+- [Step 2: Synthetic Text Generator & Validator](docs/features/step-2-synthetic-text-generator-and-validator.md)
+- [Step 3: YAML Catalog, Entity Sampler & Gemini Prompt Test](docs/features/step-3-yaml-catalog-entity-sampler-gemini-prompt.md)
+- [Step 4: Gemini Paraphrase Integration & Audit Outputs](docs/features/step-4-gemini-paraphrase-integration-audit.md)
+- [Step 5: Gemini Retry, Continue-on-Error & Raw Audit](docs/features/step-5-gemini-retry-continue-raw-audit.md)
+- [Step 6: Rate Limiter, Resume & Batch Summary](docs/features/step-6-rate-limiter-resume-summary.md)
 
 ## Current Plan
 
@@ -73,6 +83,21 @@ Important leakage rules:
 - Gemini cannot create ground-truth entities freely.
 - Entity labels come from deterministic generator, not LLM output.
 - Test set must include manually reviewed banking utterances.
+
+## Known Risks
+
+Gemini live batch generation has improved resilience after Step 5:
+
+- Retry/backoff exists for retryable Gemini failures.
+- Continue-on-error exists for live batch generation.
+- Raw Gemini response audit exists.
+
+Remaining operational risks:
+
+- Rate limiter is fixed delay, not adaptive from Gemini quota headers.
+- Resume mode skips processed rows but rewrites output files; no append-safe merge yet.
+- Summary is JSONL only, not a human-readable report table yet.
+- Raw audit stores prompts; keep generated audit files under ignored `data/synthetic/` unless reviewed.
 
 ## References
 
