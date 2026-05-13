@@ -1,3 +1,5 @@
+import wave
+
 from indonesian_banking_asr.synthetic.audio_qa import validate_audio_manifest_rows
 from indonesian_banking_asr.synthetic.tts import SyntheticToneTts, build_audio_manifest_rows
 
@@ -127,6 +129,41 @@ def test_validate_audio_manifest_rows_reports_corrupted_wav(tmp_path):
                 "utterance_id": "utt-001",
                 "field": "audio_path",
                 "message": "invalid wav file",
+            }
+        ],
+    }
+
+
+def test_validate_audio_manifest_rows_reports_silent_wav(tmp_path):
+    audio_path = tmp_path / "silent.wav"
+    sample_rate = 8000
+    duration_sec = 0.25
+    frame_count = int(sample_rate * duration_sec)
+    with wave.open(str(audio_path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(b"\x00\x00" * frame_count)
+    rows = [
+        {
+            "utterance_id": "utt-001",
+            "audio_path": str(audio_path),
+            "duration_sec": duration_sec,
+            "sample_rate": sample_rate,
+        }
+    ]
+
+    report = validate_audio_manifest_rows(rows)
+
+    assert report == {
+        "checked_rows": 1,
+        "valid_rows": 0,
+        "invalid_rows": 1,
+        "errors": [
+            {
+                "utterance_id": "utt-001",
+                "field": "audio_path",
+                "message": "audio is silent",
             }
         ],
     }

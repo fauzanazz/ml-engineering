@@ -29,6 +29,7 @@ def validate_audio_manifest_rows(rows: Iterable[dict]) -> dict:
             with wave.open(str(audio_path), "rb") as wav_file:
                 actual_sample_rate = wav_file.getframerate()
                 frame_count = wav_file.getnframes()
+                audio_bytes = wav_file.readframes(frame_count)
         except wave.Error:
             errors.append(
                 {
@@ -39,6 +40,16 @@ def validate_audio_manifest_rows(rows: Iterable[dict]) -> dict:
             )
             invalid_utterance_ids.add(utterance_id)
             continue
+
+        if not any(audio_bytes):
+            errors.append(
+                {
+                    "utterance_id": utterance_id,
+                    "field": "audio_path",
+                    "message": "audio is silent",
+                }
+            )
+            invalid_utterance_ids.add(utterance_id)
 
         expected_sample_rate = row.get("sample_rate")
         if actual_sample_rate != expected_sample_rate:
