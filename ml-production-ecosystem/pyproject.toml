@@ -26,6 +26,7 @@ foundation-rt-demo = "recommendation.rt_demo:main"
 production-batch-recommend = "production_patterns.batch_inference:main"
 production-retrain = "production_patterns.retraining:main"
 production-monitor = "production_patterns.monitoring_loop:main"
+production-scheduled-retrain = "production_patterns.scheduled_retraining:main"
 
 [dependency-groups]
 dev = [
