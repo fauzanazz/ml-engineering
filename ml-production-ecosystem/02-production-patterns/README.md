@@ -31,7 +31,7 @@ uv run production-batch-recommend \
 Retraining:
 
 ```bash
-uv run production-retrain --config configs/foundation-recommender.yaml --set-active
+uv run production-retrain --config configs/foundation-recommender.yaml --set-active --require-quality-gate
 ```
 
 ## Target Learning Outcomes

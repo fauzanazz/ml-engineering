@@ -9,7 +9,12 @@ from recommendation.train import get_active_model
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "recommendation"
 
 
-def _write_retraining_config(tmp_path: Path, registry_path: Path, version: str = "foundation-config-v1") -> Path:
+def _write_retraining_config(
+    tmp_path: Path,
+    registry_path: Path,
+    version: str = "foundation-config-v1",
+    quality_gate_block: str = "",
+) -> Path:
     config_path = tmp_path / "foundation-recommender.yaml"
     config_path.write_text(
         f"""
@@ -37,6 +42,7 @@ registry:
   path: {registry_path}
   stage: candidate
   set_active: false
+{quality_gate_block}
 """.strip()
     )
     return config_path
@@ -55,6 +61,7 @@ def test_run_retraining_returns_summary_without_active_update(tmp_path: Path) ->
         "artifact_uri": str(tmp_path / "artifacts" / "recommendation" / "foundation-config-v1"),
         "metrics_uri": str(tmp_path / "artifacts" / "recommendation" / "foundation-config-v1" / "metrics.json"),
         "set_active": False,
+        "quality_gate": {"passed": True, "failures": []},
     }
     assert get_active_model(registry_path, "movielens-popularity") is None
 
@@ -67,6 +74,92 @@ def test_run_retraining_can_set_active_model(tmp_path: Path) -> None:
 
     active = get_active_model(registry_path, "movielens-popularity")
     assert summary["set_active"] is True
+    assert active is not None
+    assert active["version"] == "foundation-config-v1"
+
+
+def test_run_retraining_pass_quality_gate_can_set_active_model(tmp_path: Path) -> None:
+    registry_path = tmp_path / "registry" / "models.json"
+    metrics_path = tmp_path / "artifacts" / "recommendation" / "foundation-config-v1" / "metrics.json"
+    config_path = _write_retraining_config(
+        tmp_path,
+        registry_path,
+        quality_gate_block=f"""
+
+quality_gate:
+  enabled: true
+  metrics_path: {metrics_path}
+  minimums:
+    candidate_count: 1
+    ratings_rows: 1
+""".rstrip(),
+    )
+
+    summary = run_retraining(
+        config_path,
+        set_active=True,
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        require_quality_gate=True,
+    )
+
+    active = get_active_model(registry_path, "movielens-popularity")
+    assert summary["status"] == "completed"
+    assert summary["set_active"] is True
+    assert summary["quality_gate"] == {"passed": True, "failures": []}
+    assert active is not None
+    assert active["version"] == "foundation-config-v1"
+
+
+def test_run_retraining_failed_quality_gate_does_not_set_active_model(tmp_path: Path) -> None:
+    registry_path = tmp_path / "registry" / "models.json"
+    metrics_path = tmp_path / "artifacts" / "recommendation" / "foundation-config-v1" / "metrics.json"
+    config_path = _write_retraining_config(
+        tmp_path,
+        registry_path,
+        quality_gate_block=f"""
+
+quality_gate:
+  enabled: true
+  metrics_path: {metrics_path}
+  minimums:
+    candidate_count: 999
+    ratings_rows: 1
+""".rstrip(),
+    )
+
+    summary = run_retraining(
+        config_path,
+        set_active=True,
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        require_quality_gate=True,
+    )
+
+    assert summary["status"] == "failed_quality_gate"
+    assert summary["set_active"] is False
+    assert summary["quality_gate"] == {
+        "passed": False,
+        "failures": ["candidate_count 4.0 below minimum 999.0"],
+    }
+    assert get_active_model(registry_path, "movielens-popularity") is None
+
+
+def test_run_retraining_missing_quality_gate_keeps_current_behavior(tmp_path: Path) -> None:
+    registry_path = tmp_path / "registry" / "models.json"
+    config_path = _write_retraining_config(tmp_path, registry_path)
+
+    summary = run_retraining(
+        config_path,
+        set_active=True,
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        require_quality_gate=True,
+    )
+
+    active = get_active_model(registry_path, "movielens-popularity")
+    assert summary["status"] == "completed"
+    assert summary["quality_gate"] == {"passed": True, "failures": []}
     assert active is not None
     assert active["version"] == "foundation-config-v1"
 

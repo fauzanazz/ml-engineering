@@ -22,3 +22,10 @@ registry:
   path: 01-foundation/registry/models.json
   stage: candidate
   set_active: false
+
+quality_gate:
+  enabled: true
+  metrics_path: 01-foundation/artifacts/recommendation/foundation-config-v1/metrics.json
+  minimums:
+    candidate_count: 1
+    ratings_rows: 1

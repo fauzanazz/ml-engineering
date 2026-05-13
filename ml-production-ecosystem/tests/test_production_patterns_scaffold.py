@@ -10,6 +10,7 @@ def test_production_patterns_scaffold_exists() -> None:
     expected_paths = [
         base / "production_patterns" / "__init__.py",
         base / "production_patterns" / "batch_inference.py",
+        base / "production_patterns" / "quality_gate.py",
         base / "production_patterns" / "retraining.py",
         base / "docs" / "online-serving.md",
         base / "docs" / "batch-inference.md",
