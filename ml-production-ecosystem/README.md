@@ -37,6 +37,7 @@ Detail tiap step:
 - [Step 9: Local Monitoring Stack With Prometheus + Grafana](docs/features/step-9-local-monitoring-stack.md)
 - [Step 10: Dockerized Foundation API](docs/features/step-10-dockerized-foundation-api.md)
 - [Step 11: Batch Inference Job](docs/features/step-11-batch-inference-job.md)
+- [02 Step 1: Production Patterns Scaffold](02-production-patterns/README.md)
 - [MLOps Tools Map](docs/mlops-tools-map.md)
 - [Historical Run Log](docs/run-log.md)
 

@@ -23,6 +23,7 @@ foundation-recommend = "recommendation.predict:main"
 foundation-batch-recommend = "recommendation.batch:main"
 foundation-serve-recommender = "recommendation.api:main"
 foundation-rt-demo = "recommendation.rt_demo:main"
+production-batch-recommend = "production_patterns.batch_inference:main"
 
 [dependency-groups]
 dev = [
@@ -32,7 +33,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", "01-foundation"]
+pythonpath = [".", "01-foundation", "02-production-patterns"]
 
 
 [build-system]
@@ -40,5 +41,5 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["shared", "shared.deployment", "shared.model_storage", "shared.monitoring", "shared.observability", "recommendation"]
-package-dir = {recommendation = "01-foundation/recommendation"}
+packages = ["shared", "shared.deployment", "shared.model_storage", "shared.monitoring", "shared.observability", "recommendation", "production_patterns"]
+package-dir = {recommendation = "01-foundation/recommendation", production_patterns = "02-production-patterns/production_patterns"}
