@@ -6,6 +6,7 @@ status: completed
 categories: [recommendation, mlops, serving, observability]
 related:
   - ./step-5-local-fastapi-serving.md
+  - ./step-7-prediction-logging-and-basic-drift-signal.md
   - ./step-4-local-model-registry.md
   - ./step-2-foundation-recommender-models-and-local-infra.md
   - ../run-log.md

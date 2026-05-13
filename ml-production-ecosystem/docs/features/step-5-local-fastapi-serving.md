@@ -35,6 +35,7 @@ Endpoints:
 | `GET` | `/health` | Returns service liveness. |
 | `GET` | `/models/active` | Returns active model registry metadata. |
 | `GET` | `/metrics` | Returns in-memory prediction request, error, latency, and model/version metrics. |
+| `GET` | `/drift` | Returns naive output drift score from local prediction logs. |
 | `POST` | `/predict/v1` | Returns recommendations from the active artifact plus `request_id`. |
 
 Prediction request body:
