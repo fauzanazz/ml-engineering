@@ -35,6 +35,8 @@ def main() -> None:
     tts_parser.add_argument("--provider", choices=("synthetic-tone", "gemini"), default="synthetic-tone")
     tts_parser.add_argument("--voice", default="Kore")
     tts_parser.add_argument("--model", default=os.environ.get("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts"))
+    tts_parser.add_argument("--resume", action="store_true")
+    tts_parser.add_argument("--seconds-per-request", default=0.0, type=float)
 
     audio_qa_parser = subparsers.add_parser("audio-qa", description="Validate TTS audio manifest.")
     audio_qa_parser.add_argument("--input-path", required=True, type=Path)
@@ -78,12 +80,16 @@ def main() -> None:
 
     if args.command == "tts":
         rows = _read_jsonl(args.input_path)
+        existing_rows = _read_jsonl(args.output_path) if args.resume and args.output_path.exists() else []
+        processed = read_processed_utterance_ids([args.output_path]) if args.resume else set()
         audio_rows = build_audio_manifest_rows(
             rows,
             audio_dir=args.audio_dir,
             tts=_build_tts(args),
+            processed_utterance_ids=processed,
+            rate_limiter=_build_rate_limiter(args.seconds_per_request),
         )
-        write_jsonl(args.output_path, audio_rows)
+        write_jsonl(args.output_path, [*existing_rows, *audio_rows])
         return
 
     if args.command == "audio-qa":
@@ -165,6 +171,12 @@ def main() -> None:
                 skipped_count=len(rows) - len(pending_rows),
             )
             write_jsonl(args.summary_output_path, [summary])
+
+
+def _build_rate_limiter(seconds_per_request: float):
+    if seconds_per_request <= 0:
+        return None
+    return RateLimiter(seconds_per_request=seconds_per_request)
 
 
 def _build_tts(args):

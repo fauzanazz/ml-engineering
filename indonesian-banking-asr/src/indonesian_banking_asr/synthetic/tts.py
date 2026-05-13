@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Protocol
 
+from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
+
 from indonesian_banking_asr.synthetic.gemini import GeminiTransport, UrllibGeminiTransport
 
 
@@ -111,15 +113,22 @@ def build_audio_manifest_rows(
     rows: Iterable[dict],
     audio_dir: Path,
     tts: TtsEngine,
+    processed_utterance_ids: set[str] | None = None,
+    rate_limiter: RateLimiter | None = None,
 ) -> list[dict]:
     audio_rows = []
+    processed_utterance_ids = processed_utterance_ids or set()
     for row in rows:
         utterance_id = row["utterance_id"]
+        if utterance_id in processed_utterance_ids:
+            continue
         text = row.get("text")
         if not text:
             raise ValueError(f"row {utterance_id} missing text")
 
         audio_path = audio_dir / f"{utterance_id}.wav"
+        if rate_limiter is not None:
+            rate_limiter.wait_before_request()
         tts.synthesize(text, audio_path)
         audio_rows.append(
             {

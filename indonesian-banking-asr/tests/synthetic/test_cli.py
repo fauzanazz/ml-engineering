@@ -137,6 +137,46 @@ def test_audio_manifest_uses_written_wav_duration(tmp_path):
     assert rows[0]["duration_sec"] == 0.00025
 
 
+def test_cli_tts_resume_keeps_existing_rows_and_generates_pending(tmp_path):
+    input_path = tmp_path / "text_manifest.jsonl"
+    audio_manifest_path = tmp_path / "audio_manifest.jsonl"
+    audio_dir = tmp_path / "audio"
+    input_path.write_text(
+        json.dumps({"utterance_id": "utt-001", "text": "satu"})
+        + "\n"
+        + json.dumps({"utterance_id": "utt-002", "text": "dua"})
+        + "\n"
+    )
+    audio_manifest_path.write_text(
+        json.dumps({"utterance_id": "utt-001", "audio_path": "existing.wav"}) + "\n"
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "indonesian_banking_asr.synthetic.cli",
+            "tts",
+            "--input-path",
+            str(input_path),
+            "--output-path",
+            str(audio_manifest_path),
+            "--audio-dir",
+            str(audio_dir),
+            "--resume",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    rows = [json.loads(line) for line in audio_manifest_path.read_text().splitlines()]
+    assert [row["utterance_id"] for row in rows] == ["utt-001", "utt-002"]
+    assert not (audio_dir / "utt-001.wav").exists()
+    assert (audio_dir / "utt-002.wav").exists()
+
+
 def test_cli_validates_audio_manifest_jsonl(tmp_path):
     input_path = tmp_path / "text_manifest.jsonl"
     audio_manifest_path = tmp_path / "audio_manifest.jsonl"
