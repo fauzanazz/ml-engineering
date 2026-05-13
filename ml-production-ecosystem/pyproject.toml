@@ -15,6 +15,8 @@ foundation-prepare-data = "recommendation.data:main"
 foundation-train-recommender = "recommendation.train:main"
 foundation-train-from-config = "recommendation.train:config_main"
 foundation-list-runs = "recommendation.train:list_runs_main"
+foundation-list-models = "recommendation.train:list_models_main"
+foundation-set-active-model = "recommendation.train:set_active_model_main"
 foundation-recommend = "recommendation.predict:main"
 foundation-rt-demo = "recommendation.rt_demo:main"
 

@@ -317,6 +317,93 @@ def list_experiment_runs(tracking_dir: Path) -> list[dict[str, object]]:
     return runs
 
 
+def _load_registry(registry_path: Path) -> dict[str, object]:
+    if not registry_path.exists():
+        return {"models": [], "active": {}}
+    with registry_path.open() as file:
+        registry = json.load(file)
+    registry.setdefault("models", [])
+    registry.setdefault("active", {})
+    return registry
+
+
+def _write_registry(registry_path: Path, registry: dict[str, object]) -> None:
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(registry_path, registry)
+
+
+def register_model_version(
+    registry_path: Path,
+    model_name: str,
+    version: str,
+    artifact_uri: str,
+    metrics_uri: str,
+    stage: str = "candidate",
+    set_active: bool = False,
+) -> dict[str, object]:
+    registry = _load_registry(registry_path)
+    models = registry["models"]
+    assert isinstance(models, list)
+    models[:] = [
+        model
+        for model in models
+        if not (model.get("model_name") == model_name and model.get("version") == version)
+    ]
+    model_version = {
+        "model_name": model_name,
+        "version": version,
+        "artifact_uri": artifact_uri,
+        "metrics_uri": metrics_uri,
+        "stage": stage,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    models.append(model_version)
+    if set_active:
+        active = registry["active"]
+        assert isinstance(active, dict)
+        active[model_name] = version
+    _write_registry(registry_path, registry)
+    return model_version
+
+
+def list_model_versions(registry_path: Path, model_name: str | None = None) -> list[dict[str, object]]:
+    registry = _load_registry(registry_path)
+    models = registry["models"]
+    assert isinstance(models, list)
+    if model_name is None:
+        return models
+    return [model for model in models if model.get("model_name") == model_name]
+
+
+def get_model_version(registry_path: Path, model_name: str, version: str) -> dict[str, object] | None:
+    for model in list_model_versions(registry_path, model_name):
+        if model.get("version") == version:
+            return model
+    return None
+
+
+def get_active_model(registry_path: Path, model_name: str) -> dict[str, object] | None:
+    registry = _load_registry(registry_path)
+    active = registry["active"]
+    assert isinstance(active, dict)
+    version = active.get(model_name)
+    if version is None:
+        return None
+    return get_model_version(registry_path, model_name, str(version))
+
+
+def set_active_model(registry_path: Path, model_name: str, version: str) -> dict[str, object]:
+    model = get_model_version(registry_path, model_name, version)
+    if model is None:
+        raise ValueError(f"model version not found: {model_name}:{version}")
+    registry = _load_registry(registry_path)
+    active = registry["active"]
+    assert isinstance(active, dict)
+    active[model_name] = version
+    _write_registry(registry_path, registry)
+    return model
+
+
 def train_recommender_from_config(config_path: Path) -> TrainingResult:
     config = _load_training_config(config_path)
     pipeline = config.get("pipeline", {})
@@ -324,6 +411,7 @@ def train_recommender_from_config(config_path: Path) -> TrainingResult:
     model = config.get("model", {})
     artifacts = config.get("artifacts", {})
     experiments = config.get("experiments", {})
+    registry = config.get("registry", {})
     hyperparams = model.get("hyperparams", {})
 
     model_type = model.get("type")
@@ -349,6 +437,18 @@ def train_recommender_from_config(config_path: Path) -> TrainingResult:
             model_type=model_type,
             min_rating=min_rating,
         )
+
+    registry_path = registry.get("path")
+    if registry_path:
+        register_model_version(
+            registry_path=Path(registry_path),
+            model_name=result.model_name,
+            version=result.version,
+            artifact_uri=result.uri,
+            metrics_uri=result.metrics_uri,
+            stage=str(registry.get("stage", "candidate")),
+            set_active=bool(registry.get("set_active", False)),
+        )
     return result
 
 
@@ -366,6 +466,24 @@ def list_runs_main() -> None:
     args = parser.parse_args()
     for run in list_experiment_runs(args.tracking_dir):
         print(json.dumps(run, sort_keys=True))
+
+
+def list_models_main() -> None:
+    parser = argparse.ArgumentParser(description="List local registered foundation model versions.")
+    parser.add_argument("--registry-path", type=Path, default=Path("01-foundation/registry/models.json"))
+    parser.add_argument("--model-name")
+    args = parser.parse_args()
+    for model in list_model_versions(args.registry_path, args.model_name):
+        print(json.dumps(model, sort_keys=True))
+
+
+def set_active_model_main() -> None:
+    parser = argparse.ArgumentParser(description="Set active local foundation model version.")
+    parser.add_argument("--registry-path", type=Path, default=Path("01-foundation/registry/models.json"))
+    parser.add_argument("--model-name", required=True)
+    parser.add_argument("--version", required=True)
+    args = parser.parse_args()
+    print(json.dumps(set_active_model(args.registry_path, args.model_name, args.version), sort_keys=True))
 
 
 def main() -> None:

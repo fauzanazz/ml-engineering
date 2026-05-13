@@ -6,6 +6,9 @@ status: completed
 categories: [recommendation, mlops, local-infra, artifacts]
 related:
   - ./step-1-foundation-scaffold-and-shared-architecture.md
+  - ./step-2-yaml-driven-foundation-training.md
+  - ./step-3-local-experiment-tracking.md
+  - ./step-4-local-model-registry.md
   - ../plans/2026-05-12-local-rt-warehouse-foundation-design.md
   - ../run-log.md
 author: fauzan
@@ -13,7 +16,13 @@ author: fauzan
 
 # Foundation Movie Recommender Models and Local Infra
 
-[Foundation recommender](../../01-foundation/recommendation/) sekarang punya baseline popularity, item collaborative filtering, matrix factorization, user-specific prediction, ranking evaluation, dan local Redpanda/Postgres validation.
+[Foundation recommender](../../01-foundation/recommendation/) sekarang punya baseline popularity, item collaborative filtering, matrix factorization, user-specific prediction, ranking evaluation, local Redpanda/Postgres validation, YAML-driven training, experiment tracking, dan local model registry.
+
+Dedicated milestone docs:
+
+- [Step 2: YAML-Driven Foundation Training](./step-2-yaml-driven-foundation-training.md)
+- [Step 3: Local Experiment Tracking](./step-3-local-experiment-tracking.md)
+- [Step 4: Local Model Registry](./step-4-local-model-registry.md)
 
 ## Context
 
@@ -31,6 +40,8 @@ Config-driven training tersedia lewat `configs/foundation-recommender.yaml` dan 
 
 Setiap config training bisa menulis experiment record lokal ke `01-foundation/experiments/runs/<run_id>/`. Run folder menyimpan `config.yaml`, `params.json`, `metrics.json`, `artifact.json`, dan `run.json`, jadi history training bisa dibaca tanpa membuka folder artifact manual. `foundation-list-runs` menampilkan isi `run.json` dari tracking directory.
 
+Local model registry tersedia lewat `01-foundation/registry/models.json`. Config training bisa mendaftarkan model version dengan stage seperti `candidate`, lalu `foundation-set-active-model` memilih active version untuk prediction/deploy berikutnya. `foundation-list-models` menampilkan model version yang sudah registered.
+
 Popularity model masih menjadi default. Model ini menghitung statistik per movie dari `ratings.csv`, lalu mengurutkan movie berdasarkan `score = positive_count * average_rating`, disusul `rating_count` dan `average_rating` sebagai tie-breaker. Output-nya global, jadi tidak membutuhkan `user_id`.
 
 Item collaborative filtering menambahkan rekomendasi personal berbasis kemiripan item. Training membangun `user_history`, mencari movie yang disukai user dengan rating minimal `min_rating`, lalu menghitung Jaccard similarity antar movie berdasarkan overlap user yang menyukai movie tersebut. Saat prediction, sistem melihat movie yang sudah pernah dirating user, mencari movie unseen yang mirip dengan histori user, lalu mengembalikan kandidat dengan `reason = similar_to_user_history`.
@@ -46,8 +57,9 @@ Local infra dijalankan lewat `docker compose up -d`. Service `redpanda` membuka 
 | File | Role |
 |------|------|
 | `01-foundation/recommendation/train.py` | Training untuk popularity, item collaborative filtering, matrix factorization, dan YAML config entrypoint. |
-| `configs/foundation-recommender.yaml` | Example config untuk config-driven popularity training dan local experiment tracking. |
-| `01-foundation/recommendation/predict.py` | Prediction path untuk global dan user-specific recommendations. |
+| `configs/foundation-recommender.yaml` | Example config untuk config-driven popularity training, local experiment tracking, dan registry. |
+| `01-foundation/registry/models.json` | Local model registry JSON untuk registered versions dan active model pointer. |
+| `01-foundation/recommendation/predict.py` | Prediction path untuk global, user-specific, dan active registry recommendations. |
 | `01-foundation/recommendation/evaluate.py` | Ranking metric helpers untuk recommender artifact. |
 | `01-foundation/recommendation/data.py` | MovieLens validation dan chronological train/validation/test split helper. |
 | `01-foundation/recommendation/artifacts.py` | Local artifact loader/writer dan run directory helper. |
@@ -142,10 +154,26 @@ artifacts:
 experiments:
   tracking_dir: 01-foundation/experiments/runs
   run_id: foundation-config-v1
+
+registry:
+  path: 01-foundation/registry/models.json
+  stage: candidate
+  set_active: false
 ```
 
 ```bash
 uv run foundation-list-runs --tracking-dir 01-foundation/experiments/runs
+```
+
+```bash
+uv run foundation-list-models --registry-path 01-foundation/registry/models.json
+uv run foundation-set-active-model \
+  --registry-path 01-foundation/registry/models.json \
+  --model-name movielens-popularity \
+  --version foundation-config-v1
+uv run foundation-recommend \
+  --registry-path 01-foundation/registry/models.json \
+  --top-k 5
 ```
 
 ```bash

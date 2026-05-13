@@ -17,3 +17,8 @@ artifacts:
 experiments:
   tracking_dir: 01-foundation/experiments/runs
   run_id: foundation-config-v1
+
+registry:
+  path: 01-foundation/registry/models.json
+  stage: candidate
+  set_active: false

@@ -6,9 +6,14 @@ import pytest
 from recommendation.artifacts import load_artifact, make_run_dir
 from recommendation.data import DatasetValidationError, load_three_way_ratings_split, validate_movielens_files
 from recommendation.evaluate import evaluate_popularity_recommender
-from recommendation.predict import recommend_top_k
+from recommendation.predict import recommend_top_k, recommend_top_k_from_registry
 from recommendation.train import (
+    get_active_model,
+    get_model_version,
     list_experiment_runs,
+    list_model_versions,
+    register_model_version,
+    set_active_model,
     train_collaborative_filtering_recommender,
     train_matrix_factorization_recommender,
     train_popularity_recommender,
@@ -133,6 +138,100 @@ def test_list_experiment_runs_returns_run_records(tmp_path: Path) -> None:
             "status": "completed",
         }
     ]
+
+
+def test_register_list_get_and_set_active_model_version(tmp_path: Path) -> None:
+    registry_path = tmp_path / "registry" / "models.json"
+
+    version = register_model_version(
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        version="v1",
+        artifact_uri="artifacts/recommendation/v1",
+        metrics_uri="artifacts/recommendation/v1/metrics.json",
+        stage="candidate",
+        set_active=False,
+    )
+
+    assert version["model_name"] == "movielens-popularity"
+    assert version["version"] == "v1"
+    assert version["stage"] == "candidate"
+    assert "created_at" in version
+    assert list_model_versions(registry_path) == [version]
+    assert get_model_version(registry_path, "movielens-popularity", "v1") == version
+    assert get_active_model(registry_path, "movielens-popularity") is None
+
+    active = set_active_model(registry_path, "movielens-popularity", "v1")
+
+    assert active == version
+    assert get_active_model(registry_path, "movielens-popularity") == version
+    assert json.loads(registry_path.read_text())["active"] == {"movielens-popularity": "v1"}
+
+
+def test_train_recommender_from_config_registers_model_version(tmp_path: Path) -> None:
+    config_path = tmp_path / "foundation-recommender.yaml"
+    registry_path = tmp_path / "registry" / "models.json"
+    config_path.write_text(
+        f"""
+pipeline:
+  name: foundation-recommender
+  version: config-registry-v1
+
+dataset:
+  ratings_path: {FIXTURE_DIR / "ratings.csv"}
+  movies_path: {FIXTURE_DIR / "movies.csv"}
+
+model:
+  type: popularity
+  hyperparams:
+    min_rating: 4.0
+
+artifacts:
+  artifact_dir: {tmp_path / "artifacts"}
+
+experiments:
+  tracking_dir: {tmp_path / "experiments" / "runs"}
+  run_id: config-registry-run
+
+registry:
+  path: {registry_path}
+  stage: candidate
+  set_active: true
+""".strip()
+    )
+
+    result = train_recommender_from_config(config_path)
+    active = get_active_model(registry_path, "movielens-popularity")
+
+    assert active is not None
+    assert active["version"] == "config-registry-v1"
+    assert active["artifact_uri"] == result.uri
+    assert active["metrics_uri"] == result.metrics_uri
+    assert active["stage"] == "candidate"
+
+
+def test_recommend_top_k_from_registry_uses_active_model(tmp_path: Path) -> None:
+    result = train_popularity_recommender(
+        ratings_path=FIXTURE_DIR / "ratings.csv",
+        movies_path=FIXTURE_DIR / "movies.csv",
+        artifact_dir=tmp_path / "artifacts",
+        version="active-v1",
+        min_rating=4.0,
+    )
+    registry_path = tmp_path / "registry" / "models.json"
+    register_model_version(
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        version="active-v1",
+        artifact_uri=result.uri,
+        metrics_uri=result.metrics_uri,
+        stage="production",
+        set_active=True,
+    )
+
+    recommendations = recommend_top_k_from_registry(registry_path, "movielens-popularity", top_k=2)
+
+    assert [item["movieId"] for item in recommendations] == [1, 3]
 
 
 def test_recommend_top_k_returns_sorted_recommendations(tmp_path: Path) -> None:

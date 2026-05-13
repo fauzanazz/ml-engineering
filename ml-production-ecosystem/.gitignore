@@ -1,6 +1,7 @@
 01-foundation/data/
 01-foundation/artifacts/
 01-foundation/experiments/
+01-foundation/registry/
 .pytest_cache/
 __pycache__/
 *.py[cod]

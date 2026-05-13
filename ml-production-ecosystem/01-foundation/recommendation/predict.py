@@ -5,6 +5,7 @@ import argparse
 import json
 
 from .artifacts import load_artifact
+from .train import get_active_model
 
 
 def _similarity_for_pair(similarities: dict[str, float], left_movie_id: int, right_movie_id: int) -> float:
@@ -71,13 +72,33 @@ def recommend_top_k(artifact_path: Path, top_k: int = 10, user_id: int | None = 
     return artifact.model["recommendations"][:top_k]
 
 
+def recommend_top_k_from_registry(
+    registry_path: Path,
+    model_name: str = "movielens-popularity",
+    top_k: int = 10,
+    user_id: int | None = None,
+) -> list[dict[str, object]]:
+    active_model = get_active_model(registry_path, model_name)
+    if active_model is None:
+        raise ValueError(f"active model not found: {model_name}")
+    return recommend_top_k(Path(str(active_model["artifact_uri"])), top_k, user_id)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Return top-k MovieLens recommendations.")
-    parser.add_argument("--artifact-path", type=Path, required=True)
+    parser.add_argument("--artifact-path", type=Path)
+    parser.add_argument("--registry-path", type=Path)
+    parser.add_argument("--model-name", default="movielens-popularity")
     parser.add_argument("--top-k", type=int, default=10)
     parser.add_argument("--user-id", type=int)
     args = parser.parse_args()
-    print(json.dumps(recommend_top_k(args.artifact_path, args.top_k, args.user_id), indent=2))
+    if args.registry_path:
+        recommendations = recommend_top_k_from_registry(args.registry_path, args.model_name, args.top_k, args.user_id)
+    elif args.artifact_path:
+        recommendations = recommend_top_k(args.artifact_path, args.top_k, args.user_id)
+    else:
+        parser.error("--artifact-path or --registry-path is required")
+    print(json.dumps(recommendations, indent=2))
 
 
 if __name__ == "__main__":
