@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from indonesian_banking_asr.synthetic.audio_qa import validate_audio_manifest_rows
 from indonesian_banking_asr.synthetic.audit import write_jsonl
 from indonesian_banking_asr.synthetic.gemini import GeminiClient, load_gemini_config
 from indonesian_banking_asr.synthetic.paraphrase import DryRunParaphraser, RateLimitedParaphraser, paraphrase_rows_with_audit
@@ -24,6 +25,10 @@ def main() -> None:
     tts_parser.add_argument("--audio-dir", required=True, type=Path)
     tts_parser.add_argument("--sample-rate", default=8000, type=int)
     tts_parser.add_argument("--duration-sec", default=1.0, type=float)
+
+    audio_qa_parser = subparsers.add_parser("audio-qa", description="Validate TTS audio manifest.")
+    audio_qa_parser.add_argument("--input-path", required=True, type=Path)
+    audio_qa_parser.add_argument("--output-path", required=True, type=Path)
 
     parser.add_argument("--output-path", type=Path)
     parser.add_argument("--seed", default=42, type=int)
@@ -50,6 +55,12 @@ def main() -> None:
             ),
         )
         write_jsonl(args.output_path, audio_rows)
+        return
+
+    if args.command == "audio-qa":
+        rows = _read_jsonl(args.input_path)
+        report = validate_audio_manifest_rows(rows)
+        write_jsonl(args.output_path, [report])
         return
 
     if args.output_path is None:
