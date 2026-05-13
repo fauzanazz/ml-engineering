@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from indonesian_banking_asr.synthetic.audit import write_jsonl
@@ -10,11 +11,21 @@ from indonesian_banking_asr.synthetic.pipeline import generate_manifest_rows
 from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
 from indonesian_banking_asr.synthetic.resume import filter_pending_rows, read_processed_utterance_ids
 from indonesian_banking_asr.synthetic.summary import build_generation_summary
+from indonesian_banking_asr.synthetic.tts import SyntheticToneTts, build_audio_manifest_rows
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate synthetic banking ASR text manifest.")
-    parser.add_argument("--output-path", required=True, type=Path)
+    parser = argparse.ArgumentParser(description="Generate synthetic banking ASR dataset artifacts.")
+    subparsers = parser.add_subparsers(dest="command")
+
+    tts_parser = subparsers.add_parser("tts", description="Generate TTS audio manifest.")
+    tts_parser.add_argument("--input-path", required=True, type=Path)
+    tts_parser.add_argument("--output-path", required=True, type=Path)
+    tts_parser.add_argument("--audio-dir", required=True, type=Path)
+    tts_parser.add_argument("--sample-rate", default=8000, type=int)
+    tts_parser.add_argument("--duration-sec", default=1.0, type=float)
+
+    parser.add_argument("--output-path", type=Path)
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--limit", default=None, type=int)
     parser.add_argument("--paraphrase-mode", choices=("none", "dry-run", "live"), default="none")
@@ -27,6 +38,22 @@ def main() -> None:
     parser.add_argument("--seconds-per-request", default=0.0, type=float)
     parser.add_argument("--variant-count", default=5, type=int)
     args = parser.parse_args()
+
+    if args.command == "tts":
+        rows = _read_jsonl(args.input_path)
+        audio_rows = build_audio_manifest_rows(
+            rows,
+            audio_dir=args.audio_dir,
+            tts=SyntheticToneTts(
+                sample_rate=args.sample_rate,
+                duration_sec=args.duration_sec,
+            ),
+        )
+        write_jsonl(args.output_path, audio_rows)
+        return
+
+    if args.output_path is None:
+        raise SystemExit("--output-path is required")
 
     rows = generate_manifest_rows(seed=args.seed, limit=args.limit)
     write_jsonl(args.output_path, rows)
@@ -65,6 +92,10 @@ def main() -> None:
                 skipped_count=len(rows) - len(pending_rows),
             )
             write_jsonl(args.summary_output_path, [summary])
+
+
+def _read_jsonl(path: Path) -> list[dict]:
+    return [json.loads(line) for line in path.read_text().splitlines() if line]
 
 
 def _build_paraphraser(mode: str, seconds_per_request: float):
