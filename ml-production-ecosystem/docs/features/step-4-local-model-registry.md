@@ -7,6 +7,7 @@ categories: [recommendation, mlops, registry, artifacts]
 related:
   - ./step-2-yaml-driven-foundation-training.md
   - ./step-3-local-experiment-tracking.md
+  - ./step-5-local-fastapi-serving.md
   - ./step-2-foundation-recommender-models-and-local-infra.md
   - ../run-log.md
 author: fauzan

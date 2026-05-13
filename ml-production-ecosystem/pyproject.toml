@@ -6,8 +6,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "confluent-kafka>=2.5.0",
+    "fastapi>=0.115.0",
     "psycopg[binary]>=3.2.0",
     "PyYAML>=6.0.2",
+    "uvicorn>=0.32.0",
 ]
 
 [project.scripts]
@@ -18,10 +20,12 @@ foundation-list-runs = "recommendation.train:list_runs_main"
 foundation-list-models = "recommendation.train:list_models_main"
 foundation-set-active-model = "recommendation.train:set_active_model_main"
 foundation-recommend = "recommendation.predict:main"
+foundation-serve-recommender = "recommendation.api:main"
 foundation-rt-demo = "recommendation.rt_demo:main"
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.0",
     "pytest>=8.0.0",
 ]
 

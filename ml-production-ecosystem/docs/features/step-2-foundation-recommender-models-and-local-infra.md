@@ -9,6 +9,7 @@ related:
   - ./step-2-yaml-driven-foundation-training.md
   - ./step-3-local-experiment-tracking.md
   - ./step-4-local-model-registry.md
+  - ./step-5-local-fastapi-serving.md
   - ../plans/2026-05-12-local-rt-warehouse-foundation-design.md
   - ../run-log.md
 author: fauzan
@@ -16,13 +17,14 @@ author: fauzan
 
 # Foundation Movie Recommender Models and Local Infra
 
-[Foundation recommender](../../01-foundation/recommendation/) sekarang punya baseline popularity, item collaborative filtering, matrix factorization, user-specific prediction, ranking evaluation, local Redpanda/Postgres validation, YAML-driven training, experiment tracking, dan local model registry.
+[Foundation recommender](../../01-foundation/recommendation/) sekarang punya baseline popularity, item collaborative filtering, matrix factorization, user-specific prediction, ranking evaluation, local Redpanda/Postgres validation, YAML-driven training, experiment tracking, local model registry, dan local FastAPI serving.
 
 Dedicated milestone docs:
 
 - [Step 2: YAML-Driven Foundation Training](./step-2-yaml-driven-foundation-training.md)
 - [Step 3: Local Experiment Tracking](./step-3-local-experiment-tracking.md)
 - [Step 4: Local Model Registry](./step-4-local-model-registry.md)
+- [Step 5: Local FastAPI Serving](./step-5-local-fastapi-serving.md)
 
 ## Context
 
@@ -42,6 +44,8 @@ Setiap config training bisa menulis experiment record lokal ke `01-foundation/ex
 
 Local model registry tersedia lewat `01-foundation/registry/models.json`. Config training bisa mendaftarkan model version dengan stage seperti `candidate`, lalu `foundation-set-active-model` memilih active version untuk prediction/deploy berikutnya. `foundation-list-models` menampilkan model version yang sudah registered.
 
+Local HTTP serving tersedia lewat `foundation-serve-recommender`. API membaca active model dari registry, lalu menyediakan `/health`, `/models/active`, dan `/predict/v1` untuk rekomendasi lokal berbasis artifact aktif.
+
 Popularity model masih menjadi default. Model ini menghitung statistik per movie dari `ratings.csv`, lalu mengurutkan movie berdasarkan `score = positive_count * average_rating`, disusul `rating_count` dan `average_rating` sebagai tie-breaker. Output-nya global, jadi tidak membutuhkan `user_id`.
 
 Item collaborative filtering menambahkan rekomendasi personal berbasis kemiripan item. Training membangun `user_history`, mencari movie yang disukai user dengan rating minimal `min_rating`, lalu menghitung Jaccard similarity antar movie berdasarkan overlap user yang menyukai movie tersebut. Saat prediction, sistem melihat movie yang sudah pernah dirating user, mencari movie unseen yang mirip dengan histori user, lalu mengembalikan kandidat dengan `reason = similar_to_user_history`.
@@ -59,6 +63,7 @@ Local infra dijalankan lewat `docker compose up -d`. Service `redpanda` membuka 
 | `01-foundation/recommendation/train.py` | Training untuk popularity, item collaborative filtering, matrix factorization, dan YAML config entrypoint. |
 | `configs/foundation-recommender.yaml` | Example config untuk config-driven popularity training, local experiment tracking, dan registry. |
 | `01-foundation/registry/models.json` | Local model registry JSON untuk registered versions dan active model pointer. |
+| `01-foundation/recommendation/api.py` | Local FastAPI serving untuk active registered model. |
 | `01-foundation/recommendation/predict.py` | Prediction path untuk global, user-specific, dan active registry recommendations. |
 | `01-foundation/recommendation/evaluate.py` | Ranking metric helpers untuk recommender artifact. |
 | `01-foundation/recommendation/data.py` | MovieLens validation dan chronological train/validation/test split helper. |
