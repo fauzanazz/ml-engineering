@@ -20,6 +20,7 @@ foundation-list-runs = "recommendation.train:list_runs_main"
 foundation-list-models = "recommendation.train:list_models_main"
 foundation-set-active-model = "recommendation.train:set_active_model_main"
 foundation-recommend = "recommendation.predict:main"
+foundation-batch-recommend = "recommendation.batch:main"
 foundation-serve-recommender = "recommendation.api:main"
 foundation-rt-demo = "recommendation.rt_demo:main"
 
