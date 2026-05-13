@@ -35,9 +35,10 @@ def main() -> None:
     augment_parser.add_argument("--input-path", required=True, type=Path)
     augment_parser.add_argument("--output-path", required=True, type=Path)
     augment_parser.add_argument("--output-dir", required=True, type=Path)
-    augment_parser.add_argument("--gain", required=True, type=float)
+    augment_parser.add_argument("--gain", type=float)
     augment_parser.add_argument("--noise-amplitude", default=0, type=int)
     augment_parser.add_argument("--seed", default=42, type=int)
+    augment_parser.add_argument("--profile", action="append", default=[])
 
     parser.add_argument("--output-path", type=Path)
     parser.add_argument("--seed", default=42, type=int)
@@ -74,12 +75,14 @@ def main() -> None:
 
     if args.command == "augment-audio":
         rows = _read_jsonl(args.input_path)
+        profiles = [_parse_augmentation_profile(profile) for profile in args.profile]
         augmented_rows = build_augmented_manifest_rows(
             rows,
             output_dir=args.output_dir,
             gain=args.gain,
             noise_amplitude=args.noise_amplitude,
             seed=args.seed,
+            profiles=profiles or None,
         )
         write_jsonl(args.output_path, augmented_rows)
         return
@@ -128,6 +131,16 @@ def main() -> None:
 
 def _read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line]
+
+
+def _parse_augmentation_profile(value: str) -> dict:
+    name, gain, noise_amplitude, seed = value.split(":")
+    return {
+        "name": name,
+        "gain": float(gain),
+        "noise_amplitude": int(noise_amplitude),
+        "seed": int(seed),
+    }
 
 
 def _build_paraphraser(mode: str, seconds_per_request: float):

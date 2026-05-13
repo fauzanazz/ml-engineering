@@ -108,3 +108,38 @@ def test_build_augmented_manifest_rows_rejects_negative_noise(tmp_path):
         assert str(error) == "noise_amplitude cannot be negative"
     else:
         raise AssertionError("expected invalid noise amplitude to fail")
+
+
+def test_build_augmented_manifest_rows_expands_multiple_profiles(tmp_path):
+    rows = build_audio_manifest_rows(
+        [
+            {
+                "utterance_id": "utt-001",
+                "text": "Saya mau cek saldo rekening 1234567890.",
+            }
+        ],
+        audio_dir=tmp_path / "audio",
+        tts=SyntheticToneTts(sample_rate=8000, duration_sec=0.25),
+    )
+
+    augmented_rows = build_augmented_manifest_rows(
+        rows,
+        output_dir=tmp_path / "augmented",
+        profiles=[
+            {"name": "quiet", "gain": 0.5, "noise_amplitude": 0, "seed": 7},
+            {"name": "noisy", "gain": 1.0, "noise_amplitude": 200, "seed": 8},
+        ],
+    )
+
+    assert [row["utterance_id"] for row in augmented_rows] == [
+        "utt-001_aug_quiet",
+        "utt-001_aug_noisy",
+    ]
+    assert [row["augmentation"] for row in augmented_rows] == [
+        {"name": "quiet", "gain": 0.5, "noise_amplitude": 0, "seed": 7},
+        {"name": "noisy", "gain": 1.0, "noise_amplitude": 200, "seed": 8},
+    ]
+    assert [row["audio_path"] for row in augmented_rows] == [
+        str(tmp_path / "augmented" / "utt-001_aug_quiet.wav"),
+        str(tmp_path / "augmented" / "utt-001_aug_noisy.wav"),
+    ]
