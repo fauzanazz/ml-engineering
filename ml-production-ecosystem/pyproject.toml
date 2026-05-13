@@ -24,6 +24,7 @@ foundation-batch-recommend = "recommendation.batch:main"
 foundation-serve-recommender = "recommendation.api:main"
 foundation-rt-demo = "recommendation.rt_demo:main"
 production-batch-recommend = "production_patterns.batch_inference:main"
+production-retrain = "production_patterns.retraining:main"
 
 [dependency-groups]
 dev = [

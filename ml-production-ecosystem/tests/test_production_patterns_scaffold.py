@@ -10,6 +10,7 @@ def test_production_patterns_scaffold_exists() -> None:
     expected_paths = [
         base / "production_patterns" / "__init__.py",
         base / "production_patterns" / "batch_inference.py",
+        base / "production_patterns" / "retraining.py",
         base / "docs" / "online-serving.md",
         base / "docs" / "batch-inference.md",
         base / "docs" / "retraining.md",
@@ -43,5 +44,6 @@ def test_production_patterns_cli_is_registered() -> None:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
     assert pyproject["project"]["scripts"]["production-batch-recommend"] == "production_patterns.batch_inference:main"
+    assert pyproject["project"]["scripts"]["production-retrain"] == "production_patterns.retraining:main"
     assert "02-production-patterns" in pyproject["tool"]["pytest"]["ini_options"]["pythonpath"]
     assert "production_patterns" in pyproject["tool"]["setuptools"]["packages"]

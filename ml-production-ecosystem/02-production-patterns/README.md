@@ -17,13 +17,21 @@ This folder now owns pattern-level docs and thin wrappers around foundation work
 - [scheduled retraining](docs/retraining.md)
 - [monitoring loop](docs/monitoring-loop.md)
 
-## Current Wrapper
+## Current Wrappers
+
+Batch inference:
 
 ```bash
 uv run production-batch-recommend \
   --registry-path 01-foundation/registry/models.json \
   --input-path 01-foundation/data/batch/input.jsonl \
   --output-path 01-foundation/logs/batch-output.jsonl
+```
+
+Retraining:
+
+```bash
+uv run production-retrain --config configs/foundation-recommender.yaml --set-active
 ```
 
 ## Target Learning Outcomes

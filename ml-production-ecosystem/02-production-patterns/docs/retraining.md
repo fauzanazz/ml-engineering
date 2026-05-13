@@ -1,14 +1,42 @@
 # Scheduled Retraining Pattern
 
-Purpose: reserve seam for scheduled retraining without adding Airflow yet.
+Purpose: run config-driven foundation training through a production-pattern entrypoint without adding Airflow yet.
 
-Near-term shape:
+Current command:
 
-```text
-scheduler/cron later -> retrain entrypoint -> config training -> registry update -> optional promotion gate
+```bash
+uv run production-retrain --config configs/foundation-recommender.yaml
 ```
 
-Do not implement scheduler here yet. Next step can add local retraining skeleton or quality gate once production-pattern scaffold is stable.
+Optional activation for serving:
+
+```bash
+uv run production-retrain \
+  --config configs/foundation-recommender.yaml \
+  --set-active
+```
+
+Explicit registry override:
+
+```bash
+uv run production-retrain \
+  --config configs/foundation-recommender.yaml \
+  --set-active \
+  --registry-path 01-foundation/registry/models.json \
+  --model-name movielens-popularity
+```
+
+Current shape:
+
+```text
+operator/cron later -> production-retrain -> train_recommender_from_config -> registry update -> optional active pointer
+```
+
+Summary stdout:
+
+```json
+{"artifact_uri":"...","metrics_uri":"...","model_name":"movielens-popularity","set_active":true,"status":"completed","version":"foundation-config-v1"}
+```
 
 Out of scope now:
 
