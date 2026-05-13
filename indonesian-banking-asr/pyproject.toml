@@ -10,6 +10,7 @@ dependencies = [
 
 [project.scripts]
 banking-asr-generate-text = "indonesian_banking_asr.synthetic.cli:main"
+banking-asr-evaluate = "indonesian_banking_asr.evaluation.cli:main"
 
 [dependency-groups]
 dev = [
