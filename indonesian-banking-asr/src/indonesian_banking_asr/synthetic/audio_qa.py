@@ -25,8 +25,20 @@ def validate_audio_manifest_rows(rows: Iterable[dict]) -> dict:
             invalid_utterance_ids.add(utterance_id)
             continue
 
-        with wave.open(str(audio_path), "rb") as wav_file:
-            actual_sample_rate = wav_file.getframerate()
+        try:
+            with wave.open(str(audio_path), "rb") as wav_file:
+                actual_sample_rate = wav_file.getframerate()
+                frame_count = wav_file.getnframes()
+        except wave.Error:
+            errors.append(
+                {
+                    "utterance_id": utterance_id,
+                    "field": "audio_path",
+                    "message": "invalid wav file",
+                }
+            )
+            invalid_utterance_ids.add(utterance_id)
+            continue
 
         expected_sample_rate = row.get("sample_rate")
         if actual_sample_rate != expected_sample_rate:
@@ -35,6 +47,18 @@ def validate_audio_manifest_rows(rows: Iterable[dict]) -> dict:
                     "utterance_id": utterance_id,
                     "field": "sample_rate",
                     "message": f"expected {expected_sample_rate}, got {actual_sample_rate}",
+                }
+            )
+            invalid_utterance_ids.add(utterance_id)
+
+        expected_duration = row.get("duration_sec")
+        actual_duration = round(frame_count / actual_sample_rate, 2)
+        if actual_duration != expected_duration:
+            errors.append(
+                {
+                    "utterance_id": utterance_id,
+                    "field": "duration_sec",
+                    "message": f"expected {expected_duration}, got {actual_duration}",
                 }
             )
             invalid_utterance_ids.add(utterance_id)
