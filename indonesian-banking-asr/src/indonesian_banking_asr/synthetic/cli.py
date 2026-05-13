@@ -6,6 +6,7 @@ from pathlib import Path
 
 from indonesian_banking_asr.synthetic.audio_qa import validate_audio_manifest_rows
 from indonesian_banking_asr.synthetic.audit import write_jsonl
+from indonesian_banking_asr.synthetic.augmentation import build_augmented_manifest_rows
 from indonesian_banking_asr.synthetic.gemini import GeminiClient, load_gemini_config
 from indonesian_banking_asr.synthetic.paraphrase import DryRunParaphraser, RateLimitedParaphraser, paraphrase_rows_with_audit
 from indonesian_banking_asr.synthetic.pipeline import generate_manifest_rows
@@ -29,6 +30,14 @@ def main() -> None:
     audio_qa_parser = subparsers.add_parser("audio-qa", description="Validate TTS audio manifest.")
     audio_qa_parser.add_argument("--input-path", required=True, type=Path)
     audio_qa_parser.add_argument("--output-path", required=True, type=Path)
+
+    augment_parser = subparsers.add_parser("augment-audio", description="Generate augmented audio manifest.")
+    augment_parser.add_argument("--input-path", required=True, type=Path)
+    augment_parser.add_argument("--output-path", required=True, type=Path)
+    augment_parser.add_argument("--output-dir", required=True, type=Path)
+    augment_parser.add_argument("--gain", required=True, type=float)
+    augment_parser.add_argument("--noise-amplitude", default=0, type=int)
+    augment_parser.add_argument("--seed", default=42, type=int)
 
     parser.add_argument("--output-path", type=Path)
     parser.add_argument("--seed", default=42, type=int)
@@ -61,6 +70,18 @@ def main() -> None:
         rows = _read_jsonl(args.input_path)
         report = validate_audio_manifest_rows(rows)
         write_jsonl(args.output_path, [report])
+        return
+
+    if args.command == "augment-audio":
+        rows = _read_jsonl(args.input_path)
+        augmented_rows = build_augmented_manifest_rows(
+            rows,
+            output_dir=args.output_dir,
+            gain=args.gain,
+            noise_amplitude=args.noise_amplitude,
+            seed=args.seed,
+        )
+        write_jsonl(args.output_path, augmented_rows)
         return
 
     if args.output_path is None:
