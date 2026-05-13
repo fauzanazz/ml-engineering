@@ -7,6 +7,9 @@ import argparse
 import csv
 from datetime import UTC, datetime
 import random
+from typing import Any
+
+import yaml
 
 from .artifacts import write_json
 from .data import validate_movielens_files
@@ -260,6 +263,43 @@ def train_matrix_factorization_recommender(
     }
     _write_recommender_artifact(output_dir, model, metadata, metrics)
     return TrainingResult(MATRIX_FACTORIZATION_MODEL_NAME, version, str(output_dir), str(output_dir / "metrics.json"))
+
+
+def _load_training_config(config_path: Path) -> dict[str, Any]:
+    with config_path.open() as file:
+        config = yaml.safe_load(file)
+    if not isinstance(config, dict):
+        raise ValueError(f"training config must be a mapping: {config_path}")
+    return config
+
+
+def train_recommender_from_config(config_path: Path) -> TrainingResult:
+    config = _load_training_config(config_path)
+    pipeline = config.get("pipeline", {})
+    dataset = config.get("dataset", {})
+    model = config.get("model", {})
+    artifacts = config.get("artifacts", {})
+    hyperparams = model.get("hyperparams", {})
+
+    model_type = model.get("type")
+    if model_type != "popularity":
+        raise ValueError(f"unsupported config model.type: {model_type}")
+
+    return train_popularity_recommender(
+        ratings_path=Path(dataset["ratings_path"]),
+        movies_path=Path(dataset["movies_path"]),
+        artifact_dir=Path(artifacts["artifact_dir"]),
+        version=pipeline.get("version"),
+        min_rating=float(hyperparams.get("min_rating", 4.0)),
+    )
+
+
+def config_main() -> None:
+    parser = argparse.ArgumentParser(description="Train MovieLens recommender from YAML config.")
+    parser.add_argument("--config", type=Path, required=True)
+    args = parser.parse_args()
+    result = train_recommender_from_config(args.config)
+    print(result)
 
 
 def main() -> None:

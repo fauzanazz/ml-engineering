@@ -7,11 +7,13 @@ requires-python = ">=3.11"
 dependencies = [
     "confluent-kafka>=2.5.0",
     "psycopg[binary]>=3.2.0",
+    "PyYAML>=6.0.2",
 ]
 
 [project.scripts]
 foundation-prepare-data = "recommendation.data:main"
 foundation-train-recommender = "recommendation.train:main"
+foundation-train-from-config = "recommendation.train:config_main"
 foundation-recommend = "recommendation.predict:main"
 foundation-rt-demo = "recommendation.rt_demo:main"
 

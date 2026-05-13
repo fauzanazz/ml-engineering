@@ -10,6 +10,7 @@ from recommendation.train import (
     train_collaborative_filtering_recommender,
     train_matrix_factorization_recommender,
     train_popularity_recommender,
+    train_recommender_from_config,
 )
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "recommendation"
@@ -44,6 +45,41 @@ def test_train_popularity_recommender_writes_artifact(tmp_path: Path) -> None:
     assert artifact.metadata["dataset"] == "MovieLens 25M"
     assert artifact.metrics["ratings_rows"] == 8
     assert artifact.model["recommendations"][0]["movieId"] == 1
+
+
+def test_train_recommender_from_config_writes_versioned_artifact(tmp_path: Path) -> None:
+    config_path = tmp_path / "foundation-recommender.yaml"
+    config_path.write_text(
+        f"""
+pipeline:
+  name: foundation-recommender
+  version: config-test-v1
+
+dataset:
+  ratings_path: {FIXTURE_DIR / "ratings.csv"}
+  movies_path: {FIXTURE_DIR / "movies.csv"}
+
+model:
+  type: popularity
+  hyperparams:
+    min_rating: 4.5
+
+artifacts:
+  artifact_dir: {tmp_path / "artifacts"}
+""".strip()
+    )
+
+    result = train_recommender_from_config(config_path)
+
+    assert result.model_name == "movielens-popularity"
+    assert result.version == "config-test-v1"
+    assert (Path(result.uri) / "model.json").exists()
+    assert (Path(result.uri) / "metadata.json").exists()
+    assert (Path(result.uri) / "metrics.json").exists()
+
+    artifact = load_artifact(Path(result.uri))
+    assert artifact.metadata["min_rating"] == 4.5
+    assert artifact.model["version"] == "config-test-v1"
 
 
 def test_recommend_top_k_returns_sorted_recommendations(tmp_path: Path) -> None:

@@ -1,0 +1,15 @@
+pipeline:
+  name: foundation-recommender
+  version: foundation-config-v1
+
+dataset:
+  ratings_path: 01-foundation/data/raw/ml-25m/ratings.csv
+  movies_path: 01-foundation/data/raw/ml-25m/movies.csv
+
+model:
+  type: popularity
+  hyperparams:
+    min_rating: 4.0
+
+artifacts:
+  artifact_dir: 01-foundation/artifacts
