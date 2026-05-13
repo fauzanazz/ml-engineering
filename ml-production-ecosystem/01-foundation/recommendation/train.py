@@ -6,7 +6,9 @@ from pathlib import Path
 import argparse
 import csv
 from datetime import UTC, datetime
+import json
 import random
+import shutil
 from typing import Any
 
 import yaml
@@ -273,25 +275,81 @@ def _load_training_config(config_path: Path) -> dict[str, Any]:
     return config
 
 
+def _write_experiment_run(
+    config_path: Path,
+    tracking_dir: Path,
+    run_id: str,
+    result: TrainingResult,
+    model_type: str,
+    min_rating: float,
+) -> None:
+    run_dir = tracking_dir / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(config_path, run_dir / "config.yaml")
+
+    with Path(result.metrics_uri).open() as file:
+        metrics = json.load(file)
+
+    write_json(run_dir / "params.json", {"model_type": model_type, "min_rating": min_rating})
+    write_json(run_dir / "metrics.json", metrics)
+    write_json(run_dir / "artifact.json", {"artifact_uri": result.uri, "metrics_uri": result.metrics_uri})
+    write_json(
+        run_dir / "run.json",
+        {
+            "run_id": run_id,
+            "model_name": result.model_name,
+            "version": result.version,
+            "artifact_uri": result.uri,
+            "metrics_uri": result.metrics_uri,
+            "status": "completed",
+            "created_at": datetime.now(UTC).isoformat(),
+        },
+    )
+
+
+def list_experiment_runs(tracking_dir: Path) -> list[dict[str, object]]:
+    if not tracking_dir.exists():
+        return []
+    runs = []
+    for run_json in sorted(tracking_dir.glob("*/run.json")):
+        with run_json.open() as file:
+            runs.append(json.load(file))
+    return runs
+
+
 def train_recommender_from_config(config_path: Path) -> TrainingResult:
     config = _load_training_config(config_path)
     pipeline = config.get("pipeline", {})
     dataset = config.get("dataset", {})
     model = config.get("model", {})
     artifacts = config.get("artifacts", {})
+    experiments = config.get("experiments", {})
     hyperparams = model.get("hyperparams", {})
 
     model_type = model.get("type")
     if model_type != "popularity":
         raise ValueError(f"unsupported config model.type: {model_type}")
 
-    return train_popularity_recommender(
+    min_rating = float(hyperparams.get("min_rating", 4.0))
+    result = train_popularity_recommender(
         ratings_path=Path(dataset["ratings_path"]),
         movies_path=Path(dataset["movies_path"]),
         artifact_dir=Path(artifacts["artifact_dir"]),
         version=pipeline.get("version"),
-        min_rating=float(hyperparams.get("min_rating", 4.0)),
+        min_rating=min_rating,
     )
+
+    tracking_dir = experiments.get("tracking_dir")
+    if tracking_dir:
+        _write_experiment_run(
+            config_path=config_path,
+            tracking_dir=Path(tracking_dir),
+            run_id=str(experiments.get("run_id") or result.version),
+            result=result,
+            model_type=model_type,
+            min_rating=min_rating,
+        )
+    return result
 
 
 def config_main() -> None:
@@ -300,6 +358,14 @@ def config_main() -> None:
     args = parser.parse_args()
     result = train_recommender_from_config(args.config)
     print(result)
+
+
+def list_runs_main() -> None:
+    parser = argparse.ArgumentParser(description="List local foundation experiment runs.")
+    parser.add_argument("--tracking-dir", type=Path, default=Path("01-foundation/experiments/runs"))
+    args = parser.parse_args()
+    for run in list_experiment_runs(args.tracking_dir):
+        print(json.dumps(run, sort_keys=True))
 
 
 def main() -> None:

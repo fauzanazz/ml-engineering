@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 import pytest
 
@@ -7,6 +8,7 @@ from recommendation.data import DatasetValidationError, load_three_way_ratings_s
 from recommendation.evaluate import evaluate_popularity_recommender
 from recommendation.predict import recommend_top_k
 from recommendation.train import (
+    list_experiment_runs,
     train_collaborative_filtering_recommender,
     train_matrix_factorization_recommender,
     train_popularity_recommender,
@@ -66,6 +68,10 @@ model:
 
 artifacts:
   artifact_dir: {tmp_path / "artifacts"}
+
+experiments:
+  tracking_dir: {tmp_path / "experiments" / "runs"}
+  run_id: config-test-run
 """.strip()
     )
 
@@ -80,6 +86,53 @@ artifacts:
     artifact = load_artifact(Path(result.uri))
     assert artifact.metadata["min_rating"] == 4.5
     assert artifact.model["version"] == "config-test-v1"
+
+    run_dir = tmp_path / "experiments" / "runs" / "config-test-run"
+    assert (run_dir / "config.yaml").read_text() == config_path.read_text()
+    assert json.loads((run_dir / "params.json").read_text()) == {"model_type": "popularity", "min_rating": 4.5}
+    assert json.loads((run_dir / "metrics.json").read_text()) == artifact.metrics
+    assert json.loads((run_dir / "artifact.json").read_text()) == {
+        "artifact_uri": result.uri,
+        "metrics_uri": result.metrics_uri,
+    }
+    run = json.loads((run_dir / "run.json").read_text())
+    assert run["run_id"] == "config-test-run"
+    assert run["model_name"] == "movielens-popularity"
+    assert run["version"] == "config-test-v1"
+    assert run["artifact_uri"] == result.uri
+    assert run["metrics_uri"] == result.metrics_uri
+    assert run["status"] == "completed"
+    assert "created_at" in run
+
+
+def test_list_experiment_runs_returns_run_records(tmp_path: Path) -> None:
+    run_dir = tmp_path / "experiments" / "runs" / "run-a"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": "run-a",
+                "model_name": "movielens-popularity",
+                "version": "v1",
+                "artifact_uri": "artifacts/recommendation/v1",
+                "metrics_uri": "artifacts/recommendation/v1/metrics.json",
+                "status": "completed",
+            }
+        )
+    )
+
+    runs = list_experiment_runs(tmp_path / "experiments" / "runs")
+
+    assert runs == [
+        {
+            "run_id": "run-a",
+            "model_name": "movielens-popularity",
+            "version": "v1",
+            "artifact_uri": "artifacts/recommendation/v1",
+            "metrics_uri": "artifacts/recommendation/v1/metrics.json",
+            "status": "completed",
+        }
+    ]
 
 
 def test_recommend_top_k_returns_sorted_recommendations(tmp_path: Path) -> None:

@@ -27,7 +27,9 @@ Local production-like path juga divalidasi dengan [Redpanda](https://redpanda.co
 
 Training tetap menulis artifact lokal ke `01-foundation/artifacts/recommendation/<version>/`. Setiap artifact berisi `model.json`, `metadata.json`, dan `metrics.json`. Prediction membaca artifact lewat `recommendation.artifacts.load_artifact()` lalu memilih path rekomendasi berdasarkan `model_name` di `model.json`.
 
-Config-driven training tersedia lewat `configs/foundation-recommender.yaml` dan command `foundation-train-from-config`. YAML ini memilih dataset path, artifact dir, artifact version, model type `popularity`, dan hyperparameter `min_rating`, sehingga data scientist bisa menjalankan training tanpa mengubah kode Python atau mengirim banyak CLI args.
+Config-driven training tersedia lewat `configs/foundation-recommender.yaml` dan command `foundation-train-from-config`. YAML ini memilih dataset path, artifact dir, artifact version, model type `popularity`, hyperparameter `min_rating`, dan experiment tracking path, sehingga data scientist bisa menjalankan training tanpa mengubah kode Python atau mengirim banyak CLI args.
+
+Setiap config training bisa menulis experiment record lokal ke `01-foundation/experiments/runs/<run_id>/`. Run folder menyimpan `config.yaml`, `params.json`, `metrics.json`, `artifact.json`, dan `run.json`, jadi history training bisa dibaca tanpa membuka folder artifact manual. `foundation-list-runs` menampilkan isi `run.json` dari tracking directory.
 
 Popularity model masih menjadi default. Model ini menghitung statistik per movie dari `ratings.csv`, lalu mengurutkan movie berdasarkan `score = positive_count * average_rating`, disusul `rating_count` dan `average_rating` sebagai tie-breaker. Output-nya global, jadi tidak membutuhkan `user_id`.
 
@@ -44,7 +46,7 @@ Local infra dijalankan lewat `docker compose up -d`. Service `redpanda` membuka 
 | File | Role |
 |------|------|
 | `01-foundation/recommendation/train.py` | Training untuk popularity, item collaborative filtering, matrix factorization, dan YAML config entrypoint. |
-| `configs/foundation-recommender.yaml` | Example config untuk config-driven popularity training. |
+| `configs/foundation-recommender.yaml` | Example config untuk config-driven popularity training dan local experiment tracking. |
 | `01-foundation/recommendation/predict.py` | Prediction path untuk global dan user-specific recommendations. |
 | `01-foundation/recommendation/evaluate.py` | Ranking metric helpers untuk recommender artifact. |
 | `01-foundation/recommendation/data.py` | MovieLens validation dan chronological train/validation/test split helper. |
@@ -136,6 +138,14 @@ model:
 
 artifacts:
   artifact_dir: 01-foundation/artifacts
+
+experiments:
+  tracking_dir: 01-foundation/experiments/runs
+  run_id: foundation-config-v1
+```
+
+```bash
+uv run foundation-list-runs --tracking-dir 01-foundation/experiments/runs
 ```
 
 ```bash

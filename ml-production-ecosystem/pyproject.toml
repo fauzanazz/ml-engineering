@@ -14,6 +14,7 @@ dependencies = [
 foundation-prepare-data = "recommendation.data:main"
 foundation-train-recommender = "recommendation.train:main"
 foundation-train-from-config = "recommendation.train:config_main"
+foundation-list-runs = "recommendation.train:list_runs_main"
 foundation-recommend = "recommendation.predict:main"
 foundation-rt-demo = "recommendation.rt_demo:main"
 

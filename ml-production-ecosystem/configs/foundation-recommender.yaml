@@ -13,3 +13,7 @@ model:
 
 artifacts:
   artifact_dir: 01-foundation/artifacts
+
+experiments:
+  tracking_dir: 01-foundation/experiments/runs
+  run_id: foundation-config-v1
