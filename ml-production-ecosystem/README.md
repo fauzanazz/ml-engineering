@@ -34,6 +34,7 @@ Project dibagi menjadi tiga folder berdasarkan skala:
 Detail tiap step:
 
 - [Step 1: Foundation Scaffold and Shared Architecture](docs/features/step-1-foundation-scaffold-and-shared-architecture.md)
+- [Step 9: Local Monitoring Stack With Prometheus + Grafana](docs/features/step-9-local-monitoring-stack.md)
 - [MLOps Tools Map](docs/mlops-tools-map.md)
 - [Historical Run Log](docs/run-log.md)
 
