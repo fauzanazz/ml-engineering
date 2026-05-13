@@ -266,3 +266,53 @@ def test_cli_generates_multiple_augmented_audio_profiles(tmp_path):
         {"name": "quiet", "gain": 0.5, "noise_amplitude": 0, "seed": 7},
         {"name": "noisy", "gain": 1.0, "noise_amplitude": 200, "seed": 8},
     ]
+
+
+def test_cli_merges_clean_and_augmented_audio_manifests(tmp_path):
+    clean_manifest_path = tmp_path / "audio_manifest.jsonl"
+    augmented_manifest_path = tmp_path / "augmented_manifest.jsonl"
+    dataset_manifest_path = tmp_path / "dataset_manifest.jsonl"
+    clean_manifest_path.write_text(
+        json.dumps(
+            {
+                "utterance_id": "utt-001",
+                "audio_path": "audio/utt-001.wav",
+                "text": "Saya mau cek saldo.",
+            }
+        )
+        + "\n"
+    )
+    augmented_manifest_path.write_text(
+        json.dumps(
+            {
+                "utterance_id": "utt-001_aug_noisy",
+                "audio_path": "augmented/utt-001_aug_noisy.wav",
+                "source_audio_path": "audio/utt-001.wav",
+                "text": "Saya mau cek saldo.",
+                "augmentation": {"name": "noisy", "gain": 1.0, "noise_amplitude": 200, "seed": 7},
+            }
+        )
+        + "\n"
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "indonesian_banking_asr.synthetic.cli",
+            "merge-audio-manifests",
+            "--clean-input-path",
+            str(clean_manifest_path),
+            "--augmented-input-path",
+            str(augmented_manifest_path),
+            "--output-path",
+            str(dataset_manifest_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    rows = [json.loads(line) for line in dataset_manifest_path.read_text().splitlines()]
+    assert [row["dataset_variant"] for row in rows] == ["clean", "augmented"]
