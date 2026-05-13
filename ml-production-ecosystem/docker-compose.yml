@@ -35,6 +35,18 @@ services:
       timeout: 5s
       retries: 12
 
+  foundation-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["foundation-serve-recommender", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./01-foundation/artifacts:/app/01-foundation/artifacts
+      - ./01-foundation/registry:/app/01-foundation/registry
+      - ./01-foundation/logs:/app/01-foundation/logs
+
   prometheus:
     image: prom/prometheus:v2.55.1
     ports:

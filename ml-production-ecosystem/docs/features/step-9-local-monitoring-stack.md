@@ -12,11 +12,13 @@ Add local Prometheus + Grafana monitoring around the foundation FastAPI recommen
 | Prometheus | `http://127.0.0.1:9090` | Scrapes `GET /metrics`. |
 | Grafana | `http://127.0.0.1:3000` | Shows dashboard-ready observability. |
 
-Prometheus scrape target from Docker:
+Prometheus scrape target in full Compose mode:
 
 ```text
-host.docker.internal:8000/metrics
+foundation-api:8000/metrics
 ```
+
+Host API mode can still use `host.docker.internal:8000/metrics` if `monitoring/prometheus/prometheus.yml` is temporarily pointed at the host process.
 
 ## Run Flow
 
@@ -41,11 +43,27 @@ uv run foundation-set-active-model \
   --version api-v1
 ```
 
-### 3. Start API
+### 3A. Start host API mode
 
 ```bash
 uv run foundation-serve-recommender --host 0.0.0.0 --port 8000
 ```
+
+Then start monitoring only:
+
+```bash
+docker compose up -d prometheus grafana
+```
+
+Host API mode requires Prometheus target `host.docker.internal:8000`.
+
+### 3B. Start compose API mode
+
+```bash
+docker compose up -d foundation-api prometheus grafana
+```
+
+Compose API mode uses Prometheus target `foundation-api:8000`.
 
 Confirm metrics locally:
 
@@ -53,11 +71,7 @@ Confirm metrics locally:
 curl http://127.0.0.1:8000/metrics
 ```
 
-### 4. Start Prometheus and Grafana
-
-```bash
-docker compose up -d prometheus grafana
-```
+### 4. Open Prometheus and Grafana
 
 Open:
 

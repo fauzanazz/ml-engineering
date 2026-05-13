@@ -29,7 +29,6 @@ def test_foundation_has_local_docker_compose_but_no_cloud_ci_cd_files() -> None:
     assert (ROOT / "docker-compose.yml").exists()
 
     forbidden = [
-        ROOT / "Dockerfile",
         ROOT / ".github",
         ROOT / "k8s",
         ROOT / "kubernetes",

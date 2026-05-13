@@ -27,6 +27,7 @@ Central docs:
 - [`../docs/run-log.md`](../docs/run-log.md)
 - [`../docs/features/step-1-foundation-scaffold-and-shared-architecture.md`](../docs/features/step-1-foundation-scaffold-and-shared-architecture.md)
 - [`../docs/features/step-9-local-monitoring-stack.md`](../docs/features/step-9-local-monitoring-stack.md)
+- [`../docs/features/step-10-dockerized-foundation-api.md`](../docs/features/step-10-dockerized-foundation-api.md)
 
 ## Local Paths
 
