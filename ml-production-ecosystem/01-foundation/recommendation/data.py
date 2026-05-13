@@ -10,6 +10,7 @@ MOVIELENS_25M_URL = "https://files.grouplens.org/datasets/movielens/ml-25m.zip"
 REQUIRED_RATINGS_COLUMNS = {"userId", "movieId", "rating", "timestamp"}
 REQUIRED_MOVIES_COLUMNS = {"movieId", "title", "genres"}
 EXPECTED_ARCHIVE_PREFIX = "ml-25m/"
+RatingRow = dict[str, int | float]
 
 
 class DatasetValidationError(ValueError):
@@ -38,6 +39,31 @@ def validate_movielens_files(ratings_path: Path, movies_path: Path) -> None:
             f"Invalid MovieLens files. Missing ratings columns={sorted(missing_ratings)}, "
             f"movies columns={sorted(missing_movies)}"
         )
+
+
+def load_three_way_ratings_split(
+    ratings_path: Path,
+    val_size: float = 0.2,
+    test_size: float = 0.2,
+) -> tuple[list[RatingRow], list[RatingRow], list[RatingRow]]:
+    if not (0 < val_size < 1) or not (0 < test_size < 1) or val_size + test_size >= 1:
+        raise ValueError("val_size and test_size must each be in (0, 1) and sum to less than 1")
+
+    with ratings_path.open(newline="") as file:
+        rows = [
+            {
+                "userId": int(row["userId"]),
+                "movieId": int(row["movieId"]),
+                "rating": float(row["rating"]),
+                "timestamp": int(row["timestamp"]),
+            }
+            for row in csv.DictReader(file)
+        ]
+    rows.sort(key=lambda row: row["timestamp"])
+
+    train_end = int(len(rows) * (1 - val_size - test_size))
+    val_end = int(len(rows) * (1 - test_size))
+    return rows[:train_end], rows[train_end:val_end], rows[val_end:]
 
 
 def download_movielens_25m(data_dir: Path, url: str = MOVIELENS_25M_URL) -> Path:

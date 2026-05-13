@@ -1,9 +1,11 @@
 """Local artifact helpers for foundation recommender."""
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 import json
 from typing import Any
+from uuid import uuid4
 
 
 @dataclass(frozen=True)
@@ -13,6 +15,14 @@ class RecommendationArtifact:
     model: dict[str, Any]
     metadata: dict[str, Any]
     metrics: dict[str, Any]
+
+
+def make_run_dir(base: Path, run_id: str | None = None) -> Path:
+    if run_id:
+        return base / run_id
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+    suffix = uuid4().hex[:8]
+    return base / f"{timestamp}-{suffix}"
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
