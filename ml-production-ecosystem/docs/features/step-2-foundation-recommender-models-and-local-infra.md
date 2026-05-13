@@ -10,6 +10,7 @@ related:
   - ./step-3-local-experiment-tracking.md
   - ./step-4-local-model-registry.md
   - ./step-5-local-fastapi-serving.md
+  - ./step-6-serving-observability-basics.md
   - ../plans/2026-05-12-local-rt-warehouse-foundation-design.md
   - ../run-log.md
 author: fauzan
@@ -17,7 +18,7 @@ author: fauzan
 
 # Foundation Movie Recommender Models and Local Infra
 
-[Foundation recommender](../../01-foundation/recommendation/) sekarang punya baseline popularity, item collaborative filtering, matrix factorization, user-specific prediction, ranking evaluation, local Redpanda/Postgres validation, YAML-driven training, experiment tracking, local model registry, dan local FastAPI serving.
+[Foundation recommender](../../01-foundation/recommendation/) sekarang punya baseline popularity, item collaborative filtering, matrix factorization, user-specific prediction, ranking evaluation, local Redpanda/Postgres validation, YAML-driven training, experiment tracking, local model registry, local FastAPI serving, dan serving observability basics.
 
 Dedicated milestone docs:
 
@@ -25,6 +26,7 @@ Dedicated milestone docs:
 - [Step 3: Local Experiment Tracking](./step-3-local-experiment-tracking.md)
 - [Step 4: Local Model Registry](./step-4-local-model-registry.md)
 - [Step 5: Local FastAPI Serving](./step-5-local-fastapi-serving.md)
+- [Step 6: Serving Observability Basics](./step-6-serving-observability-basics.md)
 
 ## Context
 
@@ -44,7 +46,7 @@ Setiap config training bisa menulis experiment record lokal ke `01-foundation/ex
 
 Local model registry tersedia lewat `01-foundation/registry/models.json`. Config training bisa mendaftarkan model version dengan stage seperti `candidate`, lalu `foundation-set-active-model` memilih active version untuk prediction/deploy berikutnya. `foundation-list-models` menampilkan model version yang sudah registered.
 
-Local HTTP serving tersedia lewat `foundation-serve-recommender`. API membaca active model dari registry, lalu menyediakan `/health`, `/models/active`, dan `/predict/v1` untuk rekomendasi lokal berbasis artifact aktif.
+Local HTTP serving tersedia lewat `foundation-serve-recommender`. API membaca active model dari registry, lalu menyediakan `/health`, `/models/active`, `/metrics`, dan `/predict/v1` untuk rekomendasi lokal berbasis artifact aktif dengan request count, error count, latency, dan model/version tags.
 
 Popularity model masih menjadi default. Model ini menghitung statistik per movie dari `ratings.csv`, lalu mengurutkan movie berdasarkan `score = positive_count * average_rating`, disusul `rating_count` dan `average_rating` sebagai tie-breaker. Output-nya global, jadi tidak membutuhkan `user_id`.
 

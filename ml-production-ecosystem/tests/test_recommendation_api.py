@@ -63,13 +63,43 @@ def test_predict_v1_returns_recommendations_from_active_model(tmp_path: Path) ->
     body = response.json()
     assert body["model_name"] == "movielens-popularity"
     assert body["version"] == "api-v1"
+    assert body["request_id"]
     assert [item["movieId"] for item in body["recommendations"]] == [1, 3]
+
+
+def test_metrics_track_successful_prediction(tmp_path: Path) -> None:
+    registry_path = _registry_with_active_model(tmp_path)
+    client = TestClient(create_app(registry_path))
+
+    initial_metrics = client.get("/metrics").json()
+    response = client.post("/predict/v1", json={"user_id": 10, "top_k": 2})
+    updated_metrics = client.get("/metrics").json()
+
+    assert response.status_code == 200
+    assert initial_metrics == {
+        "prediction_request_count": 0,
+        "prediction_error_count": 0,
+        "prediction_latency_ms_avg": 0.0,
+        "prediction_latency_ms_last": 0.0,
+        "last_model_name": None,
+        "last_model_version": None,
+    }
+    assert updated_metrics["prediction_request_count"] == 1
+    assert updated_metrics["prediction_error_count"] == 0
+    assert updated_metrics["prediction_latency_ms_avg"] > 0
+    assert updated_metrics["prediction_latency_ms_last"] > 0
+    assert updated_metrics["last_model_name"] == "movielens-popularity"
+    assert updated_metrics["last_model_version"] == "api-v1"
 
 
 def test_predict_v1_returns_404_when_active_model_missing(tmp_path: Path) -> None:
     client = TestClient(create_app(tmp_path / "registry" / "models.json"))
 
     response = client.post("/predict/v1", json={"top_k": 2})
+    metrics = client.get("/metrics").json()
 
     assert response.status_code == 404
     assert response.json() == {"detail": "active model not found: movielens-popularity"}
+    assert metrics["prediction_request_count"] == 1
+    assert metrics["prediction_error_count"] == 1
+    assert metrics["prediction_latency_ms_last"] > 0

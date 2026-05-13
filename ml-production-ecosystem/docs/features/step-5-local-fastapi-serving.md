@@ -8,6 +8,7 @@ related:
   - ./step-2-yaml-driven-foundation-training.md
   - ./step-3-local-experiment-tracking.md
   - ./step-4-local-model-registry.md
+  - ./step-6-serving-observability-basics.md
   - ./step-2-foundation-recommender-models-and-local-infra.md
   - ../run-log.md
 author: fauzan
@@ -33,7 +34,8 @@ Endpoints:
 |--------|------|------|
 | `GET` | `/health` | Returns service liveness. |
 | `GET` | `/models/active` | Returns active model registry metadata. |
-| `POST` | `/predict/v1` | Returns recommendations from the active artifact. |
+| `GET` | `/metrics` | Returns in-memory prediction request, error, latency, and model/version metrics. |
+| `POST` | `/predict/v1` | Returns recommendations from the active artifact plus `request_id`. |
 
 Prediction request body:
 
@@ -48,9 +50,23 @@ Prediction response shape:
 
 ```json
 {
+  "request_id": "...",
   "model_name": "movielens-popularity",
   "version": "foundation-config-v1",
   "recommendations": []
+}
+```
+
+Metrics response shape:
+
+```json
+{
+  "prediction_request_count": 3,
+  "prediction_error_count": 1,
+  "prediction_latency_ms_avg": 2.4,
+  "prediction_latency_ms_last": 1.9,
+  "last_model_name": "movielens-popularity",
+  "last_model_version": "api-v1"
 }
 ```
 
@@ -121,17 +137,19 @@ Tests cover:
 - `/health` returns `{"status": "ok"}`
 - `/models/active` returns active model metadata
 - `/predict/v1` returns recommendations from active artifact
-- missing active model returns `404`
+- `/predict/v1` returns `request_id`
+- `/metrics` tracks request count, error count, latency, and model tags
+- missing active model returns `404` and increments error count
 
 Latest API test result:
 
 ```text
-4 passed
+5 passed
 ```
 
 ## Known Limitations
 
-No auth, rate limiting, Docker image, Prometheus metrics, drift monitoring, async worker, or load testing exists yet. Step 6 should add request count, latency, and error metrics before treating this as more than local serving.
+No auth, rate limiting, Docker image, Prometheus metrics, drift monitoring, async worker, or load testing exists yet. [Step 6](./step-6-serving-observability-basics.md) adds in-memory JSON metrics, but those metrics are not durable or multi-process safe.
 
 ## Related
 
