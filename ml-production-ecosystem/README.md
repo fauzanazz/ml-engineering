@@ -27,31 +27,42 @@ Project dibagi menjadi tiga folder berdasarkan skala:
 
 ## Project Steps
 
-| Step | Tanggal | Judul | Ringkasan |
-|---:|---|---|---|
-| 1 | 2026-05-12 | Foundation scaffold + shared architecture | Setup struktur awal, `uv`, test skeleton, dan shared boundaries untuk deployment, model storage, observability, dan monitoring. |
+| Step | Area | Judul | Ringkasan | Link |
+|---:|---|---|---|---|
+| 1 | 01 Foundation | Foundation scaffold + shared architecture | Setup struktur awal, `uv`, test skeleton, dan shared boundaries. | [docs](docs/features/step-1-foundation-scaffold-and-shared-architecture.md) |
+| 2 | 01 Foundation | Foundation recommender + local infra | MovieLens recommender baseline dan local workflow awal. | [docs](docs/features/step-2-foundation-recommender-models-and-local-infra.md) |
+| 3 | 01 Foundation | Local experiment tracking | Config-driven runs dan local run metadata. | [docs](docs/features/step-3-local-experiment-tracking.md) |
+| 4 | 01 Foundation | Local model registry | Registry JSON lokal, model versions, active pointer. | [docs](docs/features/step-4-local-model-registry.md) |
+| 5 | 01 Foundation | Local FastAPI serving | API serving active recommender model. | [docs](docs/features/step-5-local-fastapi-serving.md) |
+| 6 | 01 Foundation | Serving observability basics | Local API metrics snapshot. | [docs](docs/features/step-6-serving-observability-basics.md) |
+| 7 | 01 Foundation | Prediction logging + drift signal | Prediction JSONL logs dan basic drift endpoint. | [docs](docs/features/step-7-prediction-logging-and-basic-drift-signal.md) |
+| 8 | 01 Foundation | Prometheus-style metrics endpoint | `/metrics` Prometheus text dan `/metrics.json` backward-compatible snapshot. | [docs](docs/features/step-8-prometheus-style-metrics-endpoint.md) |
+| 9 | 01 Foundation | Local monitoring stack | Prometheus + Grafana local stack. | [docs](docs/features/step-9-local-monitoring-stack.md) |
+| 10 | 01 Foundation | Dockerized Foundation API | Compose service untuk FastAPI recommender. | [docs](docs/features/step-10-dockerized-foundation-api.md) |
+| 11 | 02 Transition | Batch inference job | JSONL batch recommendations; implementation masih reusable di foundation, konsep milik production patterns. | [docs](docs/features/step-11-batch-inference-job.md) |
+| 12 | 02 Production Patterns | Production patterns scaffold | Pattern docs dan wrapper layer untuk online, batch, retraining, monitoring loop. | [README](02-production-patterns/README.md) |
+| 13 | 02 Production Patterns | Production retraining entrypoint | `production-retrain` wrapper untuk config-driven foundation training + optional activation. | [docs](02-production-patterns/docs/retraining.md) |
+| 14 | 02 Production Patterns | Model quality gate before activation | `--require-quality-gate` blocks activation unless metric thresholds pass. | [docs](02-production-patterns/docs/retraining.md) |
 
-Detail tiap step:
+Supporting docs:
 
-- [Step 1: Foundation Scaffold and Shared Architecture](docs/features/step-1-foundation-scaffold-and-shared-architecture.md)
-- [Step 9: Local Monitoring Stack With Prometheus + Grafana](docs/features/step-9-local-monitoring-stack.md)
-- [Step 10: Dockerized Foundation API](docs/features/step-10-dockerized-foundation-api.md)
-- [Step 11: Batch Inference Job](docs/features/step-11-batch-inference-job.md)
-- [02 Step 1: Production Patterns Scaffold](02-production-patterns/README.md)
 - [MLOps Tools Map](docs/mlops-tools-map.md)
 - [Historical Run Log](docs/run-log.md)
 
 ## Current Architecture
 
-Current flow masih berupa skeleton arsitektur, belum model training atau serving nyata:
+Current flow sudah melewati foundation dan mulai masuk production patterns:
 
 ```text
-future trained model artifact
- -> model_storage contract
- -> deployment contract
- -> prediction workflow later
- -> observability metric events
- -> monitoring check results
+MovieLens data
+ -> config-driven training
+ -> local artifact + experiment run
+ -> local model registry + active pointer
+ -> Dockerized FastAPI serving
+ -> Prometheus metrics + Grafana dashboard
+ -> JSONL batch inference
+ -> production retraining wrapper
+ -> quality gate before activation
 ```
 
 Shared code ditempatkan di root `shared/` agar bisa dipakai ulang oleh ketiga skala project:
@@ -89,22 +100,22 @@ uv run pytest
 Expected result:
 
 ```text
-4 passed
+51 passed
 ```
 
 ## Current Status
 
-- Struktur tiga skala sudah dibuat.
-- Shared architecture skeleton sudah dibuat.
-- Tests untuk import contract dan layout dokumentasi sudah ada.
-- Belum ada model training, prediction script, API, Docker, Kubernetes, Minikube, Kubeflow, cloud, atau CI/CD.
+- `01-foundation` sudah punya train → artifact → config → experiment → registry → serving → metrics/logging → Dockerized API → monitoring stack.
+- Step 11 batch inference jadi transisi ke `02-production-patterns`.
+- `02-production-patterns` sekarang punya wrapper untuk batch inference dan retraining.
+- Retraining bisa memakai quality gate sebelum active model diubah.
+- Belum ada Airflow, scheduler, MLflow stages, Kubernetes, cloud, atau CI/CD.
 
 ## Next Direction
 
-Next step untuk foundation adalah mulai membuat satu ML workflow sederhana:
+Next step yang paling masuk akal:
 
-1. pilih problem dan dataset kecil
-2. buat training script baseline
-3. simpan model artifact secara lokal
-4. buat prediction script
-5. mulai catat metric dan monitoring check sederhana
+1. monitoring loop automation
+2. Airflow DAG skeleton di `02-production-patterns`
+3. model quality gate yang lebih kaya dari offline evaluation metrics
+4. promotion policy/runbook sebelum masuk `03-million-scale`

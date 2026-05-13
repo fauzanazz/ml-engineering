@@ -2,11 +2,15 @@
 
 Purpose: expand from one ML app into common production ML application patterns.
 
-## Step 1: Production Patterns Scaffold
+## Progress Through Step 14
 
 01 Foundation is closed at Step 10: train, artifact, config, experiment tracking, registry, local serving, metrics/logging, Dockerized API, and local monitoring stack.
 
 Step 11 batch inference is treated as transition work: implementation still lives in `01-foundation/recommendation/batch.py`, but conceptually belongs here as a production pattern.
+
+Step 12 added this production-patterns scaffold.
+Step 13 added `production-retrain`.
+Step 14 added quality gate checks before activation.
 
 This folder now owns pattern-level docs and thin wrappers around foundation workflows.
 
@@ -43,4 +47,10 @@ uv run production-retrain --config configs/foundation-recommender.yaml --set-act
 
 ## Status
 
-Production pattern scaffold started. Airflow, scheduler, model promotion gates, and monitoring loop automation not added yet.
+Production pattern layer has started:
+
+- batch inference wrapper exists
+- retraining wrapper exists
+- quality gate blocks unsafe activation
+
+Airflow, scheduler, richer offline evaluation, rollback, and monitoring loop automation not added yet.
