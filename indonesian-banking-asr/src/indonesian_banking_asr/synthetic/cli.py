@@ -7,7 +7,7 @@ from pathlib import Path
 from indonesian_banking_asr.synthetic.audio_qa import validate_audio_manifest_rows
 from indonesian_banking_asr.synthetic.audit import write_jsonl
 from indonesian_banking_asr.synthetic.augmentation import build_augmented_manifest_rows
-from indonesian_banking_asr.synthetic.dataset import merge_audio_manifest_rows
+from indonesian_banking_asr.synthetic.dataset import build_dataset_summary, merge_audio_manifest_rows
 from indonesian_banking_asr.synthetic.gemini import GeminiClient, load_gemini_config
 from indonesian_banking_asr.synthetic.paraphrase import DryRunParaphraser, RateLimitedParaphraser, paraphrase_rows_with_audit
 from indonesian_banking_asr.synthetic.pipeline import generate_manifest_rows
@@ -45,6 +45,10 @@ def main() -> None:
     merge_parser.add_argument("--clean-input-path", required=True, type=Path)
     merge_parser.add_argument("--augmented-input-path", required=True, type=Path)
     merge_parser.add_argument("--output-path", required=True, type=Path)
+
+    dataset_summary_parser = subparsers.add_parser("dataset-summary", description="Summarize dataset manifest.")
+    dataset_summary_parser.add_argument("--input-path", required=True, type=Path)
+    dataset_summary_parser.add_argument("--output-path", required=True, type=Path)
 
     parser.add_argument("--output-path", type=Path)
     parser.add_argument("--seed", default=42, type=int)
@@ -98,6 +102,12 @@ def main() -> None:
         augmented_rows = _read_jsonl(args.augmented_input_path)
         dataset_rows = merge_audio_manifest_rows(clean_rows, augmented_rows)
         write_jsonl(args.output_path, dataset_rows)
+        return
+
+    if args.command == "dataset-summary":
+        rows = _read_jsonl(args.input_path)
+        summary = build_dataset_summary(rows)
+        write_jsonl(args.output_path, [summary])
         return
 
     if args.output_path is None:

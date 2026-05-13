@@ -316,3 +316,57 @@ def test_cli_merges_clean_and_augmented_audio_manifests(tmp_path):
     assert result.returncode == 0, result.stderr
     rows = [json.loads(line) for line in dataset_manifest_path.read_text().splitlines()]
     assert [row["dataset_variant"] for row in rows] == ["clean", "augmented"]
+
+
+def test_cli_writes_dataset_summary_jsonl(tmp_path):
+    dataset_manifest_path = tmp_path / "dataset_manifest.jsonl"
+    summary_path = tmp_path / "dataset_summary.jsonl"
+    dataset_manifest_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "utterance_id": "utt-001",
+                        "dataset_variant": "clean",
+                        "split": "train",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "utterance_id": "utt-001_aug_noisy",
+                        "dataset_variant": "augmented",
+                        "split": "train",
+                        "augmentation": {"name": "noisy"},
+                    }
+                ),
+            ]
+        )
+        + "\n"
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "indonesian_banking_asr.synthetic.cli",
+            "dataset-summary",
+            "--input-path",
+            str(dataset_manifest_path),
+            "--output-path",
+            str(summary_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    reports = [json.loads(line) for line in summary_path.read_text().splitlines()]
+    assert reports == [
+        {
+            "total_rows": 2,
+            "dataset_variant_counts": {"clean": 1, "augmented": 1},
+            "split_counts": {"train": 2},
+            "augmentation_profile_counts": {"noisy": 1},
+        }
+    ]
