@@ -7,7 +7,7 @@ import json
 from time import perf_counter
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 import uvicorn
 
@@ -65,6 +65,21 @@ class ServingMetrics:
             "last_model_version": self.last_model_version,
         }
 
+    def prometheus_text(self) -> str:
+        model_name = self.last_model_name or "unknown"
+        model_version = self.last_model_version or "unknown"
+        labels = f'{{model_name="{model_name}",model_version="{model_version}"}}'
+        return "\n".join(
+            [
+                f"foundation_prediction_requests_total{labels} {self.prediction_request_count}",
+                f"foundation_prediction_errors_total{labels} {self.prediction_error_count}",
+                f"foundation_prediction_latency_ms_sum{labels} {round(self.prediction_latency_ms_total, 6)}",
+                f"foundation_prediction_latency_ms_count{labels} {self.prediction_request_count}",
+                f"foundation_prediction_latency_ms_last{labels} {self.prediction_latency_ms_last}",
+                "",
+            ]
+        )
+
 
 def _append_prediction_log(prediction_log_path: Path, row: dict[str, object]) -> None:
     prediction_log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -104,9 +119,13 @@ def create_app(
     def get_active_model_endpoint() -> dict[str, object]:
         return active_model()
 
-    @app.get("/metrics")
-    def get_metrics() -> dict[str, object]:
+    @app.get("/metrics.json")
+    def get_metrics_json() -> dict[str, object]:
         return metrics.snapshot()
+
+    @app.get("/metrics")
+    def get_metrics() -> Response:
+        return Response(content=metrics.prometheus_text(), media_type="text/plain")
 
     @app.get("/drift")
     def get_drift(sample_limit: int = 10) -> dict[str, object]:

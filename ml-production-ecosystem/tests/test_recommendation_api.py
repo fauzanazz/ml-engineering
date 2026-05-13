@@ -68,13 +68,13 @@ def test_predict_v1_returns_recommendations_from_active_model(tmp_path: Path) ->
     assert [item["movieId"] for item in body["recommendations"]] == [1, 3]
 
 
-def test_metrics_track_successful_prediction(tmp_path: Path) -> None:
+def test_metrics_json_tracks_successful_prediction(tmp_path: Path) -> None:
     registry_path = _registry_with_active_model(tmp_path)
     client = TestClient(create_app(registry_path))
 
-    initial_metrics = client.get("/metrics").json()
+    initial_metrics = client.get("/metrics.json").json()
     response = client.post("/predict/v1", json={"user_id": 10, "top_k": 2})
-    updated_metrics = client.get("/metrics").json()
+    updated_metrics = client.get("/metrics.json").json()
 
     assert response.status_code == 200
     assert initial_metrics == {
@@ -91,6 +91,25 @@ def test_metrics_track_successful_prediction(tmp_path: Path) -> None:
     assert updated_metrics["prediction_latency_ms_last"] > 0
     assert updated_metrics["last_model_name"] == "movielens-popularity"
     assert updated_metrics["last_model_version"] == "api-v1"
+
+
+def test_metrics_returns_prometheus_text_for_successful_prediction(tmp_path: Path) -> None:
+    registry_path = _registry_with_active_model(tmp_path)
+    client = TestClient(create_app(registry_path))
+
+    response = client.post("/predict/v1", json={"user_id": 10, "top_k": 2})
+    metrics_response = client.get("/metrics")
+
+    assert response.status_code == 200
+    assert metrics_response.status_code == 200
+    assert metrics_response.headers["content-type"].startswith("text/plain")
+    labels = '{model_name="movielens-popularity",model_version="api-v1"}'
+    metrics_text = metrics_response.text
+    assert f"foundation_prediction_requests_total{labels} 1" in metrics_text
+    assert f"foundation_prediction_errors_total{labels} 0" in metrics_text
+    assert f"foundation_prediction_latency_ms_sum{labels} " in metrics_text
+    assert f"foundation_prediction_latency_ms_count{labels} 1" in metrics_text
+    assert f"foundation_prediction_latency_ms_last{labels} " in metrics_text
 
 
 def test_predict_v1_writes_success_prediction_log(tmp_path: Path) -> None:
@@ -137,7 +156,8 @@ def test_predict_v1_returns_404_when_active_model_missing(tmp_path: Path) -> Non
     client = TestClient(create_app(tmp_path / "registry" / "models.json", prediction_log_path=prediction_log_path))
 
     response = client.post("/predict/v1", json={"top_k": 2})
-    metrics = client.get("/metrics").json()
+    metrics = client.get("/metrics.json").json()
+    metrics_text = client.get("/metrics").text
     rows = [json.loads(line) for line in prediction_log_path.read_text().splitlines()]
 
     assert response.status_code == 404
@@ -145,6 +165,7 @@ def test_predict_v1_returns_404_when_active_model_missing(tmp_path: Path) -> Non
     assert metrics["prediction_request_count"] == 1
     assert metrics["prediction_error_count"] == 1
     assert metrics["prediction_latency_ms_last"] > 0
+    assert 'foundation_prediction_errors_total{model_name="unknown",model_version="unknown"} 1' in metrics_text
     assert len(rows) == 1
     assert rows[0]["request_id"]
     assert rows[0]["status"] == "error"
