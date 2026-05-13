@@ -1,7 +1,10 @@
+import base64
 import json
 import subprocess
 import sys
 import wave
+
+from indonesian_banking_asr.synthetic.tts import GeminiTts
 
 
 def test_cli_generates_pilot_manifest_jsonl(tmp_path):
@@ -71,6 +74,67 @@ def test_cli_generates_audio_manifest_jsonl(tmp_path):
     with wave.open(rows[0]["audio_path"], "rb") as wav_file:
         assert wav_file.getframerate() == 8000
         assert wav_file.getnchannels() == 1
+
+
+def test_gemini_tts_writes_pcm_audio_as_wav(tmp_path):
+    class StubTransport:
+        def post_json(self, url, payload, timeout_seconds):
+            assert "gemini-2.5-flash-preview-tts:generateContent" in url
+            assert payload["generationConfig"]["responseModalities"] == ["AUDIO"]
+            assert payload["generationConfig"]["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"] == {
+                "voiceName": "Kore"
+            }
+            return {
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "inlineData": {
+                                        "mimeType": "audio/L16;codec=pcm;rate=24000",
+                                        "data": base64.b64encode((0).to_bytes(2, "little", signed=True) * 3).decode(),
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+
+    output_path = tmp_path / "gemini.wav"
+    tts = GeminiTts(api_key="test-key", transport=StubTransport())
+
+    tts.synthesize("Saya mau cek saldo rekening.", output_path)
+
+    with wave.open(str(output_path), "rb") as wav_file:
+        assert wav_file.getframerate() == 24000
+        assert wav_file.getnchannels() == 1
+        assert wav_file.getsampwidth() == 2
+        assert wav_file.getnframes() == 3
+
+
+def test_audio_manifest_uses_written_wav_duration(tmp_path):
+    class TinyWavTts:
+        engine_name = "tiny-wav"
+        sample_rate = 24000
+        duration_sec = 0.0
+
+        def synthesize(self, text, output_path):
+            with wave.open(str(output_path), "wb") as wav_file:
+                wav_file.setnchannels(1)
+                wav_file.setsampwidth(2)
+                wav_file.setframerate(self.sample_rate)
+                wav_file.writeframes((0).to_bytes(2, "little", signed=True) * 6)
+
+    from indonesian_banking_asr.synthetic.tts import build_audio_manifest_rows
+
+    rows = build_audio_manifest_rows(
+        [{"utterance_id": "utt-001", "text": "Saya mau cek saldo."}],
+        audio_dir=tmp_path,
+        tts=TinyWavTts(),
+    )
+
+    assert rows[0]["duration_sec"] == 0.00025
 
 
 def test_cli_validates_audio_manifest_jsonl(tmp_path):

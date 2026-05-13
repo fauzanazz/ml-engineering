@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from indonesian_banking_asr.synthetic.audio_qa import validate_audio_manifest_rows
@@ -18,7 +19,7 @@ from indonesian_banking_asr.synthetic.pipeline import generate_manifest_rows
 from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
 from indonesian_banking_asr.synthetic.resume import filter_pending_rows, read_processed_utterance_ids
 from indonesian_banking_asr.synthetic.summary import build_generation_summary
-from indonesian_banking_asr.synthetic.tts import SyntheticToneTts, build_audio_manifest_rows
+from indonesian_banking_asr.synthetic.tts import GeminiTts, SyntheticToneTts, build_audio_manifest_rows
 
 
 def main() -> None:
@@ -31,6 +32,9 @@ def main() -> None:
     tts_parser.add_argument("--audio-dir", required=True, type=Path)
     tts_parser.add_argument("--sample-rate", default=8000, type=int)
     tts_parser.add_argument("--duration-sec", default=1.0, type=float)
+    tts_parser.add_argument("--provider", choices=("synthetic-tone", "gemini"), default="synthetic-tone")
+    tts_parser.add_argument("--voice", default="Kore")
+    tts_parser.add_argument("--model", default=os.environ.get("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts"))
 
     audio_qa_parser = subparsers.add_parser("audio-qa", description="Validate TTS audio manifest.")
     audio_qa_parser.add_argument("--input-path", required=True, type=Path)
@@ -77,10 +81,7 @@ def main() -> None:
         audio_rows = build_audio_manifest_rows(
             rows,
             audio_dir=args.audio_dir,
-            tts=SyntheticToneTts(
-                sample_rate=args.sample_rate,
-                duration_sec=args.duration_sec,
-            ),
+            tts=_build_tts(args),
         )
         write_jsonl(args.output_path, audio_rows)
         return
@@ -164,6 +165,22 @@ def main() -> None:
                 skipped_count=len(rows) - len(pending_rows),
             )
             write_jsonl(args.summary_output_path, [summary])
+
+
+def _build_tts(args):
+    if args.provider == "gemini":
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise SystemExit("GEMINI_API_KEY is required for --provider gemini")
+        return GeminiTts(
+            api_key=api_key,
+            model=args.model,
+            voice_name=args.voice,
+        )
+    return SyntheticToneTts(
+        sample_rate=args.sample_rate,
+        duration_sec=args.duration_sec,
+    )
 
 
 def _read_jsonl(path: Path) -> list[dict]:
