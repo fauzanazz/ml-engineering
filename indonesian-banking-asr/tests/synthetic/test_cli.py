@@ -370,3 +370,51 @@ def test_cli_writes_dataset_summary_jsonl(tmp_path):
             "augmentation_profile_counts": {"noisy": 1},
         }
     ]
+
+
+def test_cli_validates_dataset_manifest_jsonl(tmp_path):
+    dataset_manifest_path = tmp_path / "dataset_manifest.jsonl"
+    qa_report_path = tmp_path / "dataset_qa.jsonl"
+    dataset_manifest_path.write_text(
+        json.dumps(
+            {
+                "utterance_id": "utt-001",
+                "audio_path": "audio/utt-001.wav",
+                "dataset_variant": "clean",
+            }
+        )
+        + "\n"
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "indonesian_banking_asr.synthetic.cli",
+            "dataset-qa",
+            "--input-path",
+            str(dataset_manifest_path),
+            "--output-path",
+            str(qa_report_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    reports = [json.loads(line) for line in qa_report_path.read_text().splitlines()]
+    assert reports == [
+        {
+            "checked_rows": 1,
+            "valid_rows": 0,
+            "invalid_rows": 1,
+            "errors": [
+                {
+                    "utterance_id": "utt-001",
+                    "field": "text",
+                    "message": "required field missing",
+                }
+            ],
+        }
+    ]

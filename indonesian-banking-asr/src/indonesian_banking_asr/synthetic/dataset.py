@@ -32,6 +32,46 @@ def build_dataset_summary(rows: Iterable[dict]) -> dict:
     }
 
 
+def validate_dataset_manifest_rows(rows: Iterable[dict]) -> dict:
+    errors = []
+    checked_rows = 0
+    invalid_utterance_ids = set()
+
+    for row in rows:
+        checked_rows += 1
+        utterance_id = row.get("utterance_id", "<missing>")
+        for field in ("utterance_id", "text", "audio_path", "dataset_variant"):
+            if not row.get(field):
+                errors.append(
+                    {
+                        "utterance_id": utterance_id,
+                        "field": field,
+                        "message": "required field missing",
+                    }
+                )
+                invalid_utterance_ids.add(utterance_id)
+
+        if row.get("dataset_variant") == "augmented":
+            for field in ("source_audio_path", "augmentation"):
+                if not row.get(field):
+                    errors.append(
+                        {
+                            "utterance_id": utterance_id,
+                            "field": field,
+                            "message": "required for augmented rows",
+                        }
+                    )
+                    invalid_utterance_ids.add(utterance_id)
+
+    invalid_rows = len(invalid_utterance_ids)
+    return {
+        "checked_rows": checked_rows,
+        "valid_rows": checked_rows - invalid_rows,
+        "invalid_rows": invalid_rows,
+        "errors": errors,
+    }
+
+
 
 def _tag_row(row: dict, dataset_variant: str, seen_utterance_ids: set[str]) -> dict:
     utterance_id = row["utterance_id"]
