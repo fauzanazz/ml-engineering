@@ -79,6 +79,34 @@ def test_validate_audio_manifest_rows_reports_sample_rate_mismatch(tmp_path):
     ]
 
 
+def test_validate_audio_manifest_rows_accepts_duration_precision_within_one_frame(tmp_path):
+    audio_path = tmp_path / "precise.wav"
+    sample_rate = 16000
+    frame_count = 92544
+    with wave.open(str(audio_path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes((1).to_bytes(2, "little", signed=True) * frame_count)
+    rows = [
+        {
+            "utterance_id": "utt-001",
+            "audio_path": str(audio_path),
+            "duration_sec": frame_count / sample_rate,
+            "sample_rate": sample_rate,
+        }
+    ]
+
+    report = validate_audio_manifest_rows(rows)
+
+    assert report == {
+        "checked_rows": 1,
+        "valid_rows": 1,
+        "invalid_rows": 0,
+        "errors": [],
+    }
+
+
 def test_validate_audio_manifest_rows_reports_duration_mismatch(tmp_path):
     rows = build_audio_manifest_rows(
         [

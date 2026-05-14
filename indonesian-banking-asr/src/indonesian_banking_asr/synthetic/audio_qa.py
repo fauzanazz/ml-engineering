@@ -63,8 +63,8 @@ def validate_audio_manifest_rows(rows: Iterable[dict]) -> dict:
             invalid_utterance_ids.add(utterance_id)
 
         expected_duration = row.get("duration_sec")
-        actual_duration = round(frame_count / actual_sample_rate, 2)
-        if actual_duration != expected_duration:
+        actual_duration = frame_count / actual_sample_rate
+        if abs(actual_duration - expected_duration) > (1 / actual_sample_rate):
             errors.append(
                 {
                     "utterance_id": utterance_id,
