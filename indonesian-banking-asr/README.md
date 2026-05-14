@@ -50,6 +50,9 @@ banking templates
 | 4 | 2026-05-13 | Gemini Paraphrase Integration & Audit Outputs | Tambah Gemini env config, dry-run/live paraphrase modes, entity validation, accepted/rejected audit JSONL, dan live smoke test. |
 | 5 | 2026-05-13 | Gemini Retry, Continue-on-Error & Raw Audit | Tambah retry/backoff, continue-on-error per row, raw audit JSONL, dan CLI flags untuk live batch resilience. |
 | 6 | 2026-05-13 | Rate Limiter, Resume & Batch Summary | Tambah fixed-delay rate limiter, resume mode, batch summary JSONL, dan CLI flags untuk batch generation lebih aman. |
+| 7 | 2026-05-15 | Audio Manifest, QA & Dataset Assembly | Tambah TTS audio manifest, audio QA, augmentation, merge clean+augmented manifests, dataset QA, dan dataset summary. |
+| 8 | 2026-05-15 | Edge TTS, Gemini TTS & Resumable TTS | Tambah real TTS providers dengan Edge TTS sebagai jalur utama, Gemini TTS untuk smoke test, WAV conversion, dan TTS resume/delay. |
+| 9 | 2026-05-15 | 9Router Edge TTS & Generation Scaling | Tambah provider 9Router untuk Edge TTS via HTTP dan `--samples-per-template` untuk scale canonical generation melewati 12 template. |
 
 Detail tiap step:
 
@@ -59,6 +62,9 @@ Detail tiap step:
 - [Step 4: Gemini Paraphrase Integration & Audit Outputs](docs/features/step-4-gemini-paraphrase-integration-audit.md)
 - [Step 5: Gemini Retry, Continue-on-Error & Raw Audit](docs/features/step-5-gemini-retry-continue-raw-audit.md)
 - [Step 6: Rate Limiter, Resume & Batch Summary](docs/features/step-6-rate-limiter-resume-summary.md)
+- [Step 7: Audio Manifest, QA & Dataset Assembly](docs/features/step-7-audio-manifest-qa-dataset-assembly.md)
+- [Step 8: Edge TTS, Gemini TTS & Resumable TTS](docs/features/step-8-edge-gemini-tts-resume.md)
+- [Step 9: 9Router Edge TTS & Generation Scaling](docs/features/step-9-9router-edge-tts-scaling.md)
 
 ## Current Plan
 
@@ -71,8 +77,9 @@ template bank utterance
   -> ask Gemini for paraphrases/code-switch variants
   -> validate exact entity preservation
   -> write JSONL manifest
-  -> generate TTS audio
-  -> apply G.711 + RIR + background noise
+  -> generate TTS audio with Edge TTS / 9Router Edge TTS
+  -> audio QA
+  -> apply call-noise augmentation profiles
   -> train/evaluate Whisper-small LoRA
 ```
 
@@ -86,16 +93,19 @@ Important leakage rules:
 
 ## Known Risks
 
-Gemini live batch generation has improved resilience after Step 5:
+Generation and audio pipeline resilience improved after Step 9:
 
 - Retry/backoff exists for retryable Gemini failures.
-- Continue-on-error exists for live batch generation.
+- Continue-on-error exists for live text generation.
 - Raw Gemini response audit exists.
+- TTS resume keeps existing audio manifest rows and generates only pending rows.
+- Audio QA validates WAV presence, sample rate, duration tolerance, and silent audio.
 
 Remaining operational risks:
 
-- Rate limiter is fixed delay, not adaptive from Gemini quota headers.
-- Resume mode skips processed rows but rewrites output files; no append-safe merge yet.
+- Rate limiter is fixed delay, not adaptive from provider quota headers.
+- Gemini TTS free-tier quota is too low for dataset generation; main path is Edge TTS or 9Router Edge TTS.
+- Edge TTS / 9Router are online services; rate limits and service policy should be respected.
 - Summary is JSONL only, not a human-readable report table yet.
 - Raw audit stores prompts; keep generated audit files under ignored `data/synthetic/` unless reviewed.
 
