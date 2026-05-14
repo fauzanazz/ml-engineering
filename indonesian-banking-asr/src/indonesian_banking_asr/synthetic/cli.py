@@ -19,7 +19,7 @@ from indonesian_banking_asr.synthetic.pipeline import generate_manifest_rows
 from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
 from indonesian_banking_asr.synthetic.resume import filter_pending_rows, read_processed_utterance_ids
 from indonesian_banking_asr.synthetic.summary import build_generation_summary
-from indonesian_banking_asr.synthetic.tts import EdgeTts, GeminiTts, SyntheticToneTts, build_audio_manifest_rows
+from indonesian_banking_asr.synthetic.tts import EdgeTts, GeminiTts, NinerouterTts, SyntheticToneTts, build_audio_manifest_rows
 
 
 def main() -> None:
@@ -32,7 +32,7 @@ def main() -> None:
     tts_parser.add_argument("--audio-dir", required=True, type=Path)
     tts_parser.add_argument("--sample-rate", default=8000, type=int)
     tts_parser.add_argument("--duration-sec", default=1.0, type=float)
-    tts_parser.add_argument("--provider", choices=("synthetic-tone", "gemini", "edge"), default="synthetic-tone")
+    tts_parser.add_argument("--provider", choices=("synthetic-tone", "gemini", "edge", "9router"), default="synthetic-tone")
     tts_parser.add_argument("--voice", default="Kore")
     tts_parser.add_argument("--model", default=os.environ.get("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts"))
     tts_parser.add_argument("--resume", action="store_true")
@@ -76,6 +76,7 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--seconds-per-request", default=0.0, type=float)
     parser.add_argument("--variant-count", default=5, type=int)
+    parser.add_argument("--samples-per-template", default=1, type=int)
     args = parser.parse_args()
 
     if args.command == "tts":
@@ -134,7 +135,11 @@ def main() -> None:
     if args.output_path is None:
         raise SystemExit("--output-path is required")
 
-    rows = generate_manifest_rows(seed=args.seed, limit=args.limit)
+    rows = generate_manifest_rows(
+        seed=args.seed,
+        limit=args.limit,
+        samples_per_template=args.samples_per_template,
+    )
     write_jsonl(args.output_path, rows)
 
     if args.paraphrase_mode != "none":
@@ -180,6 +185,16 @@ def _build_rate_limiter(seconds_per_request: float):
 
 
 def _build_tts(args):
+    if args.provider == "9router":
+        base_url = os.environ.get("NINEROUTER_URL")
+        if not base_url:
+            raise SystemExit("NINEROUTER_URL is required for --provider 9router")
+        return NinerouterTts(
+            base_url=base_url,
+            api_key=os.environ.get("NINEROUTER_KEY"),
+            voice_name=args.voice if args.voice != "Kore" else "edge-tts/id-ID-ArdiNeural",
+            sample_rate=args.sample_rate,
+        )
     if args.provider == "edge":
         return EdgeTts(
             voice_name=args.voice if args.voice != "Kore" else "id-ID-ArdiNeural",

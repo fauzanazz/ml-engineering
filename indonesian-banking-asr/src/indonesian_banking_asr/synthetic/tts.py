@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import math
+import json
 import subprocess
 import time
+import urllib.request
 import wave
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,6 +49,56 @@ class SyntheticToneTts:
                     * math.sin(2 * math.pi * frequency_hz * frame_index / self.sample_rate)
                 )
                 wav_file.writeframesraw(sample.to_bytes(2, byteorder="little", signed=True))
+
+
+def post_ninerouter_speech(
+    url: str,
+    payload: dict[str, str],
+    headers: dict[str, str],
+    timeout_seconds: int,
+) -> bytes:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+        return response.read()
+
+
+@dataclass(frozen=True)
+class NinerouterTts:
+    base_url: str
+    api_key: str | None = None
+    voice_name: str = "edge-tts/id-ID-ArdiNeural"
+    sample_rate: int = 16000
+    duration_sec: float = 0.0
+    engine_name: str = "9router-tts"
+    timeout_seconds: int = 60
+    post_speech: Callable[[str, dict[str, str], dict[str, str], int], bytes] = post_ninerouter_speech
+    convert_to_wav: Callable[[Path, Path, int], None] | None = None
+
+    def synthesize(self, text: str, output_path: Path) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        mp3_path = output_path.with_suffix(".mp3")
+        mp3_path.write_bytes(
+            self.post_speech(
+                f"{self.base_url.rstrip('/')}/v1/audio/speech",
+                {"model": self.voice_name, "input": text},
+                self._headers(),
+                self.timeout_seconds,
+            )
+        )
+        converter = self.convert_to_wav or _convert_mp3_to_wav
+        converter(mp3_path, output_path, self.sample_rate)
+        mp3_path.unlink(missing_ok=True)
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
 
 
 @dataclass(frozen=True)
