@@ -1,0 +1,16 @@
+service_name: foundation-api
+image: ml-production-ecosystem-foundation-api
+command: uv run foundation-serve-recommender
+port: 8000
+health_endpoint: /health
+metrics_endpoint: /metrics
+metrics_json_endpoint: /metrics.json
+drift_endpoint: /drift
+registry_path: 01-foundation/registry/models.json
+release_checklist: 02-production-patterns/docs/release-checklist.md
+rollback_command: >-
+  uv run production-rollback-model
+  --registry-path 01-foundation/registry/models.json
+  --model-name movielens-popularity
+  --target-version foundation-config-v1
+  --reason "deployment verification failed"
