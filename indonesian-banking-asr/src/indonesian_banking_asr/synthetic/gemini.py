@@ -33,15 +33,30 @@ class RetryableGeminiError(RuntimeError):
 
 
 class GeminiTransport(Protocol):
-    def post_json(self, url: str, payload: dict[str, Any], timeout_seconds: int) -> dict[str, Any]: ...
+    def post_json(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        timeout_seconds: int,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]: ...
 
 
 class UrllibGeminiTransport:
-    def post_json(self, url: str, payload: dict[str, Any], timeout_seconds: int) -> dict[str, Any]:
+    def post_json(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        timeout_seconds: int,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        request_headers = {"Content-Type": "application/json"}
+        if headers:
+            request_headers.update(headers)
         request = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers=request_headers,
             method="POST",
         )
         try:
@@ -51,6 +66,39 @@ class UrllibGeminiTransport:
             if error.code in {429, 500, 502, 503, 504}:
                 raise RetryableGeminiError(f"Gemini HTTP {error.code}") from error
             raise
+
+
+class NinerouterChatClient:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str | None,
+        model: str,
+        transport: GeminiTransport | None = None,
+        timeout_seconds: int = 30,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.model = model
+        self.transport = transport or UrllibGeminiTransport()
+        self.timeout_seconds = timeout_seconds
+
+    def generate_paraphrases(self, prompt: str) -> list[str]:
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else None
+        response = self.transport.post_json(
+            f"{self.base_url}/v1/chat/completions",
+            payload={
+                "model": self.model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7,
+                "max_tokens": 2048,
+                "stream": False,
+            },
+            timeout_seconds=self.timeout_seconds,
+            headers=headers,
+        )
+        text = response["choices"][0]["message"]["content"]
+        return parse_gemini_json_array(text)
 
 
 class GeminiClient:

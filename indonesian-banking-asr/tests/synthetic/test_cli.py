@@ -4,7 +4,22 @@ import subprocess
 import sys
 import wave
 
+from indonesian_banking_asr.synthetic.cli import _build_paraphraser
+from indonesian_banking_asr.synthetic.gemini import NinerouterChatClient
 from indonesian_banking_asr.synthetic.tts import GeminiTts
+
+
+def test_build_paraphraser_supports_ninerouter_chat(monkeypatch):
+    monkeypatch.setenv("NINEROUTER_URL", "http://localhost:20128")
+    monkeypatch.setenv("NINEROUTER_KEY", "router-key")
+    monkeypatch.setenv("NINEROUTER_PARAPHRASE_MODEL", "openai/gpt-4o-mini")
+
+    paraphraser = _build_paraphraser("9router", 0)
+
+    assert isinstance(paraphraser, NinerouterChatClient)
+    assert paraphraser.base_url == "http://localhost:20128"
+    assert paraphraser.api_key == "router-key"
+    assert paraphraser.model == "openai/gpt-4o-mini"
 
 
 def test_cli_generates_pilot_manifest_jsonl(tmp_path):

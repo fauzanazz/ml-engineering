@@ -13,7 +13,7 @@ from indonesian_banking_asr.synthetic.dataset import (
     merge_audio_manifest_rows,
     validate_dataset_manifest_rows,
 )
-from indonesian_banking_asr.synthetic.gemini import GeminiClient, load_gemini_config
+from indonesian_banking_asr.synthetic.gemini import GeminiClient, NinerouterChatClient, load_gemini_config
 from indonesian_banking_asr.synthetic.paraphrase import DryRunParaphraser, RateLimitedParaphraser, paraphrase_rows_with_audit
 from indonesian_banking_asr.synthetic.pipeline import generate_manifest_rows
 from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
@@ -67,7 +67,7 @@ def main() -> None:
     parser.add_argument("--output-path", type=Path)
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--limit", default=None, type=int)
-    parser.add_argument("--paraphrase-mode", choices=("none", "dry-run", "live"), default="none")
+    parser.add_argument("--paraphrase-mode", choices=("none", "dry-run", "live", "9router"), default="none")
     parser.add_argument("--accepted-output-path", type=Path)
     parser.add_argument("--rejected-output-path", type=Path)
     parser.add_argument("--raw-output-path", type=Path)
@@ -232,6 +232,15 @@ def _parse_augmentation_profile(value: str) -> dict:
 def _build_paraphraser(mode: str, seconds_per_request: float):
     if mode == "dry-run":
         paraphraser = DryRunParaphraser()
+    elif mode == "9router":
+        base_url = os.environ.get("NINEROUTER_URL")
+        if not base_url:
+            raise SystemExit("NINEROUTER_URL is required for --paraphrase-mode 9router")
+        paraphraser = NinerouterChatClient(
+            base_url=base_url,
+            api_key=os.environ.get("NINEROUTER_KEY"),
+            model=os.environ.get("NINEROUTER_PARAPHRASE_MODEL", "openai/gpt-4o-mini"),
+        )
     else:
         paraphraser = GeminiClient(load_gemini_config())
     if seconds_per_request <= 0:
