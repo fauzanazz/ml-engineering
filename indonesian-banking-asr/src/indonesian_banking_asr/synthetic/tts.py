@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import base64
 import math
+import time
 import wave
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Protocol
+from typing import Any, Callable, Iterable, Protocol
 
+from indonesian_banking_asr.synthetic.gemini import GeminiTransport, RetryableGeminiError, UrllibGeminiTransport
 from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
-
-from indonesian_banking_asr.synthetic.gemini import GeminiTransport, UrllibGeminiTransport
 
 
 class TtsEngine(Protocol):
@@ -55,17 +55,30 @@ class GeminiTts:
     engine_name: str = "gemini-tts"
     transport: GeminiTransport | None = None
     timeout_seconds: int = 60
+    max_retries: int = 3
+    sleep: Callable[[float], None] = time.sleep
 
     def synthesize(self, text: str, output_path: Path) -> None:
-        response = (self.transport or UrllibGeminiTransport()).post_json(
-            self._generate_content_url(),
-            payload=self._build_payload(text),
-            timeout_seconds=self.timeout_seconds,
-        )
+        response = self._post_with_retry(self._build_payload(text))
         inline_data = _extract_audio_inline_data(response)
         pcm_bytes = base64.b64decode(inline_data["data"])
         output_path.parent.mkdir(parents=True, exist_ok=True)
         _write_pcm_wav(output_path, pcm_bytes, sample_rate=self.sample_rate)
+
+    def _post_with_retry(self, payload: dict[str, Any]) -> dict[str, Any]:
+        transport = self.transport or UrllibGeminiTransport()
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                return transport.post_json(
+                    self._generate_content_url(),
+                    payload=payload,
+                    timeout_seconds=self.timeout_seconds,
+                )
+            except RetryableGeminiError:
+                if attempt == self.max_retries:
+                    raise
+                self.sleep(float(2 ** (attempt - 1)))
+        raise RuntimeError("unreachable retry state")
 
     def _generate_content_url(self) -> str:
         return (

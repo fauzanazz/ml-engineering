@@ -113,6 +113,44 @@ def test_gemini_tts_writes_pcm_audio_as_wav(tmp_path):
         assert wav_file.getnframes() == 3
 
 
+def test_gemini_tts_retries_retryable_errors(tmp_path):
+    from indonesian_banking_asr.synthetic.gemini import RetryableGeminiError
+
+    class FlakyTransport:
+        def __init__(self):
+            self.calls = 0
+
+        def post_json(self, url, payload, timeout_seconds):
+            self.calls += 1
+            if self.calls == 1:
+                raise RetryableGeminiError("Gemini HTTP 429")
+            return {
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "inlineData": {
+                                        "mimeType": "audio/L16;codec=pcm;rate=24000",
+                                        "data": base64.b64encode((0).to_bytes(2, "little", signed=True)).decode(),
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+
+    sleeps = []
+    transport = FlakyTransport()
+    tts = GeminiTts(api_key="test-key", transport=transport, sleep=sleeps.append)
+
+    tts.synthesize("Saya mau cek saldo rekening.", tmp_path / "gemini.wav")
+
+    assert transport.calls == 2
+    assert sleeps == [1.0]
+
+
 def test_audio_manifest_uses_written_wav_duration(tmp_path):
     class TinyWavTts:
         engine_name = "tiny-wav"
