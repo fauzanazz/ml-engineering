@@ -1,0 +1,21 @@
+services:
+  foundation-api:
+    image: ml-production-ecosystem-foundation-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uv run foundation-serve-recommender
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./01-foundation/artifacts:/app/01-foundation/artifacts
+      - ./01-foundation/registry:/app/01-foundation/registry
+      - ./01-foundation/logs:/app/01-foundation/logs
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
