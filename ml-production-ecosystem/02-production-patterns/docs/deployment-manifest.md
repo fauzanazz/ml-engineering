@@ -20,7 +20,7 @@ related:
 
 `image` records the expected local image name, `ml-production-ecosystem-foundation-api`. Update it when packaging or image naming changes.
 
-`command` records the serving command, `uv run foundation-serve-recommender`. Update it when the API entrypoint changes.
+`command` records the serving command, `uv run foundation-serve-recommender --host 0.0.0.0 --port 8000 --prediction-log-path 01-foundation/logs/production-compose-predictions.jsonl`. Keep `--host 0.0.0.0` for container port publishing and keep the production compose prediction log isolated from local test traffic. Update it when the API entrypoint changes.
 
 `port` records the service port, `8000`. Update it when the API binds to a different exposed port.
 

@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: uv run foundation-serve-recommender
+    command: uv run foundation-serve-recommender --host 0.0.0.0 --port 8000 --prediction-log-path 01-foundation/logs/production-compose-predictions.jsonl
     ports:
       - "8000:8000"
     volumes:

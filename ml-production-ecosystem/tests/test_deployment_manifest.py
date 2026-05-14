@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import yaml
 
@@ -7,6 +8,8 @@ MANIFEST_PATH = ROOT / "02-production-patterns" / "deploy" / "deployment-manifes
 DOC_PATH = ROOT / "02-production-patterns" / "docs" / "deployment-manifest.md"
 COMPOSE_PATH = ROOT / "docker-compose.production.yaml"
 COMPOSE_DOC_PATH = ROOT / "02-production-patterns" / "docs" / "production-compose.md"
+SMOKE_SCRIPT_PATH = ROOT / "scripts" / "smoke-test-foundation-api.sh"
+SMOKE_DOC_PATH = ROOT / "02-production-patterns" / "docs" / "live-smoke-test.md"
 
 
 def test_deployment_manifest_yaml_exists_and_parses() -> None:
@@ -15,7 +18,7 @@ def test_deployment_manifest_yaml_exists_and_parses() -> None:
 
     assert manifest["service_name"] == "foundation-api"
     assert manifest["image"] == "ml-production-ecosystem-foundation-api"
-    assert manifest["command"] == "uv run foundation-serve-recommender"
+    assert manifest["command"] == "uv run foundation-serve-recommender --host 0.0.0.0 --port 8000 --prediction-log-path 01-foundation/logs/production-compose-predictions.jsonl"
     assert manifest["port"] == 8000
     assert manifest["health_endpoint"] == "/health"
     assert manifest["metrics_endpoint"] == "/metrics"
@@ -78,6 +81,43 @@ def test_production_compose_doc_explains_start_verify_stop_flow() -> None:
     assert "--max-drift-score 0.2" in doc
     assert "--max-latency-ms-last 100" in doc
     assert "docker compose -f docker-compose.production.yaml down" in doc
+    assert "01-foundation/logs/production-compose-predictions.jsonl" in doc
     assert "/health" in doc
     assert "/metrics" in doc
     assert "/drift" in doc
+
+
+def test_smoke_test_script_checks_foundation_api_endpoints() -> None:
+    assert SMOKE_SCRIPT_PATH.exists()
+    assert os.access(SMOKE_SCRIPT_PATH, os.X_OK)
+    script = SMOKE_SCRIPT_PATH.read_text()
+
+    assert "${1:-http://127.0.0.1:8000}" in script
+    assert "set -euo pipefail" in script
+    assert "/health" in script
+    assert "status" in script
+    assert "ok" in script
+    assert "/metrics.json" in script
+    assert "/drift" in script
+    assert "/predict/v1" in script
+    assert "user_id" not in script
+    assert "top_k" in script
+    assert "recommendations" in script
+    assert "time.sleep" in script
+    assert "last_error" in script
+
+
+def test_live_smoke_test_doc_explains_release_verification_flow() -> None:
+    assert SMOKE_DOC_PATH.exists()
+    doc = SMOKE_DOC_PATH.read_text()
+
+    assert "docker compose -f docker-compose.production.yaml up --build foundation-api" in doc
+    assert "./scripts/smoke-test-foundation-api.sh http://127.0.0.1:8000" in doc
+    assert "uv run production-monitor" in doc
+    assert "production-compose.md" in doc
+    assert "release-checklist.md" in doc
+    assert "deployment-manifest.yaml" in doc
+    assert "/health" in doc
+    assert "/metrics.json" in doc
+    assert "/drift" in doc
+    assert "/predict/v1" in doc

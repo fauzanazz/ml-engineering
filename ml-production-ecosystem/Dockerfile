@@ -8,8 +8,9 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 COPY 01-foundation ./01-foundation
+COPY 02-production-patterns/production_patterns ./02-production-patterns/production_patterns
 COPY shared ./shared
 
 RUN uv sync --frozen --no-dev

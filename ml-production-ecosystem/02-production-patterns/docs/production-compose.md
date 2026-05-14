@@ -12,9 +12,9 @@ related:
 
 # Production Compose Profile
 
-`docker-compose.production.yaml` starts the `foundation-api` service using deployment manifest conventions: image `ml-production-ecosystem-foundation-api`, command `uv run foundation-serve-recommender`, port `8000:8000`, and health endpoint `/health`.
+`docker-compose.production.yaml` starts the `foundation-api` service using deployment manifest conventions: image `ml-production-ecosystem-foundation-api`, command `uv run foundation-serve-recommender --host 0.0.0.0 --port 8000 --prediction-log-path 01-foundation/logs/production-compose-predictions.jsonl`, port `8000:8000`, and health endpoint `/health`.
 
-The compose file mounts local `01-foundation/artifacts`, `01-foundation/registry`, and `01-foundation/logs` paths into `/app` so the running API keeps using local model artifacts and registry state.
+The compose file mounts local `01-foundation/artifacts`, `01-foundation/registry`, and `01-foundation/logs` paths into `/app` so the running API keeps using local model artifacts and registry state. Production compose writes predictions to `01-foundation/logs/production-compose-predictions.jsonl` to avoid drift checks reading unrelated local test traffic.
 
 ## Start
 
