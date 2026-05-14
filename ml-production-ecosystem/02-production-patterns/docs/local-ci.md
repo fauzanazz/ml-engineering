@@ -12,7 +12,7 @@ related:
 
 # Local CI For Production Patterns
 
-Run `./scripts/validate-production-patterns.sh` from `ml-production-ecosystem` to validate production patterns before push or before release.
+Run `./scripts/validate-production-patterns.sh` from `ml-production-ecosystem` to validate production patterns before push or before release. This local CI mirrors GitHub Actions remote CI for `ml-production-ecosystem` changes.
 
 ## Command
 
@@ -46,4 +46,4 @@ This covers scaffold presence, retraining, quality gate, monitoring, legacy moni
 
 ## Limits
 
-This is local CI only. It does not install GitHub Actions, run Docker builds, start a live API, collect coverage, enforce formatting, or validate a production scheduler.
+This is a focused local CI command mirrored by GitHub Actions remote CI. It does not run Docker builds, start a live API, collect coverage, enforce formatting, or validate a production scheduler.

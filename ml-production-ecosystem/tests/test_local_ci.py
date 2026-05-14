@@ -1,8 +1,12 @@
 from pathlib import Path
 import os
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = ROOT.parent
 SCRIPT_PATH = ROOT / "scripts" / "validate-production-patterns.sh"
+WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ml-production-ecosystem-ci.yml"
 DOC_PATH = ROOT / "02-production-patterns" / "docs" / "local-ci.md"
 REQUIRED_TESTS = [
     "tests/test_production_patterns_scaffold.py",
@@ -30,6 +34,22 @@ def test_validate_production_patterns_script_exists_executable_and_targets_tests
         assert test_path in script
 
 
+def test_github_actions_workflow_runs_production_patterns_validation() -> None:
+    assert WORKFLOW_PATH.exists()
+    workflow = WORKFLOW_PATH.read_text()
+    parsed_workflow = yaml.safe_load(workflow)
+
+    assert parsed_workflow[True]["push"]
+    assert parsed_workflow[True]["pull_request"]
+    assert "ml-production-ecosystem/**" in workflow
+    assert ".github/workflows/ml-production-ecosystem-ci.yml" in workflow
+    assert "actions/checkout" in workflow
+    assert "python-version: '3.13'" in workflow
+    assert "astral-sh/setup-uv" in workflow
+    assert "cd ml-production-ecosystem" in workflow
+    assert "./scripts/validate-production-patterns.sh" in workflow
+
+
 def test_local_ci_doc_explains_when_to_run_script() -> None:
     assert DOC_PATH.exists()
     doc = DOC_PATH.read_text()
@@ -37,6 +57,8 @@ def test_local_ci_doc_explains_when_to_run_script() -> None:
     assert "./scripts/validate-production-patterns.sh" in doc
     assert "before push" in doc
     assert "before release" in doc
+    assert "GitHub Actions" in doc
+    assert "remote CI" in doc
     assert "production patterns" in doc
     for test_path in REQUIRED_TESTS:
         assert test_path in doc
