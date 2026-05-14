@@ -5,6 +5,7 @@ description = "Indonesian banking ASR synthetic dataset and training pipeline."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "edge-tts>=7.2.8",
     "pyyaml>=6.0.3",
 ]
 

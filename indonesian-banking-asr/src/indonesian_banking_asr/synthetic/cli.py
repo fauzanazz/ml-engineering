@@ -19,7 +19,7 @@ from indonesian_banking_asr.synthetic.pipeline import generate_manifest_rows
 from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
 from indonesian_banking_asr.synthetic.resume import filter_pending_rows, read_processed_utterance_ids
 from indonesian_banking_asr.synthetic.summary import build_generation_summary
-from indonesian_banking_asr.synthetic.tts import GeminiTts, SyntheticToneTts, build_audio_manifest_rows
+from indonesian_banking_asr.synthetic.tts import EdgeTts, GeminiTts, SyntheticToneTts, build_audio_manifest_rows
 
 
 def main() -> None:
@@ -32,7 +32,7 @@ def main() -> None:
     tts_parser.add_argument("--audio-dir", required=True, type=Path)
     tts_parser.add_argument("--sample-rate", default=8000, type=int)
     tts_parser.add_argument("--duration-sec", default=1.0, type=float)
-    tts_parser.add_argument("--provider", choices=("synthetic-tone", "gemini"), default="synthetic-tone")
+    tts_parser.add_argument("--provider", choices=("synthetic-tone", "gemini", "edge"), default="synthetic-tone")
     tts_parser.add_argument("--voice", default="Kore")
     tts_parser.add_argument("--model", default=os.environ.get("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts"))
     tts_parser.add_argument("--resume", action="store_true")
@@ -180,6 +180,11 @@ def _build_rate_limiter(seconds_per_request: float):
 
 
 def _build_tts(args):
+    if args.provider == "edge":
+        return EdgeTts(
+            voice_name=args.voice if args.voice != "Kore" else "id-ID-ArdiNeural",
+            sample_rate=args.sample_rate,
+        )
     if args.provider == "gemini":
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:

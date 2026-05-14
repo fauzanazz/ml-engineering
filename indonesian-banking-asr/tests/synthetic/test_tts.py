@@ -1,5 +1,44 @@
+import wave
+
 from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
-from indonesian_banking_asr.synthetic.tts import SyntheticToneTts, build_audio_manifest_rows
+from indonesian_banking_asr.synthetic.tts import EdgeTts, SyntheticToneTts, build_audio_manifest_rows
+
+
+def test_edge_tts_writes_mp3_then_converts_to_wav(tmp_path):
+    class StubCommunicate:
+        def __init__(self, text, voice):
+            self.text = text
+            self.voice = voice
+
+        async def save(self, path):
+            assert self.text == "Saya mau cek saldo."
+            assert self.voice == "id-ID-ArdiNeural"
+            path.write_bytes(b"mp3-bytes")
+
+    def convert_to_wav(mp3_path, wav_path, sample_rate):
+        assert mp3_path.read_bytes() == b"mp3-bytes"
+        assert sample_rate == 16000
+        with wave.open(str(wav_path), "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes((0).to_bytes(2, "little", signed=True) * 2)
+
+    output_path = tmp_path / "edge.wav"
+    tts = EdgeTts(
+        voice_name="id-ID-ArdiNeural",
+        sample_rate=16000,
+        communicate_factory=StubCommunicate,
+        convert_to_wav=convert_to_wav,
+    )
+
+    tts.synthesize("Saya mau cek saldo.", output_path)
+
+    assert not (tmp_path / "edge.mp3").exists()
+    with wave.open(str(output_path), "rb") as wav_file:
+        assert wav_file.getframerate() == 16000
+        assert wav_file.getnchannels() == 1
+        assert wav_file.getnframes() == 2
 
 
 def test_build_audio_manifest_rows_writes_wav_and_adds_audio_metadata(tmp_path):

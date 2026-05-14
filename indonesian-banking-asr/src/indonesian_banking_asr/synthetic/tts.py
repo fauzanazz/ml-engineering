@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import math
+import subprocess
 import time
 import wave
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Protocol
+
+import edge_tts
 
 from indonesian_banking_asr.synthetic.gemini import GeminiTransport, RetryableGeminiError, UrllibGeminiTransport
 from indonesian_banking_asr.synthetic.rate_limit import RateLimiter
@@ -43,6 +47,25 @@ class SyntheticToneTts:
                     * math.sin(2 * math.pi * frequency_hz * frame_index / self.sample_rate)
                 )
                 wav_file.writeframesraw(sample.to_bytes(2, byteorder="little", signed=True))
+
+
+@dataclass(frozen=True)
+class EdgeTts:
+    voice_name: str = "id-ID-ArdiNeural"
+    sample_rate: int = 16000
+    duration_sec: float = 0.0
+    engine_name: str = "edge-tts"
+    communicate_factory: Callable[[str, str], Any] = edge_tts.Communicate
+    convert_to_wav: Callable[[Path, Path, int], None] | None = None
+
+    def synthesize(self, text: str, output_path: Path) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        mp3_path = output_path.with_suffix(".mp3")
+        communicate = self.communicate_factory(text, self.voice_name)
+        asyncio.run(communicate.save(mp3_path))
+        converter = self.convert_to_wav or _convert_mp3_to_wav
+        converter(mp3_path, output_path, self.sample_rate)
+        mp3_path.unlink(missing_ok=True)
 
 
 @dataclass(frozen=True)
@@ -98,6 +121,46 @@ class GeminiTts:
                 },
             },
         }
+
+
+def _convert_mp3_to_wav(mp3_path: Path, wav_path: Path, sample_rate: int) -> None:
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(mp3_path),
+                "-ac",
+                "1",
+                "-ar",
+                str(sample_rate),
+                str(wav_path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pass
+
+    subprocess.run(
+        [
+            "afconvert",
+            str(mp3_path),
+            str(wav_path),
+            "-f",
+            "WAVE",
+            "-d",
+            f"LEI16@{sample_rate}",
+            "-c",
+            "1",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def _extract_audio_inline_data(response: dict[str, Any]) -> dict[str, str]:
