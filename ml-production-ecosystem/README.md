@@ -57,6 +57,15 @@ Project dibagi menjadi tiga folder berdasarkan skala:
 | 26 | 02 Production Patterns | Release summary report | `production-release-summary` collects release evidence into a report. | [docs](docs/features/step-26-release-summary-report.md) |
 | 27 | 02 Production Patterns | Scope review | Closure checklist for completed capabilities, known gaps, and next module boundary. | [docs](02-production-patterns/docs/scope-review.md) |
 | 28 | 03 Scale And Reliability | Module scaffold and scope | Creates `03-scale-and-reliability` with scope for scale, reliability, load behavior, and failure handling. | [docs](docs/features/step-28-module-scaffold-and-scope.md) |
+| 29 | 03 Scale And Reliability | Load test entrypoint | `scale-load-test` sends repeated serving API requests and writes latency/success/error JSON reports. | [docs](03-scale-and-reliability/docs/timeout-and-retry-policy.md) |
+| 30 | 03 Scale And Reliability | Concurrent inference test | Load test supports configurable concurrency for sequential vs concurrent comparison. | [docs](03-scale-and-reliability/docs/timeout-and-retry-policy.md) |
+| 31 | 03 Scale And Reliability | Request timeout and retry policy | Load test supports per-attempt timeout, retry count, retry delay, attempt pressure, and grouped errors. | [docs](03-scale-and-reliability/docs/timeout-and-retry-policy.md) |
+| 32 | 03 Scale And Reliability | Backpressure pattern | Local max in-flight limiter rejects overload with controlled 429-style response. | [docs](03-scale-and-reliability/docs/backpressure-pattern.md) |
+| 33 | 03 Scale And Reliability | Batch inference performance baseline | Batch inference can write local duration, row count, and throughput rows/sec report. | [docs](03-scale-and-reliability/docs/batch-performance-baseline.md) |
+| 34 | 03 Scale And Reliability | Caching pattern | Local prediction cache tracks deterministic hit/miss behavior and cache safety boundaries. | [docs](03-scale-and-reliability/docs/caching-pattern.md) |
+| 35 | 03 Scale And Reliability | SLO definition | Defines learning SLOs for availability, latency p95, error rate, and drift threshold. | [docs](03-scale-and-reliability/docs/slo-definition.md) |
+| 37 | 03 Scale And Reliability | Reliability runbook | Triage guide for overload, latency, errors, stale model, drift, rollback, and retraining. | [docs](03-scale-and-reliability/docs/reliability-runbook.md) |
+| 38 | 03 Scale And Reliability | Scale readiness review | Closure review for local scale readiness, real million-request gaps, and Step 39 direction. | [docs](03-scale-and-reliability/docs/scale-readiness-review.md) |
 
 Supporting docs:
 
@@ -65,7 +74,7 @@ Supporting docs:
 
 ## Current Architecture
 
-Current flow sudah melewati foundation, menutup production patterns di Step 27, dan membuka `03-scale-and-reliability` di Step 28:
+Current flow sudah melewati foundation, menutup production patterns di Step 27, dan menutup local scale/reliability learning loop sampai Step 38:
 
 ```text
 MovieLens data
@@ -84,7 +93,9 @@ MovieLens data
  -> production compose + live smoke test
  -> release summary report
  -> production patterns scope review
- -> scale and reliability scaffold
+ -> scale/reliability load tests + concurrency + retry policy
+ -> backpressure + cache + batch performance baseline
+ -> SLO definition + reliability runbook + scale readiness review
 ```
 
 Shared code ditempatkan di root `shared/` agar bisa dipakai ulang oleh ketiga skala project:
@@ -122,7 +133,7 @@ uv run pytest
 Expected result:
 
 ```text
-109 passed
+129 passed
 ```
 
 ## Current Status
@@ -130,14 +141,13 @@ Expected result:
 - `01-foundation` sudah punya train → artifact → config → experiment → registry → serving → metrics/logging → Dockerized API → monitoring stack.
 - Step 11 batch inference jadi transisi ke `02-production-patterns`.
 - `02-production-patterns` ditutup di Step 27 dengan scope review: retraining, quality gate, monitor, scheduled retrain, Airflow DAG skeleton, alerting, rollback, release checklist, deployment manifest, local CI, GitHub Actions CI, production compose, smoke test, release summary, dan gap checklist.
-- `03-scale-and-reliability` dibuka di Step 28 sebagai scaffold scope untuk scale, reliability, load behavior, dan failure handling.
-- Belum ada MLflow stages, Kubernetes, real cloud deployment, remote scheduler runtime, managed secrets, canary deployment, load testing implementation, atau real million traffic.
+- `03-scale-and-reliability` sudah sampai Step 38: load test, concurrency, retry policy, backpressure, batch performance baseline, caching pattern, SLO definition, reliability runbook, dan scale readiness review.
+- Belum ada MLflow stages, Kubernetes, real cloud deployment, remote scheduler runtime, managed secrets, canary deployment, distributed load testing, autoscaling, SLO burn-rate math, atau real million traffic.
 
 ## Next Direction
 
 Next step yang paling masuk akal:
 
-1. mulai Step 29 untuk load behavior simulation di `03-scale-and-reliability`
-2. queue-based inference pattern
-3. caching layer untuk online recommendations
-4. horizontal scaling + degradation strategy
+1. mulai Step 39 dengan `04-platform-and-cloud` scaffold untuk cloud deployment, managed infra, IAM/secrets, CI/CD, dan platform boundary
+2. lanjut lebih dalam di `03-scale-and-reliability` untuk queue-based inference, batching optimization, model-server tuning, atau distributed cache
+3. pause implementasi dan review manual load/reliability report lokal
