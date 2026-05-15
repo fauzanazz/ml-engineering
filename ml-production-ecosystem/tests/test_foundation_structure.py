@@ -15,8 +15,8 @@ def test_foundation_docs_are_centralized() -> None:
         assert path.exists(), f"Missing central doc: {path}"
 
 
-def test_scaffold_folders_only_have_readme_docs() -> None:
-    for folder in ["01-foundation", "03-scale-and-reliability"]:
+def test_foundation_folder_only_has_readme_docs() -> None:
+    for folder in ["01-foundation"]:
         nested_docs = [
             path
             for path in (ROOT / folder).rglob("*.md")

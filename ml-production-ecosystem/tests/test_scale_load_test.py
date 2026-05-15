@@ -4,7 +4,7 @@ from time import sleep
 
 import pytest
 
-from scale_reliability.load_test import calculate_latency_summary, run_load_test
+from scale_reliability.load_test import calculate_latency_summary, parse_load_test_args, run_load_test
 
 
 def test_run_load_test_reports_successes_and_writes_json(tmp_path: Path) -> None:
@@ -28,9 +28,18 @@ def test_run_load_test_reports_successes_and_writes_json(tmp_path: Path) -> None
         "endpoint": "/predict/v1",
         "request_count": 3,
         "concurrency": 1,
+        "timeout_seconds": 2.0,
+        "retry_count": 0,
+        "retry_delay_seconds": 0.0,
         "success_count": 3,
         "error_count": 0,
+        "attempt_count": 3,
+        "retry_attempt_count": 0,
+        "retried_request_count": 0,
+        "retry_success_count": 0,
+        "retry_exhausted_count": 0,
         "latency_ms": {"min": 8.0, "p50": 8.0, "p95": 8.0, "max": 8.0},
+        "errors": {},
         "status": "passed",
     }
     assert output_path.read_text().strip().startswith("{")
@@ -113,6 +122,120 @@ def test_run_load_test_rejects_invalid_concurrency() -> None:
             request_count=1,
             concurrency=0,
             timeout_seconds=1,
+        )
+
+
+def test_parse_load_test_args_accepts_timeout_and_retry_config() -> None:
+    args = parse_load_test_args(
+        [
+            "--base-url",
+            "http://127.0.0.1:8000",
+            "--request-count",
+            "50",
+            "--concurrency",
+            "5",
+            "--timeout-seconds",
+            "1",
+            "--retry-count",
+            "2",
+            "--retry-delay-seconds",
+            "0.1",
+        ]
+    )
+
+    assert args.timeout_seconds == 1.0
+    assert args.retry_count == 2
+    assert args.retry_delay_seconds == 0.1
+
+
+def test_run_load_test_retries_transient_failure_until_success() -> None:
+    outcomes = iter([(500, 3.0), (200, 9.0)])
+
+    def requester(url: str, timeout_seconds: float) -> tuple[int, float]:
+        return next(outcomes)
+
+    report = run_load_test(
+        base_url="http://127.0.0.1:8000",
+        request_count=1,
+        timeout_seconds=1,
+        retry_count=2,
+        retry_delay_seconds=0,
+        requester=requester,
+    )
+
+    assert report["success_count"] == 1
+    assert report["error_count"] == 0
+    assert report["attempt_count"] == 2
+    assert report["retry_attempt_count"] == 1
+    assert report["retried_request_count"] == 1
+    assert report["retry_success_count"] == 1
+    assert report["retry_exhausted_count"] == 0
+    assert report["latency_ms"]["min"] >= 0.0
+    assert report["errors"] == {}
+
+
+def test_run_load_test_reports_retry_exhaustion_and_grouped_errors() -> None:
+    def requester(url: str, timeout_seconds: float) -> tuple[int, float]:
+        raise TimeoutError("slow")
+
+    report = run_load_test(
+        base_url="http://127.0.0.1:8000",
+        request_count=1,
+        timeout_seconds=1,
+        retry_count=2,
+        retry_delay_seconds=0,
+        requester=requester,
+    )
+
+    assert report["success_count"] == 0
+    assert report["error_count"] == 1
+    assert report["attempt_count"] == 3
+    assert report["retry_attempt_count"] == 2
+    assert report["retried_request_count"] == 1
+    assert report["retry_success_count"] == 0
+    assert report["retry_exhausted_count"] == 1
+    assert report["errors"] == {"timeout": 1}
+    assert report["status"] == "failed"
+
+
+def test_run_load_test_does_not_retry_4xx_response() -> None:
+    attempts = 0
+
+    def requester(url: str, timeout_seconds: float) -> tuple[int, float]:
+        nonlocal attempts
+        attempts += 1
+        return 400, 4.0
+
+    report = run_load_test(
+        base_url="http://127.0.0.1:8000",
+        request_count=1,
+        timeout_seconds=1,
+        retry_count=2,
+        retry_delay_seconds=0,
+        requester=requester,
+    )
+
+    assert attempts == 1
+    assert report["attempt_count"] == 1
+    assert report["retry_attempt_count"] == 0
+    assert report["errors"] == {"http_400": 1}
+
+
+def test_run_load_test_rejects_invalid_retry_config() -> None:
+    with pytest.raises(ValueError, match="retry_count must be at least 0"):
+        run_load_test(
+            base_url="http://127.0.0.1:8000",
+            request_count=1,
+            timeout_seconds=1,
+            retry_count=-1,
+        )
+
+    with pytest.raises(ValueError, match="retry_delay_seconds must be at least 0"):
+        run_load_test(
+            base_url="http://127.0.0.1:8000",
+            request_count=1,
+            timeout_seconds=1,
+            retry_delay_seconds=-0.1,
         )
 
 

@@ -122,7 +122,7 @@ uv run pytest
 Expected result:
 
 ```text
-96 passed
+101 passed
 ```
 
 ## Current Status
