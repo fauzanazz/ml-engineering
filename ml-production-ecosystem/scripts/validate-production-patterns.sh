@@ -12,4 +12,5 @@ uv run pytest \
   tests/test_alerting_rules.py \
   tests/test_rollback.py \
   tests/test_release_checklist.py \
-  tests/test_deployment_manifest.py
+  tests/test_deployment_manifest.py \
+  tests/test_release_summary.py

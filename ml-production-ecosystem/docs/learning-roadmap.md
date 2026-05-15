@@ -24,7 +24,13 @@ Target:
 - model registry pattern
 - feature processing pattern
 - monitoring loop
+- scheduled retraining
+- alerting and rollback runbooks
+- release checklist and deployment manifest
+- production-like local runtime
 - service boundary yang lebih jelas
+
+Status: sudah berjalan sampai Step 26. Belum masuk real cloud deployment, Kubernetes, managed scheduler runtime, canary deployment, load testing, atau `03-million-scale` implementation.
 
 ## Stage 3: Million Scale
 

@@ -43,6 +43,18 @@ Project dibagi menjadi tiga folder berdasarkan skala:
 | 12 | 02 Production Patterns | Production patterns scaffold | Pattern docs dan wrapper layer untuk online, batch, retraining, monitoring loop. | [README](02-production-patterns/README.md) |
 | 13 | 02 Production Patterns | Production retraining entrypoint | `production-retrain` wrapper untuk config-driven foundation training + optional activation. | [docs](02-production-patterns/docs/retraining.md) |
 | 14 | 02 Production Patterns | Model quality gate before activation | `--require-quality-gate` blocks activation unless metric thresholds pass. | [docs](02-production-patterns/docs/retraining.md) |
+| 15 | 02 Production Patterns | Monitoring loop automation | `production-monitor` checks `/health`, `/metrics.json`, and `/drift`. | [docs](docs/features/step-15-monitoring-loop-entrypoint.md) |
+| 16 | 02 Production Patterns | Scheduled retraining entrypoint | `production-scheduled-retrain` writes scheduler-friendly retraining reports. | [docs](docs/features/step-16-scheduled-retraining-entrypoint.md) |
+| 17 | 02 Production Patterns | Airflow retraining DAG skeleton | Import-safe DAG wrapper for scheduled retraining workflow. | [docs](docs/features/step-17-airflow-dag-skeleton.md) |
+| 18 | 02 Production Patterns | Alert rules + runbook | Local alert rule definitions and operational triage guide. | [docs](docs/features/step-18-alerting-rules-and-runbook.md) |
+| 19 | 02 Production Patterns | Model rollback command | `production-rollback-model` restores known-good active model version. | [docs](docs/features/step-19-model-rollback-entrypoint.md) |
+| 20 | 02 Production Patterns | Production model release checklist | Manual release flow for training, activation, verification, alerts, rollback. | [docs](docs/features/step-20-deployment-release-checklist.md) |
+| 21 | 02 Production Patterns | Deployment manifest | Service metadata for local serving release and operations. | [docs](docs/features/step-21-deployment-manifest.md) |
+| 22 | 02 Production Patterns | Lightweight CI validation | Focused local validation script for production-pattern tests. | [docs](docs/features/step-22-lightweight-ci-validation.md) |
+| 23 | 02 Production Patterns | GitHub Actions CI workflow | Remote CI skeleton that runs local validation on push/PR. | [docs](docs/features/step-23-github-actions-ci-workflow.md) |
+| 24 | 02 Production Patterns | Production compose profile | Production-like local `foundation-api` compose runtime. | [docs](docs/features/step-24-production-compose-profile.md) |
+| 25 | 02 Production Patterns | Live API smoke test | Scripted endpoint and prediction smoke test for running `foundation-api`. | [docs](docs/features/step-25-live-api-smoke-test-script.md) |
+| 26 | 02 Production Patterns | Release summary report | `production-release-summary` collects release evidence into a report. | [docs](docs/features/step-26-release-summary-report.md) |
 
 Supporting docs:
 
@@ -51,7 +63,7 @@ Supporting docs:
 
 ## Current Architecture
 
-Current flow sudah melewati foundation dan mulai masuk production patterns:
+Current flow sudah melewati foundation dan sudah sampai Step 26 di production patterns:
 
 ```text
 MovieLens data
@@ -63,6 +75,12 @@ MovieLens data
  -> JSONL batch inference
  -> production retraining wrapper
  -> quality gate before activation
+ -> monitoring loop automation
+ -> scheduled retraining + Airflow DAG skeleton
+ -> alert rules + rollback + release checklist
+ -> deployment manifest + local CI + GitHub Actions CI
+ -> production compose + live smoke test
+ -> release summary report
 ```
 
 Shared code ditempatkan di root `shared/` agar bisa dipakai ulang oleh ketiga skala project:
@@ -107,15 +125,14 @@ Expected result:
 
 - `01-foundation` sudah punya train → artifact → config → experiment → registry → serving → metrics/logging → Dockerized API → monitoring stack.
 - Step 11 batch inference jadi transisi ke `02-production-patterns`.
-- `02-production-patterns` sekarang punya wrapper untuk batch inference dan retraining.
-- Retraining bisa memakai quality gate sebelum active model diubah.
-- Belum ada Airflow, scheduler, MLflow stages, Kubernetes, cloud, atau CI/CD.
+- `02-production-patterns` sekarang sampai Step 26: retraining, quality gate, monitor, scheduled retrain, Airflow DAG skeleton, alerting, rollback, release checklist, deployment manifest, local CI, GitHub Actions CI, production compose, smoke test, dan release summary.
+- Belum ada MLflow stages, Kubernetes, real cloud deployment, remote scheduler runtime, managed secrets, canary deployment, load testing, atau `03-million-scale` implementation.
 
 ## Next Direction
 
 Next step yang paling masuk akal:
 
-1. monitoring loop automation
-2. Airflow DAG skeleton di `02-production-patterns`
-3. model quality gate yang lebih kaya dari offline evaluation metrics
-4. promotion policy/runbook sebelum masuk `03-million-scale`
+1. mulai Step 27 untuk `03-million-scale` scaffold atau load-testing plan
+2. queue-based inference pattern
+3. caching layer untuk online recommendations
+4. horizontal scaling + degradation strategy

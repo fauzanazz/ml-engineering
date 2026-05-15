@@ -28,6 +28,7 @@ production-retrain = "production_patterns.retraining:main"
 production-monitor = "production_patterns.monitoring_loop:main"
 production-scheduled-retrain = "production_patterns.scheduled_retraining:main"
 production-rollback-model = "production_patterns.rollback:main"
+production-release-summary = "production_patterns.release_summary:main"
 
 [dependency-groups]
 dev = [

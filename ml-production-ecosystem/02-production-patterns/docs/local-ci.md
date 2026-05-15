@@ -41,8 +41,9 @@ The script runs focused production patterns tests:
 - `tests/test_rollback.py`
 - `tests/test_release_checklist.py`
 - `tests/test_deployment_manifest.py`
+- `tests/test_release_summary.py`
 
-This covers scaffold presence, retraining, quality gate, monitoring, legacy monitoring loop compatibility, scheduled retraining, DAG import safety, alert rules parsing, rollback behavior, release checklist presence, and deployment manifest parsing.
+This covers scaffold presence, retraining, quality gate, monitoring, legacy monitoring loop compatibility, scheduled retraining, DAG import safety, alert rules parsing, rollback behavior, release checklist presence, deployment manifest parsing, and release summary generation.
 
 ## Limits
 
