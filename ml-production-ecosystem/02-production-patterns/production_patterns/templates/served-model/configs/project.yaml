@@ -1,0 +1,9 @@
+project: {{project_name}}
+preset: served-model
+model_contract:
+  inputs:
+    - name: features
+      type: object
+  outputs:
+    - name: prediction
+      type: number

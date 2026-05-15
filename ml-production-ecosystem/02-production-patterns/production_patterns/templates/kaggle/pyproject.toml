@@ -1,0 +1,13 @@
+[project]
+name = "{{project_name}}"
+version = "0.1.0"
+description = "Kaggle ML project scaffold."
+requires-python = ">=3.11"
+dependencies = ["pandas>=2.2.0", "scikit-learn>=1.5.0"]
+
+[dependency-groups]
+dev = ["pytest>=8.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

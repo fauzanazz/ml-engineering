@@ -1,0 +1,10 @@
+project: {{project_name}}
+preset: enterprise-pipeline
+stages:
+  - ingestion
+  - validation
+  - training
+  - approval
+  - batch_inference
+  - monitoring
+  - rollback

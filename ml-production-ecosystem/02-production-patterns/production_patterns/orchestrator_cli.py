@@ -9,6 +9,7 @@ from typing import Callable
 
 from .lifecycle_demo import run_lifecycle_demo
 from .lifecycle_status import DEFAULT_OUTPUT_PATH, DEFAULT_REPORT_DIR, build_lifecycle_status
+from .scaffold import SUPPORTED_PRESETS, ScaffoldRequest, scaffold_project
 
 DEFAULT_CONFIG_PATH = Path("configs/local-lifecycle-demo.yaml")
 LOCAL_LIFECYCLE_OUTPUT_PATH = DEFAULT_REPORT_DIR / "local-lifecycle-demo.json"
@@ -151,6 +152,45 @@ def run_explain(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_new(args: argparse.Namespace) -> int:
+    preset = args.preset or _prompt_preset()
+    name = args.name or _prompt_required("Project name")
+    target = args.target or Path(input(f"Target directory [{name}]: ").strip() or name)
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset=preset,
+            name=name,
+            target=target,
+            force=args.force,
+        )
+    )
+    _print_header("Project Scaffolded")
+    print(f"Preset: {result.preset}")
+    print(f"Name: {result.name}")
+    print(f"Package: {result.package_name}")
+    print(f"Target: {result.target}")
+    print(f"Files: {len(result.written_paths)}")
+    print(f"\nNext: cd {result.target} && uv run pytest")
+    return 0
+
+
+def _prompt_preset() -> str:
+    choices = ", ".join(SUPPORTED_PRESETS)
+    while True:
+        preset = input(f"Preset ({choices}): ").strip().lower()
+        if preset in SUPPORTED_PRESETS:
+            return preset
+        print(f"Choose one of: {choices}")
+
+
+def _prompt_required(label: str) -> str:
+    while True:
+        value = input(f"{label}: ").strip()
+        if value:
+            return value
+        print(f"{label} is required.")
+
+
 def run_menu(args: argparse.Namespace) -> int:
     del args
     actions: list[tuple[str, CommandHandler, argparse.Namespace]] = [
@@ -201,6 +241,13 @@ def build_parser() -> argparse.ArgumentParser:
     explain.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
     explain.add_argument("--output-path", type=Path, default=DEFAULT_OUTPUT_PATH)
     explain.set_defaults(handler=run_explain)
+
+    new = subparsers.add_parser("new", help="Create a boilerplate ML project scaffold.")
+    new.add_argument("--preset", choices=SUPPORTED_PRESETS)
+    new.add_argument("--name")
+    new.add_argument("--target", type=Path)
+    new.add_argument("--force", action="store_true")
+    new.set_defaults(handler=run_new)
 
     parser.set_defaults(handler=run_menu)
     return parser
