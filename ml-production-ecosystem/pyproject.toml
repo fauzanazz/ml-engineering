@@ -48,5 +48,5 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["shared", "shared.deployment", "shared.model_storage", "shared.monitoring", "shared.observability", "recommendation", "production_patterns", "scale_reliability"]
+packages = ["shared", "shared.deployment", "shared.lifecycle", "shared.model_contracts", "shared.model_storage", "shared.monitoring", "shared.observability", "shared.platform", "recommendation", "production_patterns", "scale_reliability"]
 package-dir = {recommendation = "01-foundation/recommendation", production_patterns = "02-production-patterns/production_patterns", scale_reliability = "03-scale-and-reliability/scale_reliability"}

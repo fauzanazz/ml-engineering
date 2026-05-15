@@ -2,6 +2,8 @@
 
 ML Production Ecosystem adalah project belajar MLOps dan ML Engineering dari nol. Project ini dibuat bertahap dari satu aplikasi ML sederhana, lalu naik ke pola production yang umum, sampai simulasi serving untuk request volume besar.
 
+Visi arsitektur: model-agnostic dan provider-agnostic scaffolding untuk production ML systems. Model apa pun masuk lewat kontrak input/output stabil, lifecycle workflow bergantung pada interface generik, dan cloud/vendor logic tinggal di adapter tipis.
+
 Fokus project bukan langsung membuat platform yang kompleks. Fokus awalnya adalah memahami komponen production ML satu per satu: model deployment, model storage, observability, monitoring, testing, dan dokumentasi keputusan teknis.
 
 ## Tujuan Project
@@ -24,6 +26,7 @@ Project dibagi menjadi tiga folder berdasarkan skala:
 | Foundation | [`01-foundation/`](./01-foundation/) | Satu model sederhana, local/script-based deployment, shared architecture awal |
 | Production Patterns | [`02-production-patterns/`](./02-production-patterns/) | Pola umum production ML seperti batch inference, online inference, registry, dan monitoring loop |
 | Scale And Reliability | [`03-scale-and-reliability/`](./03-scale-and-reliability/) | Simulasi scale, reliability, load behavior, dan failure handling tanpa full cloud infra |
+| Platform And Cloud | [`04-platform-and-cloud/`](./04-platform-and-cloud/) | Provider boundaries, IaC scope, secret references, and cloud adapter scaffolding |
 
 ## Project Steps
 
@@ -102,13 +105,19 @@ Shared code ditempatkan di root `shared/` agar bisa dipakai ulang oleh ketiga sk
 
 ```text
 shared/
+├── model_contracts/
+│   └── contracts.py
 ├── deployment/
+│   └── contracts.py
+├── lifecycle/
 │   └── contracts.py
 ├── model_storage/
 │   └── contracts.py
 ├── observability/
 │   └── contracts.py
-└── monitoring/
+├── monitoring/
+│   └── contracts.py
+└── platform/
     └── contracts.py
 ```
 
@@ -116,10 +125,21 @@ shared/
 
 | Boundary | Tujuan | Status |
 |---|---|---|
+| Model Contracts | Input/output, metadata, prediction, training, evaluation, dan batch ports generik | Contract only |
 | Deployment | Menjelaskan cara model artifact menjadi endpoint atau prediction workflow | Contract only |
+| Lifecycle | Retraining, release decision, rollback, run metadata, dan report URI generik | Contract only |
 | Model Storage | Menyimpan metadata model artifact seperti nama, versi, dan URI | Contract only |
 | Observability | Mengirim metric/event operasional dari sistem ML | Contract only |
 | Monitoring | Merepresentasikan hasil check untuk data, model, atau service health | Contract only |
+| Platform | Provider-neutral resource, adapter, IaC, dan secret reference boundary | Contract only |
+
+## Provider Boundary Rules
+
+- Core lifecycle code tidak boleh import AWS/GCP/Azure SDK secara langsung.
+- Provider logic tinggal di `04-platform-and-cloud/adapters/*` atau `04-platform-and-cloud/iac/*`.
+- Secret values tidak boleh masuk repo; hanya secret names, policy refs, injection targets, dan env-var names.
+- Local-first workflow di `01-foundation` tetap berjalan tanpa cloud credentials.
+- Provider baru harus menambah adapter/IaC module, bukan rewrite core ML code.
 
 ## Commands
 
@@ -133,7 +153,7 @@ uv run pytest
 Expected result:
 
 ```text
-129 passed
+138 passed
 ```
 
 ## Current Status
@@ -142,12 +162,12 @@ Expected result:
 - Step 11 batch inference jadi transisi ke `02-production-patterns`.
 - `02-production-patterns` ditutup di Step 27 dengan scope review: retraining, quality gate, monitor, scheduled retrain, Airflow DAG skeleton, alerting, rollback, release checklist, deployment manifest, local CI, GitHub Actions CI, production compose, smoke test, release summary, dan gap checklist.
 - `03-scale-and-reliability` sudah sampai Step 38: load test, concurrency, retry policy, backpressure, batch performance baseline, caching pattern, SLO definition, reliability runbook, dan scale readiness review.
-- Belum ada MLflow stages, Kubernetes, real cloud deployment, remote scheduler runtime, managed secrets, canary deployment, distributed load testing, autoscaling, SLO burn-rate math, atau real million traffic.
+- Belum ada MLflow stages, Kubernetes, real cloud deployment, remote scheduler runtime, managed secret values, canary deployment, distributed load testing, autoscaling, SLO burn-rate math, atau real million traffic.
 
 ## Next Direction
 
 Next step yang paling masuk akal:
 
-1. mulai Step 39 dengan `04-platform-and-cloud` scaffold untuk cloud deployment, managed infra, IAM/secrets, CI/CD, dan platform boundary
+1. lanjutkan `04-platform-and-cloud` dari scaffold ke adapter/IaC module konkret untuk satu provider
 2. lanjut lebih dalam di `03-scale-and-reliability` untuk queue-based inference, batching optimization, model-server tuning, atau distributed cache
 3. pause implementasi dan review manual load/reliability report lokal
