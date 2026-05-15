@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
+mle = "production_patterns.orchestrator_cli:main"
 foundation-prepare-data = "recommendation.data:main"
 foundation-train-recommender = "recommendation.train:main"
 foundation-train-from-config = "recommendation.train:config_main"

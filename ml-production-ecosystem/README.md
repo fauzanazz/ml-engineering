@@ -184,6 +184,24 @@ Detail target: [Local-First Lifecycle Easy Path](docs/lifecycle-easy-path.md) da
 
 ## Commands
 
+Beginner entrypoint:
+
+```bash
+cd ml-production-ecosystem
+uv run mle
+```
+
+Non-interactive beginner path:
+
+```bash
+uv run mle doctor
+uv run mle quickstart
+uv run mle status
+uv run mle explain
+```
+
+`mle` is the local TUI/orchestrator layer. It keeps the production commands available, but gives beginners one place to start before learning each lower-level command.
+
 Run tests from project folder:
 
 ```bash
