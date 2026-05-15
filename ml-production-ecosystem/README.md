@@ -212,3 +212,15 @@ Next step yang paling masuk akal:
 1. lanjutkan `04-platform-and-cloud` dari scaffold ke adapter/IaC module konkret untuk satu provider
 2. lanjut lebih dalam di `03-scale-and-reliability` untuk queue-based inference, batching optimization, model-server tuning, atau distributed cache
 3. pause implementasi dan review manual load/reliability report lokal
+
+## Reasoning Post-Training Smoke
+
+Local-first DeepSeek-R1-style reasoning post-training scaffold lives in `05-reasoning-post-training/`. It includes SFT, verifier reward scoring, GRPO-style grouped updates, self-play data filtering, rollout generator boundaries, evaluation metrics, trace/dashboard/log artifacts, checkpoints, and provider-neutral backend interfaces.
+
+```bash
+uv run reasoning-post-training --config configs/reasoning-local-smoke.yaml
+```
+
+Provider config shape is documented in `configs/reasoning-provider-template.yaml`; provider execution is intentionally adapter-only until a real remote rollout backend is added.
+
+Details: `05-reasoning-post-training/docs/reasoning-post-training.md`.

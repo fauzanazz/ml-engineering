@@ -1,0 +1,4 @@
+[
+  {"prompt": "What is 2 plus 3?", "reasoning": "Compute 2 + 3. Therefore answer 5.", "answer": "5"},
+  {"prompt": "What is 10 minus 4?", "reasoning": "Compute 10 - 4. Therefore answer 6.", "answer": "6"}
+]

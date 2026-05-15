@@ -61,6 +61,7 @@ scale-cost-estimate = "scale_reliability.cost_estimate:main"
 scale-load-test = "scale_reliability.load_test:main"
 scale-aggregate-load = "scale_reliability.load_aggregate:main"
 production-load-test = "scale_reliability.load_test:main"
+reasoning-post-training = "reasoning_post_training.cli:main"
 
 [dependency-groups]
 dev = [
@@ -70,7 +71,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", "01-foundation", "02-production-patterns", "03-scale-and-reliability"]
+pythonpath = [".", "01-foundation", "02-production-patterns", "03-scale-and-reliability", "05-reasoning-post-training"]
 
 
 [build-system]
@@ -78,5 +79,5 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["shared", "shared.deployment", "shared.lifecycle", "shared.model_contracts", "shared.model_storage", "shared.monitoring", "shared.observability", "shared.platform", "recommendation", "production_patterns", "scale_reliability"]
-package-dir = {recommendation = "01-foundation/recommendation", production_patterns = "02-production-patterns/production_patterns", scale_reliability = "03-scale-and-reliability/scale_reliability"}
+packages = ["shared", "shared.deployment", "shared.lifecycle", "shared.model_contracts", "shared.model_storage", "shared.monitoring", "shared.observability", "shared.platform", "recommendation", "production_patterns", "scale_reliability", "reasoning_post_training"]
+package-dir = {recommendation = "01-foundation/recommendation", production_patterns = "02-production-patterns/production_patterns", scale_reliability = "03-scale-and-reliability/scale_reliability", reasoning_post_training = "05-reasoning-post-training/reasoning_post_training"}
