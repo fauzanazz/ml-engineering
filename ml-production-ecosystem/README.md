@@ -23,7 +23,7 @@ Project dibagi menjadi tiga folder berdasarkan skala:
 |---|---|---|
 | Foundation | [`01-foundation/`](./01-foundation/) | Satu model sederhana, local/script-based deployment, shared architecture awal |
 | Production Patterns | [`02-production-patterns/`](./02-production-patterns/) | Pola umum production ML seperti batch inference, online inference, registry, dan monitoring loop |
-| Million Scale | [`03-million-scale/`](./03-million-scale/) | Simulasi high-throughput serving, reliability, caching, queue, dan scaling pattern |
+| Scale And Reliability | [`03-scale-and-reliability/`](./03-scale-and-reliability/) | Simulasi scale, reliability, load behavior, dan failure handling tanpa full cloud infra |
 
 ## Project Steps
 
@@ -55,6 +55,8 @@ Project dibagi menjadi tiga folder berdasarkan skala:
 | 24 | 02 Production Patterns | Production compose profile | Production-like local `foundation-api` compose runtime. | [docs](docs/features/step-24-production-compose-profile.md) |
 | 25 | 02 Production Patterns | Live API smoke test | Scripted endpoint and prediction smoke test for running `foundation-api`. | [docs](docs/features/step-25-live-api-smoke-test-script.md) |
 | 26 | 02 Production Patterns | Release summary report | `production-release-summary` collects release evidence into a report. | [docs](docs/features/step-26-release-summary-report.md) |
+| 27 | 02 Production Patterns | Scope review | Closure checklist for completed capabilities, known gaps, and next module boundary. | [docs](02-production-patterns/docs/scope-review.md) |
+| 28 | 03 Scale And Reliability | Module scaffold and scope | Creates `03-scale-and-reliability` with scope for scale, reliability, load behavior, and failure handling. | [docs](docs/features/step-28-module-scaffold-and-scope.md) |
 
 Supporting docs:
 
@@ -63,7 +65,7 @@ Supporting docs:
 
 ## Current Architecture
 
-Current flow sudah melewati foundation dan sudah sampai Step 26 di production patterns:
+Current flow sudah melewati foundation, menutup production patterns di Step 27, dan membuka `03-scale-and-reliability` di Step 28:
 
 ```text
 MovieLens data
@@ -81,6 +83,8 @@ MovieLens data
  -> deployment manifest + local CI + GitHub Actions CI
  -> production compose + live smoke test
  -> release summary report
+ -> production patterns scope review
+ -> scale and reliability scaffold
 ```
 
 Shared code ditempatkan di root `shared/` agar bisa dipakai ulang oleh ketiga skala project:
@@ -118,21 +122,22 @@ uv run pytest
 Expected result:
 
 ```text
-51 passed
+96 passed
 ```
 
 ## Current Status
 
 - `01-foundation` sudah punya train → artifact → config → experiment → registry → serving → metrics/logging → Dockerized API → monitoring stack.
 - Step 11 batch inference jadi transisi ke `02-production-patterns`.
-- `02-production-patterns` sekarang sampai Step 26: retraining, quality gate, monitor, scheduled retrain, Airflow DAG skeleton, alerting, rollback, release checklist, deployment manifest, local CI, GitHub Actions CI, production compose, smoke test, dan release summary.
-- Belum ada MLflow stages, Kubernetes, real cloud deployment, remote scheduler runtime, managed secrets, canary deployment, load testing, atau `03-million-scale` implementation.
+- `02-production-patterns` ditutup di Step 27 dengan scope review: retraining, quality gate, monitor, scheduled retrain, Airflow DAG skeleton, alerting, rollback, release checklist, deployment manifest, local CI, GitHub Actions CI, production compose, smoke test, release summary, dan gap checklist.
+- `03-scale-and-reliability` dibuka di Step 28 sebagai scaffold scope untuk scale, reliability, load behavior, dan failure handling.
+- Belum ada MLflow stages, Kubernetes, real cloud deployment, remote scheduler runtime, managed secrets, canary deployment, load testing implementation, atau real million traffic.
 
 ## Next Direction
 
 Next step yang paling masuk akal:
 
-1. mulai Step 27 untuk `03-million-scale` scaffold atau load-testing plan
+1. mulai Step 29 untuk load behavior simulation di `03-scale-and-reliability`
 2. queue-based inference pattern
 3. caching layer untuk online recommendations
 4. horizontal scaling + degradation strategy

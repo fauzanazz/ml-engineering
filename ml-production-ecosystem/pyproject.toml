@@ -29,6 +29,8 @@ production-monitor = "production_patterns.monitoring_loop:main"
 production-scheduled-retrain = "production_patterns.scheduled_retraining:main"
 production-rollback-model = "production_patterns.rollback:main"
 production-release-summary = "production_patterns.release_summary:main"
+scale-load-test = "scale_reliability.load_test:main"
+production-load-test = "scale_reliability.load_test:main"
 
 [dependency-groups]
 dev = [
@@ -38,7 +40,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", "01-foundation", "02-production-patterns"]
+pythonpath = [".", "01-foundation", "02-production-patterns", "03-scale-and-reliability"]
 
 
 [build-system]
@@ -46,5 +48,5 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["shared", "shared.deployment", "shared.model_storage", "shared.monitoring", "shared.observability", "recommendation", "production_patterns"]
-package-dir = {recommendation = "01-foundation/recommendation", production_patterns = "02-production-patterns/production_patterns"}
+packages = ["shared", "shared.deployment", "shared.model_storage", "shared.monitoring", "shared.observability", "recommendation", "production_patterns", "scale_reliability"]
+package-dir = {recommendation = "01-foundation/recommendation", production_patterns = "02-production-patterns/production_patterns", scale_reliability = "03-scale-and-reliability/scale_reliability"}
