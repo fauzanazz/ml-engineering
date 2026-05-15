@@ -2,7 +2,7 @@
 
 Purpose: expand from one ML app into common production ML application patterns.
 
-## Progress Through Step 26
+## Progress Through Step 27
 
 01 Foundation is closed at Step 10: train, artifact, config, experiment tracking, registry, local serving, metrics/logging, Dockerized API, and local monitoring stack.
 
@@ -23,6 +23,7 @@ Step 23 added GitHub Actions remote CI skeleton.
 Step 24 added production-like Docker Compose runtime.
 Step 25 added live API smoke testing.
 Step 26 added `production-release-summary`.
+Step 27 added the production patterns scope review and closure checklist.
 
 This folder now owns pattern-level docs, operational runbooks, and thin wrappers around foundation workflows.
 
@@ -41,6 +42,7 @@ This folder now owns pattern-level docs, operational runbooks, and thin wrappers
 - [incident simulation](docs/incident-simulation.md)
 - [AWS serving decision](docs/aws-serving-decision.md)
 - [security controls](docs/security-controls.md)
+- [scope review](docs/scope-review.md)
 
 ## Current Wrappers
 
@@ -105,7 +107,7 @@ uv run production-release-summary \
 
 ## Status
 
-Production pattern layer is current through Step 26:
+Production pattern layer is current through Step 27:
 
 - batch inference wrapper exists
 - retraining wrapper exists

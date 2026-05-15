@@ -25,7 +25,7 @@ def test_production_patterns_scaffold_exists() -> None:
 def test_production_patterns_readme_classifies_foundation_boundary() -> None:
     readme = (ROOT / "02-production-patterns" / "README.md").read_text()
 
-    assert "Progress Through Step 26" in readme
+    assert "Progress Through Step 27" in readme
     assert "01 Foundation is closed at Step 10" in readme
     assert "Step 11 batch inference is treated as transition work" in readme
     assert "online serving" in readme
