@@ -3,6 +3,7 @@
 from pathlib import Path
 import argparse
 import json
+from time import perf_counter
 from typing import Any
 
 from .predict import recommend_top_k_from_registry
@@ -57,16 +58,39 @@ def _user_id(row: dict[str, Any]) -> int | None:
     return int(user_id)
 
 
+def calculate_batch_performance(
+    input_path: Path,
+    output_path: Path,
+    input_row_count: int,
+    success_row_count: int,
+    error_row_count: int,
+    duration_seconds: float,
+) -> dict[str, object]:
+    throughput = input_row_count / duration_seconds if input_row_count > 0 and duration_seconds > 0 else 0.0
+    return {
+        "input_path": str(input_path),
+        "output_path": str(output_path),
+        "input_row_count": input_row_count,
+        "success_row_count": success_row_count,
+        "error_row_count": error_row_count,
+        "duration_seconds": round(duration_seconds, 6),
+        "throughput_rows_per_second": round(throughput, 6),
+        "status": _batch_status(success_row_count, error_row_count),
+    }
+
+
 def run_batch_recommendations(
     registry_path: Path,
     input_path: Path,
     output_path: Path,
     model_name: str = DEFAULT_MODEL_NAME,
+    report_path: Path | None = None,
 ) -> dict[str, object]:
     active_model = get_active_model(registry_path, model_name)
     if active_model is None:
         raise ValueError(f"active model not found: {model_name}")
 
+    started_at = perf_counter()
     output_rows = []
     succeeded = 0
     failed = 0
@@ -105,6 +129,18 @@ def run_batch_recommendations(
         )
 
     _write_jsonl(output_path, output_rows)
+    duration_seconds = perf_counter() - started_at
+    performance_report = calculate_batch_performance(
+        input_path=input_path,
+        output_path=output_path,
+        input_row_count=len(input_rows),
+        success_row_count=succeeded,
+        error_row_count=failed,
+        duration_seconds=duration_seconds,
+    )
+    if report_path is not None:
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(performance_report, indent=2, sort_keys=True) + "\n")
     return {
         "input_rows": len(input_rows),
         "succeeded": succeeded,
@@ -113,15 +149,30 @@ def run_batch_recommendations(
     }
 
 
+def _batch_status(success_row_count: int, error_row_count: int) -> str:
+    if success_row_count == 0:
+        return "failed"
+    if error_row_count > 0:
+        return "degraded"
+    return "passed"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run JSONL batch recommendations using active registry model.")
     parser.add_argument("--registry-path", type=Path, required=True)
     parser.add_argument("--input-path", type=Path, required=True)
     parser.add_argument("--output-path", type=Path, required=True)
+    parser.add_argument("--report-path", type=Path)
     parser.add_argument("--model-name", default=DEFAULT_MODEL_NAME)
     args = parser.parse_args()
 
-    summary = run_batch_recommendations(args.registry_path, args.input_path, args.output_path, args.model_name)
+    summary = run_batch_recommendations(
+        args.registry_path,
+        args.input_path,
+        args.output_path,
+        args.model_name,
+        report_path=args.report_path,
+    )
     print(json.dumps(summary, sort_keys=True))
 
 

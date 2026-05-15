@@ -3,7 +3,7 @@ import json
 import subprocess
 import sys
 
-from recommendation.batch import run_batch_recommendations
+from recommendation.batch import calculate_batch_performance, run_batch_recommendations
 from recommendation.train import register_model_version, train_popularity_recommender
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "recommendation"
@@ -89,6 +89,71 @@ def test_batch_recommendations_write_error_rows_and_continue(tmp_path: Path) -> 
     assert rows[1]["request_id"] == "batch-2"
     assert [item["movieId"] for item in rows[1]["recommendations"]] == [1]
     assert rows[1]["error"] is None
+
+
+def test_batch_recommendations_write_performance_report(tmp_path: Path) -> None:
+    registry_path = _registry_with_active_model(tmp_path)
+    input_path = tmp_path / "batch-input.jsonl"
+    output_path = tmp_path / "batch-output.jsonl"
+    report_path = tmp_path / "batch-performance.json"
+    input_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"request_id": "ok-1", "user_id": 10, "top_k": 1}),
+                json.dumps({"request_id": "bad-1", "user_id": 10, "top_k": 0}),
+            ]
+        )
+        + "\n"
+    )
+
+    run_batch_recommendations(registry_path, input_path, output_path, report_path=report_path)
+
+    report = json.loads(report_path.read_text())
+    assert report["input_path"] == str(input_path)
+    assert report["output_path"] == str(output_path)
+    assert report["input_row_count"] == 2
+    assert report["success_row_count"] == 1
+    assert report["error_row_count"] == 1
+    assert report["duration_seconds"] >= 0.0
+    assert report["throughput_rows_per_second"] >= 0.0
+    assert report["status"] == "degraded"
+    assert _read_jsonl(output_path)[0]["request_id"] == "ok-1"
+
+
+def test_calculate_batch_performance_handles_zero_rows() -> None:
+    report = calculate_batch_performance(
+        input_path=Path("input.jsonl"),
+        output_path=Path("output.jsonl"),
+        input_row_count=0,
+        success_row_count=0,
+        error_row_count=0,
+        duration_seconds=0.0,
+    )
+
+    assert report == {
+        "input_path": "input.jsonl",
+        "output_path": "output.jsonl",
+        "input_row_count": 0,
+        "success_row_count": 0,
+        "error_row_count": 0,
+        "duration_seconds": 0.0,
+        "throughput_rows_per_second": 0.0,
+        "status": "failed",
+    }
+
+
+def test_calculate_batch_performance_reports_throughput() -> None:
+    report = calculate_batch_performance(
+        input_path=Path("input.jsonl"),
+        output_path=Path("output.jsonl"),
+        input_row_count=4,
+        success_row_count=4,
+        error_row_count=0,
+        duration_seconds=2.0,
+    )
+
+    assert report["throughput_rows_per_second"] == 2.0
+    assert report["status"] == "passed"
 
 
 def test_batch_recommendation_cli_prints_summary(tmp_path: Path) -> None:
