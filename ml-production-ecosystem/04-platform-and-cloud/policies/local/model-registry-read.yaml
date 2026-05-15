@@ -1,0 +1,12 @@
+provider: local
+policy_ref: local-env-file-reference
+name: model-registry-read
+effect: allow
+scope: development
+actions:
+  - read-model-registry
+resources:
+  - model-registry
+injection_targets:
+  - LOCAL_MODEL_REGISTRY_TOKEN
+value_handling: external-only

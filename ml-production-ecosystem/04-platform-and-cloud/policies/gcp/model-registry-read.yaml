@@ -1,0 +1,13 @@
+provider: gcp
+policy_ref: policy/gcp-model-registry-read
+name: model-registry-read
+effect: allow
+scope: development
+actions:
+  - storage.objects.get
+  - storage.objects.list
+resources:
+  - model-registry
+injection_targets:
+  - MODEL_REGISTRY_TOKEN
+value_handling: external-only

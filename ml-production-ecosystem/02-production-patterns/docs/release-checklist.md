@@ -62,6 +62,34 @@ The scheduled retrain command above includes `--set-active`, so activation happe
 - [ ] Inspect `GET /metrics.json` for `prediction_error_count` and `prediction_latency_ms_last`.
 - [ ] Inspect `GET /drift` for `drift_score`.
 
+## Local Canary Decision
+
+Use local canary decision after serving verification and drift check. Then run local traffic-splitting simulation before wider rollout.
+
+```bash
+uv run production-canary-decision \
+  --deployment-demo 02-production-patterns/reports/local-deployment-demo.json \
+  --drift-report 02-production-patterns/reports/local-deployment-drift.json \
+  --approval 02-production-patterns/reports/approval-decision.json \
+  --output-path 02-production-patterns/reports/local-canary-decision.json
+```
+
+- [ ] Confirm output has `status: "passed"` and `decision: "promote"`.
+- [ ] If output has `decision: "rollback"`, use rollback plan before wider rollout.
+- [ ] Record `canary_percent` and evidence paths in release notes.
+
+```bash
+uv run production-canary-router \
+  --decision 02-production-patterns/reports/local-canary-decision.json \
+  --stable-model-id foundation-config-v1 \
+  --candidate-model-id local-candidate-v2 \
+  --request-count 100 \
+  --output-path 02-production-patterns/reports/local-canary-router.json
+```
+
+- [ ] Confirm candidate traffic matches `canary_percent`.
+- [ ] Confirm rollback decisions route 100% traffic to stable model.
+
 ## Monitoring And Alerts
 
 Use [monitoring_loop.py](../production_patterns/monitoring_loop.py) through Step 15 CLI after activation.

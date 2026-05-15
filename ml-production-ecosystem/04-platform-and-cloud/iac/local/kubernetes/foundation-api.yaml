@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foundation-api-config
+  labels:
+    app: foundation-api
+data:
+  MODEL_REGISTRY_PATH: "01-foundation/registry/models.json"
+  PREDICTION_LOG_PATH: "01-foundation/logs/kind-predictions.jsonl"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foundation-api
+  labels:
+    app: foundation-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foundation-api
+  template:
+    metadata:
+      labels:
+        app: foundation-api
+    spec:
+      containers:
+        - name: foundation-api
+          image: ml-production-ecosystem-foundation-api:local
+          imagePullPolicy: IfNotPresent
+          command:
+            - uv
+            - run
+            - foundation-serve-recommender
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8000"
+            - --prediction-log-path
+            - 01-foundation/logs/kind-predictions.jsonl
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: LOCAL_MODEL_REGISTRY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: local-model-registry-token
+                  key: token
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: foundation-api
+  labels:
+    app: foundation-api
+spec:
+  type: ClusterIP
+  selector:
+    app: foundation-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

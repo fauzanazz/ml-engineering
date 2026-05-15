@@ -1,0 +1,13 @@
+provider: aws
+policy_ref: policy/aws-model-registry-read
+name: model-registry-read
+effect: allow
+scope: development
+actions:
+  - s3:GetObject
+  - s3:ListBucket
+resources:
+  - model-registry
+injection_targets:
+  - MODEL_REGISTRY_TOKEN
+value_handling: external-only

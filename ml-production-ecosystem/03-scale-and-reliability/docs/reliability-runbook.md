@@ -220,3 +220,15 @@ These connect immediate triage to existing learning artifacts instead of inventi
 ## Out Of Scope
 
 This runbook excludes automated incident response, pager rotation, incident commander workflow, production escalation policy, cloud autoscaling playbook, Kubernetes remediation, database/cache outage runbooks, SLO burn-rate response, multi-region failover, and real production incident process.
+
+## Local Autoscaling Simulation
+
+Use `uv run scale-autoscaling-decision --load-report <load.json> --slo-report <slo.json>` after load and SLO burn-rate checks to decide whether local simulated capacity should scale up, scale down, or hold. This does not create real infrastructure.
+
+## Distributed Load Aggregation
+
+Use `uv run scale-aggregate-load --report <shard-1.json> --report <shard-2.json>` to combine local load-test shard reports before SLO burn-rate and autoscaling decisions. This aggregates reports only; it does not run remote workers.
+
+## Cost Estimate
+
+Use `uv run scale-cost-estimate --autoscaling-report <autoscaling.json> --load-report <load.json>` after autoscaling decisions to estimate local learning-unit cost. This is not cloud bill prediction.

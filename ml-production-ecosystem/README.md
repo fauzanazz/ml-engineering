@@ -2,7 +2,9 @@
 
 ML Production Ecosystem adalah project belajar MLOps dan ML Engineering dari nol. Project ini dibuat bertahap dari satu aplikasi ML sederhana, lalu naik ke pola production yang umum, sampai simulasi serving untuk request volume besar.
 
-Visi arsitektur: model-agnostic dan provider-agnostic scaffolding untuk production ML systems. Model apa pun masuk lewat kontrak input/output stabil, lifecycle workflow bergantung pada interface generik, dan cloud/vendor logic tinggal di adapter tipis.
+Visi arsitektur: local-first, model-agnostic, dan provider-agnostic scaffolding untuk production ML systems. Model apa pun masuk lewat kontrak input/output stabil, lifecycle workflow bergantung pada interface generik, dan cloud/vendor logic tinggal di adapter tipis.
+
+Target utama: local stack lengkap menjadi source of truth untuk menghindari vendor lock-in. Cloud provider seperti AWS, GCP, Azure, atau vendor lain hanya adapter deployment opsional; core ML workflow tetap jalan tanpa managed cloud service.
 
 Fokus project bukan langsung membuat platform yang kompleks. Fokus awalnya adalah memahami komponen production ML satu per satu: model deployment, model storage, observability, monitoring, testing, dan dokumentasi keputusan teknis.
 
@@ -16,6 +18,7 @@ Project ini menjawab pertanyaan utama:
 - Bagaimana melakukan observability dan monitoring untuk sistem ML?
 - Bagaimana arsitektur sederhana bisa berkembang menjadi medium-sized system dan high-request serving system?
 - Tools MLOps apa saja yang relevan di tiap tahap, dan kapan sebaiknya dipakai?
+- Bagaimana membuat flow add data → train → validate → approve → deploy demo → drift → continual learning → graph mudah dipakai untuk model apa pun?
 
 ## Learning Path
 
@@ -127,11 +130,49 @@ shared/
 |---|---|---|
 | Model Contracts | Input/output, metadata, prediction, training, evaluation, dan batch ports generik | Contract only |
 | Deployment | Menjelaskan cara model artifact menjadi endpoint atau prediction workflow | Contract only |
-| Lifecycle | Retraining, release decision, rollback, run metadata, dan report URI generik | Contract only |
+| Lifecycle | Data ingestion, retraining, offline validation, approval, demo test, drift, continual learning, graph flow, rollback, run metadata, dan report URI generik | Contract only |
 | Model Storage | Menyimpan metadata model artifact seperti nama, versi, dan URI | Contract only |
 | Observability | Mengirim metric/event operasional dari sistem ML | Contract only |
 | Monitoring | Merepresentasikan hasil check untuk data, model, atau service health | Contract only |
 | Platform | Provider-neutral resource, adapter, IaC, dan secret reference boundary | Contract only |
+
+## Lifecycle Easy Path
+
+Goal ergonomics untuk project ini:
+
+```text
+add data
+  -> train model automatically
+  -> validate model offline
+  -> approve deployment
+  -> run deployment demo test
+  -> detect drift
+  -> monitor continual-learning decision
+  -> inspect graph-based lifecycle flow
+```
+
+Current local proof sudah ada untuk recommender baseline: model contract manifest, JSON schemas, local platform/IaC apply + validation, provider swap matrix, plan-backed cloud adapters, policies-as-code validation, local secret injection validation, goal readiness audit, dataset manifest, config-driven retraining, command-based generic training adapter, offline validation report, approval decision artifact, quality gate, active registry pointer, production compose, smoke test, deployment demo report, canary decision report, local traffic-splitting canary simulation, drift report, continual-learning decision/history summary, lifecycle graph HTML/Mermaid, drift endpoint, monitoring loop, scheduled retraining, SLO burn-rate simulation, multi-window burn-rate alert simulation, autoscaling decision simulation, distributed load aggregation, local cost estimation, local Kubernetes manifest validation, local scheduler plan validation and runtime dry-run, dan Airflow DAG skeleton.
+
+Flow ini mulai digeneric lewat `shared/lifecycle/contracts.py` dan dibungkus dalam satu command:
+
+```bash
+uv run production-lifecycle-demo --config configs/foundation-recommender.yaml
+```
+
+No-download smoke path untuk local stack:
+
+```bash
+uv run production-lifecycle-demo --config configs/local-lifecycle-demo.yaml
+uv run production-goal-readiness
+```
+
+Atau jalankan smoke script:
+
+```bash
+./scripts/smoke-local-lifecycle.sh
+```
+
+Detail target: [Local-First Lifecycle Easy Path](docs/lifecycle-easy-path.md) dan [Local Lifecycle Runbook](docs/local-lifecycle-runbook.md).
 
 ## Provider Boundary Rules
 
@@ -153,7 +194,7 @@ uv run pytest
 Expected result:
 
 ```text
-138 passed
+256 passed
 ```
 
 ## Current Status
@@ -162,7 +203,7 @@ Expected result:
 - Step 11 batch inference jadi transisi ke `02-production-patterns`.
 - `02-production-patterns` ditutup di Step 27 dengan scope review: retraining, quality gate, monitor, scheduled retrain, Airflow DAG skeleton, alerting, rollback, release checklist, deployment manifest, local CI, GitHub Actions CI, production compose, smoke test, release summary, dan gap checklist.
 - `03-scale-and-reliability` sudah sampai Step 38: load test, concurrency, retry policy, backpressure, batch performance baseline, caching pattern, SLO definition, reliability runbook, dan scale readiness review.
-- Belum ada MLflow stages, Kubernetes, real cloud deployment, remote scheduler runtime, managed secret values, canary deployment, distributed load testing, autoscaling, SLO burn-rate math, atau real million traffic.
+- Belum ada MLflow stages, real Kubernetes runtime, real cloud deployment, managed secret values, real distributed load execution, real autoscaling runtime, real Alertmanager/paging runtime, real cloud cost modeling, atau real million traffic.
 
 ## Next Direction
 

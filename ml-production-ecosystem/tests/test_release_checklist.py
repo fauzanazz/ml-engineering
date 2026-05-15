@@ -28,6 +28,7 @@ def test_release_checklist_references_release_flow_steps() -> None:
     assert "production-monitor" in checklist
     assert "alerting-runbook.md" in checklist
     assert "production-rollback-model" in checklist
+    assert "production-canary-decision" in checklist
     assert "scheduled_retraining.py" in checklist
     assert "monitoring_loop.py" in checklist
     assert "alerts/rules.yaml" in checklist

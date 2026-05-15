@@ -1,0 +1,23 @@
+provider: aws
+environment: development
+resources:
+  - kind: object-storage
+    name: model-artifacts
+    uri: s3://ml-production-ecosystem-dev-model-artifacts
+  - kind: container-registry
+    name: model-images
+    uri: 123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-production-ecosystem
+  - kind: serving-runtime
+    name: model-serving
+    uri: ecs://ml-production-ecosystem-dev/model-serving
+  - kind: prediction-logs
+    name: prediction-logs
+    uri: s3://ml-production-ecosystem-dev-prediction-logs
+  - kind: model-registry
+    name: model-registry
+    uri: s3://ml-production-ecosystem-dev-model-registry/models.json
+secrets:
+  - provider: aws
+    name: development/aws/model-registry-token
+    injection_target: MODEL_REGISTRY_TOKEN
+    policy_ref: policy/aws-model-registry-read

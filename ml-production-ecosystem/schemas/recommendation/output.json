@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Recommendation Prediction Output",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "predictions": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "movieId": {
+              "type": "integer"
+            },
+            "score": {
+              "type": "number"
+            }
+          },
+          "required": ["movieId", "score"]
+        }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "version"]
+    }
+  },
+  "required": ["predictions", "model"]
+}

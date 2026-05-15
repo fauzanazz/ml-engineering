@@ -1,0 +1,12 @@
+provider: azure
+policy_ref: policy/azure-model-registry-read
+name: model-registry-read
+effect: allow
+scope: development
+actions:
+  - Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+resources:
+  - model-registry
+injection_targets:
+  - MODEL_REGISTRY_TOKEN
+value_handling: external-only

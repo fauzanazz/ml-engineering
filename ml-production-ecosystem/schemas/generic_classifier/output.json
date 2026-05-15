@@ -1,0 +1,11 @@
+{
+  "title": "Generic Classifier Output",
+  "type": "object",
+  "required": ["label"],
+  "properties": {
+    "label": {
+      "type": "integer",
+      "enum": [0, 1]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "title": "Generic Classifier Input",
+  "type": "object",
+  "required": ["score"],
+  "properties": {
+    "score": {
+      "type": "number"
+    }
+  }
+}

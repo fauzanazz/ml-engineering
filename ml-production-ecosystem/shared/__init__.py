@@ -2,6 +2,7 @@
 
 __all__ = [
     "deployment",
+    "lifecycle",
     "model_storage",
     "monitoring",
     "observability",

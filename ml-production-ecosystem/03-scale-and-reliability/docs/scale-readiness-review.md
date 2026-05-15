@@ -50,8 +50,8 @@ Reliability coverage is still local and educational. It does not prove productio
 
 Missing for real million requests:
 
-- distributed load testing
-- horizontal autoscaling
+- real distributed load testing; local shard aggregation exists
+- real horizontal autoscaling; local autoscaling decision simulation exists
 - Kubernetes production deployment
 - cloud load balancer
 - multi-instance model serving
@@ -61,17 +61,17 @@ Missing for real million requests:
 - model server optimization
 - feature store at scale
 - centralized logs/metrics/traces
-- SLO burn-rate alerting
+- Multi-window SLO burn-rate alert simulation; local only, no Alertmanager/paging runtime
 - capacity planning with real traffic
 - multi-region reliability
 - cloud IAM/secrets/networking
-- cost modeling
+- real cloud cost modeling; local cost estimate exists
 
 These gaps mean 03 should not be described as production-scale or million-request ready.
 
 ## Out Of Scope For 03
 
-03 intentionally excludes implementing new scaling mechanism, cloud infrastructure, Kubernetes manifests, autoscaling configuration, distributed load test execution, production benchmark claims, SLO burn-rate math implementation, cost modeling implementation, and real million traffic validation.
+03 intentionally excludes implementing new scaling mechanism, cloud infrastructure, Kubernetes manifests, real autoscaling configuration, real distributed load test execution, production benchmark claims, real Alertmanager/paging runtime, real cloud cost modeling, and real million traffic validation.
 
 ## Next Module Decision
 

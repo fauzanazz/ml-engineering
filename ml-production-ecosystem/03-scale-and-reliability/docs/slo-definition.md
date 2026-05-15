@@ -8,7 +8,7 @@ Step 35 defines simple local reliability targets for `03-scale-and-reliability`.
 - SLI is measurement signal used to evaluate service behavior.
 - alert is operational notification when a signal crosses a threshold.
 
-Local project SLOs are learning defaults. These thresholds should be tuned with real traffic later. drift threshold is model-quality risk signal, not infrastructure availability. There is no burn-rate math yet.
+Local project SLOs are learning defaults. These thresholds should be tuned with real traffic later. drift threshold is model-quality risk signal, not infrastructure availability. Burn-rate simulation is available locally through `scale-slo-burn-rate`.
 
 ## SLO Table
 
@@ -25,6 +25,18 @@ Local project SLOs are learning defaults. These thresholds should be tuned with 
 - high latency alert maps to latency p95 SLO breach.
 - error count or error rate alert maps to error rate SLO breach.
 - drift alert maps to drift threshold SLO breach.
+
+## Burn-Rate Simulation
+
+Run local SLO burn-rate checks from load and optional drift reports:
+
+```bash
+uv run scale-slo-burn-rate \
+  --load-report 03-scale-and-reliability/reports/load-test.json \
+  --drift-report 02-production-patterns/reports/local-deployment-drift.json
+```
+
+The report compares observed availability, error rate, latency p95, and optional drift score against learning SLO targets. It is local simulation, not paging policy.
 
 ## Example Mapping
 
@@ -56,4 +68,4 @@ Drift Threshold measures model-quality risk. Drift can mean input or prediction 
 
 ## Out Of Scope
 
-This step intentionally excludes SLO burn-rate math, error budget calculation, multi-window alerting, paging policy, production incident process, Prometheus alert rule rewrite, dashboards, autoscaling policy, Kubernetes production config, and real production SLO commitment.
+This step includes local SLO burn-rate simulation and simple error budget checks. Multi-window alert simulation is available through `scale-burn-rate-alert`. It still excludes paging policy, production incident process, Prometheus alert rule rewrite, dashboards, autoscaling policy, Kubernetes production config, and real production SLO commitment.

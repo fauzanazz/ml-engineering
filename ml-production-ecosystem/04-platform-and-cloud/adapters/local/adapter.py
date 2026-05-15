@@ -5,17 +5,15 @@ from pathlib import Path
 
 from shared.platform import CloudResourceRef, InfrastructurePlan, SecretRef
 
-
 @dataclass(frozen=True)
 class LocalAdapterConfig:
     """Configuration references for local platform resources."""
 
     project_root: Path
-    model_artifacts_path: str = "01-foundation/models"
+    model_artifacts_path: str = "01-foundation/artifacts"
     prediction_logs_path: str = "01-foundation/logs"
     registry_path: str = "01-foundation/registry/models.json"
     registry_token_env: str = "LOCAL_MODEL_REGISTRY_TOKEN"
-
 
 class LocalProviderAdapter:
     """Provider adapter for local-first workflows without cloud credentials."""
@@ -44,6 +42,33 @@ class LocalProviderAdapter:
                 ),
             ),
         )
+
+    def ensure_resources(self, environment: str) -> dict[str, object]:
+        """Create local filesystem resources referenced by the plan."""
+
+        plan = self.plan(environment)
+        resources = []
+        for resource in plan.resources:
+            path = Path(resource.uri)
+            if resource.name == "model-registry":
+                path.parent.mkdir(parents=True, exist_ok=True)
+            else:
+                path.mkdir(parents=True, exist_ok=True)
+            resources.append(
+                {
+                    "name": resource.name,
+                    "kind": resource.kind,
+                    "uri": resource.uri,
+                    "ready": path.parent.exists() if resource.name == "model-registry" else path.exists(),
+                }
+            )
+        return {
+            "status": "ready" if all(resource["ready"] for resource in resources) else "incomplete",
+            "provider": self.provider,
+            "environment": environment,
+            "resources": resources,
+            "secret_references": [secret.injection_target for secret in plan.secrets],
+        }
 
     def _resource(self, name: str, relative_path: str) -> CloudResourceRef:
         return CloudResourceRef(

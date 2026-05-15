@@ -30,11 +30,11 @@ Target:
 - production-like local runtime
 - service boundary yang lebih jelas
 
-Status: sudah berjalan sampai Step 26. Belum masuk real cloud deployment, Kubernetes, managed scheduler runtime, canary deployment, load testing, atau `03-million-scale` implementation.
+Status: production patterns sudah punya local-first lifecycle, deployment demo, drift detection, continual-learning monitoring, rollback, local canary simulation, local scheduler dry-run, and provider boundary checks. Real cloud apply, real Kubernetes cluster apply, managed scheduler runtime, and managed secret values tetap opsional di luar local-first core.
 
-## Stage 3: Million Scale
+## Stage 3: Scale And Reliability
 
-Simulasikan sistem yang harus menangani request volume besar.
+Simulasikan sistem yang harus menangani request volume besar tanpa wajib memakai managed cloud.
 
 Target:
 - load testing
@@ -43,7 +43,11 @@ Target:
 - horizontal scaling
 - reliability pattern
 - degradation strategy
+- SLO burn-rate simulation
+- autoscaling decision simulation
+- distributed load aggregation
+- cost estimation
 
 ## Platform Simulation Later
 
-Minikube, Kubernetes, dan Kubeflow dapat masuk setelah foundation dan production pattern cukup jelas.
+Minikube, Kubernetes, Kubeflow, AWS, GCP, Azure, atau vendor lain dapat masuk sebagai adapter/IaC target setelah local-first core tetap stabil.

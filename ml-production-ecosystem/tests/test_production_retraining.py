@@ -65,6 +65,48 @@ def test_run_retraining_returns_summary_without_active_update(tmp_path: Path) ->
     }
     assert get_active_model(registry_path, "movielens-popularity") is None
 
+def test_run_retraining_supports_command_based_model_training(tmp_path: Path) -> None:
+    summary_path = tmp_path / "command-summary.json"
+    metrics_path = tmp_path / "metrics.json"
+    artifact_path = tmp_path / "artifact"
+    command = (
+        "import json, pathlib; "
+        f"pathlib.Path({str(metrics_path)!r}).write_text(json.dumps({{'accuracy': 0.9}})); "
+        f"pathlib.Path({str(artifact_path)!r}).mkdir(); "
+        f"pathlib.Path({str(summary_path)!r}).write_text(json.dumps("
+        "{'model_name':'custom-classifier','version':'v1','artifact_uri':%r,'metrics_uri':%r}))"
+        % (str(artifact_path), str(metrics_path))
+    )
+    config_path = tmp_path / "command-model.yaml"
+    config_path.write_text(
+        f"""
+training:
+  type: command
+  command:
+    - {sys.executable}
+    - -c
+    - "{command}"
+  summary_path: {summary_path}
+quality_gate:
+  enabled: true
+  metrics_path: {metrics_path}
+  minimums:
+    accuracy: 0.8
+""".strip()
+    )
+
+    summary = run_retraining(config_path, require_quality_gate=True, model_name="custom-classifier")
+
+    assert summary == {
+        "status": "completed",
+        "model_name": "custom-classifier",
+        "version": "v1",
+        "artifact_uri": str(artifact_path),
+        "metrics_uri": str(metrics_path),
+        "set_active": False,
+        "quality_gate": {"passed": True, "failures": []},
+    }
+
 
 def test_run_retraining_can_set_active_model(tmp_path: Path) -> None:
     registry_path = tmp_path / "registry" / "models.json"

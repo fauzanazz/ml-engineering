@@ -1,0 +1,23 @@
+provider: azure
+environment: development
+resources:
+  - kind: object-storage
+    name: model-artifacts
+    uri: azblob://mlprodecosystemdev/model-artifacts
+  - kind: container-registry
+    name: model-images
+    uri: mlprodecosystemdev.azurecr.io/model-serving
+  - kind: serving-runtime
+    name: model-serving
+    uri: containerapps://ml-production-ecosystem-dev/model-serving
+  - kind: prediction-logs
+    name: prediction-logs
+    uri: azblob://mlprodecosystemdev/prediction-logs
+  - kind: model-registry
+    name: model-registry
+    uri: azblob://mlprodecosystemdev/model-registry/models.json
+secrets:
+  - provider: azure
+    name: development/azure/model-registry-token
+    injection_target: MODEL_REGISTRY_TOKEN
+    policy_ref: policy/azure-model-registry-read

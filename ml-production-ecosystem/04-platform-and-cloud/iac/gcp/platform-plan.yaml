@@ -1,0 +1,23 @@
+provider: gcp
+environment: development
+resources:
+  - kind: object-storage
+    name: model-artifacts
+    uri: gs://ml-production-ecosystem-dev-model-artifacts
+  - kind: container-registry
+    name: model-images
+    uri: us-docker.pkg.dev/ml-production-ecosystem-dev/ml/model-serving
+  - kind: serving-runtime
+    name: model-serving
+    uri: cloudrun://ml-production-ecosystem-dev/model-serving
+  - kind: prediction-logs
+    name: prediction-logs
+    uri: gs://ml-production-ecosystem-dev-prediction-logs
+  - kind: model-registry
+    name: model-registry
+    uri: gs://ml-production-ecosystem-dev-model-registry/models.json
+secrets:
+  - provider: gcp
+    name: development/gcp/model-registry-token
+    injection_target: MODEL_REGISTRY_TOKEN
+    policy_ref: policy/gcp-model-registry-read

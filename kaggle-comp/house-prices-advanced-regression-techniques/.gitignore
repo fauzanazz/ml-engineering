@@ -1,0 +1,16 @@
+.DS_Store
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+data/*.csv
+data/*.txt
+train.csv
+test.csv
+sample_submission.csv
+data_description.txt
+artifacts/

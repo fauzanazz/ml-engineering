@@ -33,6 +33,28 @@ class InfrastructurePlan:
     secrets: tuple[SecretRef, ...] = field(default_factory=tuple)
 
 
+@dataclass(frozen=True)
+class DeploymentAction:
+    """Provider adapter deployment action without secret values."""
+
+    provider: str
+    name: str
+    kind: str
+    uri: str
+    status: str
+
+
+@dataclass(frozen=True)
+class DeploymentExecution:
+    """Provider adapter deployment execution report."""
+
+    provider: str
+    environment: str
+    dry_run: bool
+    status: str
+    actions: tuple[DeploymentAction, ...] = field(default_factory=tuple)
+
+
 class ProviderAdapter(Protocol):
     """Boundary for local, AWS, GCP, Azure, or future providers."""
 
@@ -40,3 +62,6 @@ class ProviderAdapter(Protocol):
 
     def plan(self, environment: str) -> InfrastructurePlan:
         """Return resource and secret references for environment."""
+
+    def deploy(self, environment: str, dry_run: bool = True) -> DeploymentExecution:
+        """Execute or preview deployment through adapter boundary."""

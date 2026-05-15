@@ -33,3 +33,16 @@ Before adding vendor code, answer:
 3. Does core code depend only on shared contracts?
 4. Are secret values excluded from code and tests?
 5. Can another provider implement same behavior through new adapter only?
+
+## Local Enforcement
+
+Run this before push when provider-specific code changes:
+
+```bash
+production-validate-provider-boundaries
+production-validate-provider-portability
+```
+
+The validator fails when core Python modules import AWS, GCP, Azure, Kubernetes, or Terraform SDK packages directly. Provider-specific imports are allowed only under `04-platform-and-cloud/adapters/*` and `04-platform-and-cloud/iac/*`.
+
+The portability validator compares local, AWS, GCP, and Azure platform plans so required resource names and model-registry secret injection stay stable across providers.

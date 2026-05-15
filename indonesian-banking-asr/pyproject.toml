@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "edge-tts>=7.2.8",
+    "mlx-whisper>=0.4.3",
     "pyyaml>=6.0.3",
 ]
 

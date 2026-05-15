@@ -3,10 +3,12 @@
 from pathlib import Path
 import argparse
 import json
+import subprocess
 
 import yaml
 
-from recommendation.train import set_active_model, train_recommender_from_config
+from shared.model_storage.registry import register_model_version, set_active_model
+from recommendation.train import train_recommender_from_config
 from .quality_gate import evaluate_quality_gate
 
 DEFAULT_MODEL_NAME = "movielens-popularity"
@@ -30,6 +32,27 @@ def _registry_path_from_config(config_path: Path) -> Path | None:
         return None
     return Path(str(registry_path))
 
+def _run_training_from_config(config_path: Path) -> dict[str, object]:
+    config = _load_config(config_path)
+    training = config.get("training", {})
+    if isinstance(training, dict) and training.get("type") == "command":
+        command = training.get("command")
+        summary_path = training.get("summary_path")
+        if not isinstance(command, list) or not command:
+            raise ValueError("training.command must be a non-empty list")
+        if summary_path is None:
+            raise ValueError("training.summary_path is required for command training")
+        subprocess.run([str(part) for part in command], check=True)
+        return json.loads(Path(str(summary_path)).read_text())
+
+    result = train_recommender_from_config(config_path)
+    return {
+        "model_name": result.model_name,
+        "version": result.version,
+        "artifact_uri": result.uri,
+        "metrics_uri": result.metrics_uri,
+    }
+
 
 def run_retraining(
     config_path: Path,
@@ -38,7 +61,7 @@ def run_retraining(
     model_name: str = DEFAULT_MODEL_NAME,
     require_quality_gate: bool = False,
 ) -> dict[str, object]:
-    result = train_recommender_from_config(config_path)
+    result = _run_training_from_config(config_path)
     config = _load_config(config_path)
     quality_gate_result = {"passed": True, "failures": []}
     if require_quality_gate:
@@ -51,17 +74,27 @@ def run_retraining(
         resolved_registry_path = registry_path or _registry_path_from_config(config_path)
         if resolved_registry_path is None:
             raise ValueError("--registry-path is required when --set-active and config has no registry.path")
-        set_active_model(resolved_registry_path, model_name, result.version)
+        activation_model_name = model_name
+        if model_name == DEFAULT_MODEL_NAME and str(result["model_name"]) != DEFAULT_MODEL_NAME:
+            activation_model_name = str(result["model_name"])
+        register_model_version(
+            registry_path=resolved_registry_path,
+            model_name=str(result["model_name"]),
+            version=str(result["version"]),
+            artifact_uri=str(result["artifact_uri"]),
+            metrics_uri=str(result["metrics_uri"]),
+        )
+        set_active_model(resolved_registry_path, activation_model_name, str(result["version"]))
         activated = True
     elif set_active and not quality_gate_result["passed"]:
         status = "failed_quality_gate"
 
     return {
         "status": status,
-        "model_name": result.model_name,
-        "version": result.version,
-        "artifact_uri": result.uri,
-        "metrics_uri": result.metrics_uri,
+        "model_name": str(result["model_name"]),
+        "version": str(result["version"]),
+        "artifact_uri": str(result["artifact_uri"]),
+        "metrics_uri": str(result["metrics_uri"]),
         "set_active": activated,
         "quality_gate": quality_gate_result,
     }

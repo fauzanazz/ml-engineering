@@ -51,8 +51,8 @@ def test_scale_readiness_review_lists_real_million_request_gaps() -> None:
     doc = REVIEW_PATH.read_text()
 
     for gap in [
-        "distributed load testing",
-        "horizontal autoscaling",
+        "real distributed load testing",
+        "real horizontal autoscaling",
         "Kubernetes production deployment",
         "cloud load balancer",
         "multi-instance model serving",
@@ -62,11 +62,11 @@ def test_scale_readiness_review_lists_real_million_request_gaps() -> None:
         "model server optimization",
         "feature store at scale",
         "centralized logs/metrics/traces",
-        "SLO burn-rate alerting",
+        "Multi-window SLO burn-rate alert simulation",
         "capacity planning with real traffic",
         "multi-region reliability",
         "cloud IAM/secrets/networking",
-        "cost modeling",
+        "real cloud cost modeling",
     ]:
         assert gap in doc
 

@@ -1,0 +1,40 @@
+pipeline:
+  name: local-lifecycle-demo
+  version: local-demo-v1
+
+dataset:
+  name: sample-recommendation
+  version: sample-v1
+  schema_uri: schemas/recommendation/input.json
+  ratings_path: samples/recommendation/ratings.csv
+  movies_path: samples/recommendation/movies.csv
+
+model:
+  type: popularity
+  hyperparams:
+    min_rating: 4.0
+
+model_contract:
+  input_schema_uri: schemas/recommendation/input.json
+  output_schema_uri: schemas/recommendation/output.json
+  task_type: ranking
+  prediction_key: recommendations
+
+artifacts:
+  artifact_dir: 01-foundation/artifacts
+
+experiments:
+  tracking_dir: 01-foundation/experiments/runs
+  run_id: local-demo-v1
+
+registry:
+  path: 01-foundation/registry/models.json
+  stage: candidate
+  set_active: false
+
+quality_gate:
+  enabled: true
+  metrics_path: 01-foundation/artifacts/recommendation/local-demo-v1/metrics.json
+  minimums:
+    candidate_count: 1
+    ratings_rows: 1

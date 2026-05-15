@@ -46,6 +46,6 @@ def test_slo_definition_explains_learning_boundary() -> None:
         "learning defaults",
         "thresholds should be tuned with real traffic later",
         "drift threshold is model-quality risk signal",
-        "no burn-rate math yet",
+        "scale-slo-burn-rate",
     ]:
         assert required in doc

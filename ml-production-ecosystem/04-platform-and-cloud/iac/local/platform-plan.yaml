@@ -3,7 +3,7 @@ environment: development
 resources:
   - kind: local-path
     name: model-artifacts
-    uri: 01-foundation/models
+    uri: 01-foundation/artifacts
   - kind: local-path
     name: prediction-logs
     uri: 01-foundation/logs

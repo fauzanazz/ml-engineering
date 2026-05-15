@@ -9,9 +9,46 @@ uv run pytest \
   tests/test_production_monitoring_loop.py \
   tests/test_scheduled_retraining.py \
   tests/test_airflow_retraining_dag.py \
+  tests/test_data_ingestion.py \
+  tests/test_offline_validation.py \
+  tests/test_approval.py \
+  tests/test_deployment_demo.py \
+  tests/test_canary_decision.py \
+  tests/test_canary_router.py \
+  tests/test_drift_detection.py \
+  tests/test_continual_learning.py \
+  tests/test_continual_summary.py \
+  tests/test_lifecycle_graph.py \
+  tests/test_lifecycle_demo.py \
+  tests/test_lifecycle_status.py \
+  tests/test_goal_readiness.py \
+  tests/test_local_lifecycle_demo_config.py \
+  tests/test_local_lifecycle_runbook.py \
+  tests/test_generic_classifier_command.py \
+  tests/test_model_contract_manifest.py \
+  tests/test_recommendation_prediction_adapter.py \
+  tests/test_platform_plan.py \
+  tests/test_local_platform.py \
+  tests/test_platform_plan_adapter.py \
+  tests/test_cloud_provider_adapters.py \
+  tests/test_provider_boundaries.py \
+  tests/test_provider_portability.py \
+  tests/test_provider_swap_matrix.py \
+  tests/test_secret_references.py \
+  tests/test_local_secret_injections.py \
+  tests/test_local_kubernetes.py \
+  tests/test_local_scheduler.py \
+  tests/test_policy_references.py \
+  tests/test_shared_contracts.py \
   tests/test_alerting_rules.py \
   tests/test_rollback.py \
+  tests/test_rollback_generic_classifier.py \
   tests/test_release_checklist.py \
   tests/test_deployment_manifest.py \
   tests/test_release_summary.py \
-  tests/test_scope_review.py
+  tests/test_scope_review.py \
+  tests/test_slo_burn_rate.py \
+  tests/test_burn_rate_alert.py \
+  tests/test_autoscaling_decision.py \
+  tests/test_load_aggregate.py \
+  tests/test_cost_estimate.py

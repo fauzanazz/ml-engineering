@@ -12,6 +12,7 @@ PLATFORM_ROOT = ROOT / "04-platform-and-cloud"
 def test_platform_stage_documents_provider_boundaries() -> None:
     readme = (PLATFORM_ROOT / "README.md").read_text()
     boundaries = (PLATFORM_ROOT / "docs" / "provider-boundaries.md").read_text()
+    provider_swap = (PLATFORM_ROOT / "docs" / "provider-swap.md").read_text()
 
     assert "model-agnostic core workflows" in readme
     assert "Provider examples are adapters" in readme
@@ -19,6 +20,8 @@ def test_platform_stage_documents_provider_boundaries() -> None:
     assert "must not import AWS, GCP, Azure" in boundaries
     assert "LifecycleRun" in boundaries
     assert "local workflow still run without provider credentials" in boundaries
+    assert "Provider swap changes only these files" in provider_swap
+    assert "production-provider-swap-matrix" in provider_swap
 
 
 def test_provider_adapter_and_iac_scopes_exist() -> None:
@@ -60,6 +63,21 @@ def test_local_provider_adapter_returns_reference_plan_only() -> None:
     assert "secret-value" not in repr(plan)
 
 
+
+
+def test_local_provider_adapter_can_apply_filesystem_resources(tmp_path: Path) -> None:
+    adapter_module = load_local_adapter_module()
+    config = adapter_module.LocalAdapterConfig(project_root=tmp_path)
+    adapter = adapter_module.LocalProviderAdapter(config)
+
+    summary = adapter.ensure_resources(environment="development")
+
+    assert summary["status"] == "ready"
+    assert (tmp_path / "01-foundation" / "artifacts").is_dir()
+    assert (tmp_path / "01-foundation" / "logs").is_dir()
+    assert (tmp_path / "01-foundation" / "registry").is_dir()
+    assert summary["secret_references"] == ["LOCAL_MODEL_REGISTRY_TOKEN"]
+
 def test_local_iac_plan_matches_adapter_contract() -> None:
     plan = yaml.safe_load((PLATFORM_ROOT / "iac" / "local" / "platform-plan.yaml").read_text())
 
@@ -70,6 +88,7 @@ def test_local_iac_plan_matches_adapter_contract() -> None:
         "model-registry",
         "prediction-logs",
     }
+    assert next(resource["uri"] for resource in plan["resources"] if resource["name"] == "model-artifacts") == "01-foundation/artifacts"
     assert plan["secrets"] == [
         {
             "provider": "local",
@@ -78,6 +97,33 @@ def test_local_iac_plan_matches_adapter_contract() -> None:
             "policy_ref": "local-env-file-reference",
         }
     ]
+
+
+def test_cloud_iac_plans_share_provider_neutral_contract() -> None:
+    required_resources = {
+        "model-artifacts",
+        "model-images",
+        "model-serving",
+        "prediction-logs",
+        "model-registry",
+    }
+
+    for provider in ("aws", "gcp", "azure"):
+        plan = yaml.safe_load((PLATFORM_ROOT / "iac" / provider / "platform-plan.yaml").read_text())
+
+        assert plan["provider"] == provider
+        assert plan["environment"] == "development"
+        assert {resource["name"] for resource in plan["resources"]} == required_resources
+        assert all(resource["kind"] for resource in plan["resources"])
+        assert all(resource["uri"] for resource in plan["resources"])
+        assert plan["secrets"] == [
+            {
+                "provider": provider,
+                "name": f"development/{provider}/model-registry-token",
+                "injection_target": "MODEL_REGISTRY_TOKEN",
+                "policy_ref": f"policy/{provider}-model-registry-read",
+            }
+        ]
 
 
 def test_core_code_does_not_import_cloud_providers() -> None:

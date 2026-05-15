@@ -1,7 +1,20 @@
 """Generic ML lifecycle workflow contracts."""
 
 from .contracts import (
+    ApprovalPort,
+    ContinualLearningDecision,
+    ContinualLearningPort,
+    DataIngestionPort,
+    DatasetRef,
+    DeploymentDemoPort,
+    DeploymentDemoResult,
+    DriftDetectionPort,
+    DriftReport,
+    LifecycleGraph,
+    LifecycleGraphPort,
     LifecycleRun,
+    OfflineValidationPort,
+    OfflineValidationReport,
     ReleaseDecision,
     ReleasePort,
     RetrainingPort,
@@ -10,7 +23,20 @@ from .contracts import (
 )
 
 __all__ = [
+    "ApprovalPort",
+    "ContinualLearningDecision",
+    "ContinualLearningPort",
+    "DataIngestionPort",
+    "DatasetRef",
+    "DeploymentDemoPort",
+    "DeploymentDemoResult",
+    "DriftDetectionPort",
+    "DriftReport",
+    "LifecycleGraph",
+    "LifecycleGraphPort",
     "LifecycleRun",
+    "OfflineValidationPort",
+    "OfflineValidationReport",
     "ReleaseDecision",
     "ReleasePort",
     "RetrainingPort",

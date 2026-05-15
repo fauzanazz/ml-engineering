@@ -24,6 +24,7 @@ Step 24 added production-like Docker Compose runtime.
 Step 25 added live API smoke testing.
 Step 26 added `production-release-summary`.
 Step 27 added the production patterns scope review and closure checklist.
+Later local-first goal work added generic lifecycle commands, model contract validation, local deployment demo testing, drift detection, continual-learning decisions, canary decision and traffic-splitting simulation, local scheduler runtime dry-run, and goal readiness audit.
 
 This folder now owns pattern-level docs, operational runbooks, and thin wrappers around foundation workflows.
 
@@ -98,6 +99,14 @@ uv run production-release-summary \
   --output-path 02-production-patterns/reports/release-summary.json
 ```
 
+Local lifecycle:
+
+```bash
+uv run production-lifecycle-demo --config configs/local-lifecycle-demo.yaml
+uv run production-run-local-scheduler --job-name lifecycle-status
+uv run production-goal-readiness
+```
+
 ## Target Learning Outcomes
 
 - Compare multiple app shapes and service boundaries.
@@ -124,5 +133,9 @@ Production pattern layer is current through Step 27:
 - production compose and smoke test verify local serving runtime
 - release summary captures release evidence
 - incident simulation, security controls, and AWS serving decision docs capture extra operational hardening
+- local lifecycle commands cover data ingestion, training, offline validation, approval, deployment demo, drift, continual-learning decision, and graph generation
+- local canary decision and traffic-splitting simulation produce release routing evidence
+- local scheduler plan validation and runtime dry-run work without managed scheduler services
+- goal readiness audit reports `ready` when local-first/model-agnostic/provider-agnostic evidence is present
 
-MLflow stages, Kubernetes, real cloud deployment, remote scheduler runtime, managed secrets, canary deployment, load testing, and `03-million-scale` implementation are not added yet.
+Still intentionally out of scope here: MLflow stages, applying real Kubernetes clusters, applying real cloud resources, committing managed secret values, real autoscaling runtime, paging runtime, and real million-traffic execution. Local-first equivalents and dry-run/provider-adapter proofs live in this repo before managed-provider apply logic.

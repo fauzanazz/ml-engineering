@@ -1,0 +1,35 @@
+pipeline:
+  name: generic-classifier-command
+  version: generic-classifier-v1
+
+model_contract:
+  input_schema_uri: schemas/generic_classifier/input.json
+  output_schema_uri: schemas/generic_classifier/output.json
+  task_type: classification
+  prediction_key: label
+
+training:
+  type: command
+  command:
+    - python
+    - samples/generic_classifier/train.py
+    - --data-path
+    - samples/generic_classifier/data.csv
+    - --artifact-dir
+    - 01-foundation/artifacts
+    - --summary-path
+    - 02-production-patterns/reports/generic-classifier-training-summary.json
+    - --version
+    - generic-classifier-v1
+  summary_path: 02-production-patterns/reports/generic-classifier-training-summary.json
+
+registry:
+  path: 01-foundation/registry/models.json
+  stage: candidate
+  set_active: false
+
+quality_gate:
+  enabled: true
+  metrics_path: 01-foundation/artifacts/tiny-threshold-classifier/generic-classifier-v1/metrics.json
+  minimums:
+    accuracy: 0.8

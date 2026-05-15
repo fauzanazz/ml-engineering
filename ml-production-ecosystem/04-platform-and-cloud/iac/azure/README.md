@@ -14,3 +14,7 @@ Forbidden here:
 - model training code
 - model serving business logic
 - assumptions that prevent another provider adapter from implementing same contract
+
+## Current Plan
+
+`platform-plan.yaml` defines Azure resource references for artifacts, images, serving, prediction logs, model registry, and model-registry secret injection. It is a reference contract only: no Bicep/Terraform state, credentials, tenant secrets, or secret values are committed.

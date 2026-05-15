@@ -1,0 +1,25 @@
+provider: local
+runtime: cron-compatible
+timezone: UTC
+jobs:
+  - name: scheduled-retraining
+    schedule: "0 2 * * *"
+    command:
+      - uv
+      - run
+      - production-scheduled-retrain
+      - --config
+      - configs/local-lifecycle-demo.yaml
+      - --require-quality-gate
+      - --output-path
+      - 02-production-patterns/reports/scheduled-retraining.json
+    output_path: 02-production-patterns/reports/scheduled-retraining.json
+  - name: lifecycle-status
+    schedule: "30 2 * * *"
+    command:
+      - uv
+      - run
+      - production-lifecycle-status
+      - --output-path
+      - 02-production-patterns/reports/lifecycle-status.json
+    output_path: 02-production-patterns/reports/lifecycle-status.json

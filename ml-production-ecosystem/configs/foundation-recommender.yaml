@@ -11,6 +11,12 @@ model:
   hyperparams:
     min_rating: 4.0
 
+model_contract:
+  input_schema_uri: schemas/recommendation/input.json
+  output_schema_uri: schemas/recommendation/output.json
+  task_type: ranking
+  prediction_key: recommendations
+
 artifacts:
   artifact_dir: 01-foundation/artifacts
 
