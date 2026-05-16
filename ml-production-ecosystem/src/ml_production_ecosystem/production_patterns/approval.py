@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import json
 from typing import Any
 
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/approval-decision.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/approval-decision.json")
 
 
 def _read_validation_report(path: Path) -> dict[str, Any]:

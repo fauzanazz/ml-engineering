@@ -7,7 +7,7 @@ from typing import Any, Protocol
 
 import httpx
 
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/drift-report.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/drift-report.json")
 
 
 class HttpResponse(Protocol):

@@ -7,8 +7,8 @@ from typing import Any
 
 import yaml
 
-DEFAULT_PLAN_PATH = Path("04-platform-and-cloud/iac/local/platform-plan.yaml")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/platform-plan-validation.json")
+DEFAULT_PLAN_PATH = Path("configs/platform/local/platform-plan.yaml")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/platform-plan-validation.json")
 SECRET_VALUE_KEYS = {"value", "secret", "password", "token_value", "api_key"}
 
 

@@ -8,7 +8,7 @@ from typing import Any
 from ml_production_ecosystem.shared.platform import PlatformPlanAdapter
 
 DEFAULT_ROOT = Path(".")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/provider-swap-matrix.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/provider-swap-matrix.json")
 PROVIDERS = ("local", "aws", "gcp", "azure")
 CORE_WORKFLOWS = (
     "production-lifecycle-demo",
@@ -46,7 +46,7 @@ def build_provider_swap_matrix(
         "environment": environment,
         "providers": list(PROVIDERS),
         "core_code_changes_required": False,
-        "swap_unit": "04-platform-and-cloud/iac/<provider>/platform-plan.yaml + 04-platform-and-cloud/adapters/<provider>",
+        "swap_unit": "configs/platform/<provider>/platform-plan.yaml + configs/platform/adapters/<provider>",
         "core_workflows": list(CORE_WORKFLOWS),
         "resource_matrix": matrix,
         "secret_injection_targets": {
@@ -61,7 +61,7 @@ def build_provider_swap_matrix(
 
 
 def _load_plan(root: Path, provider: str, environment: str) -> dict[str, Any]:
-    path = root / "04-platform-and-cloud" / "iac" / provider / "platform-plan.yaml"
+    path = root / "configs" / "platform" / "iac" / provider / "platform-plan.yaml"
     plan = PlatformPlanAdapter(path).plan(environment)
     return {
         "resources": [

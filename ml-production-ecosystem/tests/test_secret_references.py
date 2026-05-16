@@ -4,7 +4,7 @@ import json
 from ml_production_ecosystem.production_patterns.secret_references import validate_secret_references
 
 def test_validate_secret_references_passes_reference_only_configs(tmp_path: Path) -> None:
-    plan_path = tmp_path / "04-platform-and-cloud" / "iac" / "local" / "platform-plan.yaml"
+    plan_path = tmp_path / "configs" / "platform" / "iac" / "local" / "platform-plan.yaml"
     plan_path.parent.mkdir(parents=True)
     plan_path.write_text(
         """

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/canary-decision.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/canary-decision.json")
 
 
 def build_canary_decision(

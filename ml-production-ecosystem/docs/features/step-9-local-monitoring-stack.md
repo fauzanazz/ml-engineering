@@ -28,9 +28,9 @@ Run from `ml-production-ecosystem`.
 
 ```bash
 uv run foundation-train-recommender \
-  --ratings-path 01-foundation/data/raw/ml-25m/ratings.csv \
-  --movies-path 01-foundation/data/raw/ml-25m/movies.csv \
-  --artifact-dir 01-foundation/artifacts \
+  --ratings-path examples/samples/recommendation/ratings.csv \
+  --movies-path examples/samples/recommendation/movies.csv \
+  --artifact-dir artifacts/foundation \
   --version api-v1
 ```
 
@@ -38,7 +38,7 @@ uv run foundation-train-recommender \
 
 ```bash
 uv run foundation-set-active-model \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --model-name movielens-popularity \
   --version api-v1
 ```

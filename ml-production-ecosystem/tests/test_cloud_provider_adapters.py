@@ -6,7 +6,7 @@ import importlib.util
 from ml_production_ecosystem.shared.platform import ProviderAdapter
 
 ROOT = Path(__file__).resolve().parents[1]
-PLATFORM_ROOT = ROOT / "04-platform-and-cloud"
+PLATFORM_ROOT = ROOT / "configs" / "platform"
 
 PROVIDER_CLASSES = {
     "aws": "AwsProviderAdapter",

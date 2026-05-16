@@ -7,7 +7,7 @@ categories: [foundation, observability, prometheus, fastapi]
 related:
   - ./step-6-serving-observability-basics.md
   - ./step-9-local-monitoring-stack.md
-  - ../../01-foundation/README.md
+  - ../../docs/domains/foundation/README.md
 ---
 
 Step 8 upgraded the foundation recommender metrics API from local JSON-only output to Prometheus-compatible text.

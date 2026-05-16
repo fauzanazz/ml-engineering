@@ -7,8 +7,8 @@ from typing import Any
 
 import yaml
 
-DEFAULT_MANIFEST_PATH = Path("04-platform-and-cloud/iac/local/kubernetes/foundation-api.yaml")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/local-kubernetes-validation.json")
+DEFAULT_MANIFEST_PATH = Path("configs/platform/local/kubernetes/foundation-api.yaml")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/local-kubernetes-validation.json")
 FORBIDDEN_KINDS = {"Secret"}
 
 

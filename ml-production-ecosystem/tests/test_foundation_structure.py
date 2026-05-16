@@ -15,14 +15,8 @@ def test_foundation_docs_are_centralized() -> None:
         assert path.exists(), f"Missing central doc: {path}"
 
 
-def test_foundation_folder_only_has_readme_docs() -> None:
-    for folder in ["01-foundation"]:
-        nested_docs = [
-            path
-            for path in (ROOT / folder).rglob("*.md")
-            if path.name != "README.md"
-        ]
-        assert nested_docs == []
+def test_foundation_folder_was_removed() -> None:
+    assert not (ROOT / "legacy_foundation").exists()
 
 
 def test_foundation_has_local_docker_compose_but_no_cloud_ci_cd_files() -> None:

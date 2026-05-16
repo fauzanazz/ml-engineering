@@ -19,7 +19,7 @@ author: fauzan
 
 # Foundation Movie Recommender Models and Local Infra
 
-[Foundation recommender](../../01-foundation/recommendation/) sekarang punya baseline popularity, item collaborative filtering, matrix factorization, user-specific prediction, ranking evaluation, local Redpanda/Postgres validation, YAML-driven training, experiment tracking, local model registry, local FastAPI serving, serving observability basics, prediction logging, dan basic drift signal.
+[Foundation recommender](../../src/ml_production_ecosystem/recommendation/) sekarang punya baseline popularity, item collaborative filtering, matrix factorization, user-specific prediction, ranking evaluation, local Redpanda/Postgres validation, YAML-driven training, experiment tracking, local model registry, local FastAPI serving, serving observability basics, prediction logging, dan basic drift signal.
 
 Dedicated milestone docs:
 
@@ -40,13 +40,13 @@ Local production-like path juga divalidasi dengan [Redpanda](https://redpanda.co
 
 ## How It Works
 
-Training tetap menulis artifact lokal ke `01-foundation/artifacts/recommendation/<version>/`. Setiap artifact berisi `model.json`, `metadata.json`, dan `metrics.json`. Prediction membaca artifact lewat `recommendation.artifacts.load_artifact()` lalu memilih path rekomendasi berdasarkan `model_name` di `model.json`.
+Training tetap menulis artifact lokal ke `artifacts/foundation/recommendation/<version>/`. Setiap artifact berisi `model.json`, `metadata.json`, dan `metrics.json`. Prediction membaca artifact lewat `recommendation.artifacts.load_artifact()` lalu memilih path rekomendasi berdasarkan `model_name` di `model.json`.
 
 Config-driven training tersedia lewat `configs/foundation-recommender.yaml` dan command `foundation-train-from-config`. YAML ini memilih dataset path, artifact dir, artifact version, model type `popularity`, hyperparameter `min_rating`, dan experiment tracking path, sehingga data scientist bisa menjalankan training tanpa mengubah kode Python atau mengirim banyak CLI args.
 
-Setiap config training bisa menulis experiment record lokal ke `01-foundation/experiments/runs/<run_id>/`. Run folder menyimpan `config.yaml`, `params.json`, `metrics.json`, `artifact.json`, dan `run.json`, jadi history training bisa dibaca tanpa membuka folder artifact manual. `foundation-list-runs` menampilkan isi `run.json` dari tracking directory.
+Setiap config training bisa menulis experiment record lokal ke `artifacts/experiments/runs/<run_id>/`. Run folder menyimpan `config.yaml`, `params.json`, `metrics.json`, `artifact.json`, dan `run.json`, jadi history training bisa dibaca tanpa membuka folder artifact manual. `foundation-list-runs` menampilkan isi `run.json` dari tracking directory.
 
-Local model registry tersedia lewat `01-foundation/registry/models.json`. Config training bisa mendaftarkan model version dengan stage seperti `candidate`, lalu `foundation-set-active-model` memilih active version untuk prediction/deploy berikutnya. `foundation-list-models` menampilkan model version yang sudah registered.
+Local model registry tersedia lewat `registry/models.json`. Config training bisa mendaftarkan model version dengan stage seperti `candidate`, lalu `foundation-set-active-model` memilih active version untuk prediction/deploy berikutnya. `foundation-list-models` menampilkan model version yang sudah registered.
 
 Local HTTP serving tersedia lewat `foundation-serve-recommender`. API membaca active model dari registry, lalu menyediakan `/health`, `/models/active`, `/metrics`, `/drift`, dan `/predict/v1` untuk rekomendasi lokal berbasis artifact aktif dengan request count, error count, latency, model/version tags, JSONL prediction audit logs, dan naive drift score.
 
@@ -64,17 +64,17 @@ Local infra dijalankan lewat `docker compose up -d`. Service `redpanda` membuka 
 
 | File | Role |
 |------|------|
-| `01-foundation/recommendation/train.py` | Training untuk popularity, item collaborative filtering, matrix factorization, dan YAML config entrypoint. |
+| `src/ml_production_ecosystem/recommendation/train.py` | Training untuk popularity, item collaborative filtering, matrix factorization, dan YAML config entrypoint. |
 | `configs/foundation-recommender.yaml` | Example config untuk config-driven popularity training, local experiment tracking, dan registry. |
-| `01-foundation/registry/models.json` | Local model registry JSON untuk registered versions dan active model pointer. |
-| `01-foundation/recommendation/api.py` | Local FastAPI serving untuk active registered model. |
-| `01-foundation/recommendation/predict.py` | Prediction path untuk global, user-specific, dan active registry recommendations. |
-| `01-foundation/recommendation/evaluate.py` | Ranking metric helpers untuk recommender artifact. |
-| `01-foundation/recommendation/data.py` | MovieLens validation dan chronological train/validation/test split helper. |
-| `01-foundation/recommendation/artifacts.py` | Local artifact loader/writer dan run directory helper. |
-| `01-foundation/recommendation/rt_transport.py` | Kafka-compatible recommendation request event producer/consumer. |
-| `01-foundation/recommendation/warehouse.py` | PostgreSQL schema and persistence for processed recommendation requests. |
-| `01-foundation/recommendation/rt_demo.py` | End-to-end Redpanda + warehouse local demo. |
+| `registry/models.json` | Local model registry JSON untuk registered versions dan active model pointer. |
+| `src/ml_production_ecosystem/recommendation/api.py` | Local FastAPI serving untuk active registered model. |
+| `src/ml_production_ecosystem/recommendation/predict.py` | Prediction path untuk global, user-specific, dan active registry recommendations. |
+| `src/ml_production_ecosystem/recommendation/evaluate.py` | Ranking metric helpers untuk recommender artifact. |
+| `src/ml_production_ecosystem/recommendation/data.py` | MovieLens validation dan chronological train/validation/test split helper. |
+| `src/ml_production_ecosystem/recommendation/artifacts.py` | Local artifact loader/writer dan run directory helper. |
+| `src/ml_production_ecosystem/recommendation/rt_transport.py` | Kafka-compatible recommendation request event producer/consumer. |
+| `src/ml_production_ecosystem/recommendation/warehouse.py` | PostgreSQL schema and persistence for processed recommendation requests. |
+| `src/ml_production_ecosystem/recommendation/rt_demo.py` | End-to-end Redpanda + warehouse local demo. |
 | `docker-compose.yml` | Local Redpanda and Postgres services. |
 | `tests/test_recommendation_workflow.py` | Unit coverage for data validation, artifacts, ranking metrics, CF, and MF. |
 | `tests/test_rt_warehouse_foundation.py` | Integration-style coverage for local Redpanda/Postgres path. |
@@ -149,8 +149,8 @@ pipeline:
   version: foundation-config-v1
 
 dataset:
-  ratings_path: 01-foundation/data/raw/ml-25m/ratings.csv
-  movies_path: 01-foundation/data/raw/ml-25m/movies.csv
+  ratings_path: examples/samples/recommendation/ratings.csv
+  movies_path: examples/samples/recommendation/movies.csv
 
 model:
   type: popularity
@@ -158,55 +158,55 @@ model:
     min_rating: 4.0
 
 artifacts:
-  artifact_dir: 01-foundation/artifacts
+  artifact_dir: artifacts/foundation
 
 experiments:
-  tracking_dir: 01-foundation/experiments/runs
+  tracking_dir: artifacts/experiments/runs
   run_id: foundation-config-v1
 
 registry:
-  path: 01-foundation/registry/models.json
+  path: registry/models.json
   stage: candidate
   set_active: false
 ```
 
 ```bash
-uv run foundation-list-runs --tracking-dir 01-foundation/experiments/runs
+uv run foundation-list-runs --tracking-dir artifacts/experiments/runs
 ```
 
 ```bash
-uv run foundation-list-models --registry-path 01-foundation/registry/models.json
+uv run foundation-list-models --registry-path registry/models.json
 uv run foundation-set-active-model \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --model-name movielens-popularity \
   --version foundation-config-v1
 uv run foundation-recommend \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --top-k 5
 ```
 
 ```bash
 uv run foundation-train-recommender \
-  --ratings-path 01-foundation/data/raw/ml-25m/ratings.csv \
-  --movies-path 01-foundation/data/raw/ml-25m/movies.csv \
-  --artifact-dir 01-foundation/artifacts \
+  --ratings-path examples/samples/recommendation/ratings.csv \
+  --movies-path examples/samples/recommendation/movies.csv \
+  --artifact-dir artifacts/foundation \
   --version local-popularity-20260513 \
   --model popularity
 ```
 
 ```bash
 uv run foundation-train-recommender \
-  --ratings-path 01-foundation/data/raw/ml-25m/ratings.csv \
-  --movies-path 01-foundation/data/raw/ml-25m/movies.csv \
-  --artifact-dir 01-foundation/artifacts \
+  --ratings-path examples/samples/recommendation/ratings.csv \
+  --movies-path examples/samples/recommendation/movies.csv \
+  --artifact-dir artifacts/foundation \
   --model collaborative-filtering
 ```
 
 ```bash
 uv run foundation-train-recommender \
-  --ratings-path 01-foundation/data/raw/ml-25m/ratings.csv \
-  --movies-path 01-foundation/data/raw/ml-25m/movies.csv \
-  --artifact-dir 01-foundation/artifacts \
+  --ratings-path examples/samples/recommendation/ratings.csv \
+  --movies-path examples/samples/recommendation/movies.csv \
+  --artifact-dir artifacts/foundation \
   --model matrix-factorization \
   --factors 8 \
   --epochs 20
@@ -214,13 +214,13 @@ uv run foundation-train-recommender \
 
 ```bash
 uv run foundation-recommend \
-  --artifact-path 01-foundation/artifacts/recommendation/local-popularity-20260513 \
+  --artifact-path artifacts/foundation/recommendation/local-popularity-20260513 \
   --top-k 5
 ```
 
 ```bash
 uv run foundation-recommend \
-  --artifact-path 01-foundation/artifacts/recommendation/<version> \
+  --artifact-path artifacts/foundation/recommendation/<version> \
   --user-id 10 \
   --top-k 10
 ```
@@ -249,7 +249,7 @@ User-specific prediction requires `user_id` for collaborative filtering and matr
 The full MovieLens popularity model was trained locally with artifact:
 
 ```text
-01-foundation/artifacts/recommendation/local-popularity-20260513
+artifacts/foundation/recommendation/local-popularity-20260513
 ```
 
 Top 5 recommendations from that artifact:

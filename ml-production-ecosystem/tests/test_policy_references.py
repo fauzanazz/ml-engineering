@@ -24,8 +24,8 @@ def test_policy_references_pass_current_platform_plans(tmp_path: Path) -> None:
 
 
 def test_policy_references_fail_missing_policy(tmp_path: Path) -> None:
-    shutil.copytree(ROOT / "04-platform-and-cloud", tmp_path / "04-platform-and-cloud")
-    (tmp_path / "04-platform-and-cloud" / "policies" / "aws" / "model-registry-read.yaml").unlink()
+    shutil.copytree(ROOT / "configs" / "platform", tmp_path / "configs" / "platform")
+    (tmp_path / "configs" / "platform" / "policies" / "aws" / "model-registry-read.yaml").unlink()
 
     report = validate_policy_references(tmp_path, tmp_path / "policies.json")
 
@@ -34,8 +34,8 @@ def test_policy_references_fail_missing_policy(tmp_path: Path) -> None:
 
 
 def test_policy_references_fail_injection_mismatch(tmp_path: Path) -> None:
-    shutil.copytree(ROOT / "04-platform-and-cloud", tmp_path / "04-platform-and-cloud")
-    policy_path = tmp_path / "04-platform-and-cloud" / "policies" / "gcp" / "model-registry-read.yaml"
+    shutil.copytree(ROOT / "configs" / "platform", tmp_path / "configs" / "platform")
+    policy_path = tmp_path / "configs" / "platform" / "policies" / "gcp" / "model-registry-read.yaml"
     policy_path.write_text(policy_path.read_text().replace("MODEL_REGISTRY_TOKEN", "GCP_ONLY_TOKEN"))
 
     report = validate_policy_references(tmp_path, tmp_path / "policies.json")

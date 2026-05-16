@@ -15,7 +15,7 @@ author: fauzan
 
 # Serving Observability Basics
 
-[Foundation recommender API](../../01-foundation/recommendation/api.py) now exposes in-memory serving metrics for local prediction monitoring.
+[Foundation recommender API](../../src/ml_production_ecosystem/recommendation/api.py) now exposes in-memory serving metrics for local prediction monitoring.
 
 ## Context
 
@@ -55,7 +55,7 @@ The prediction response now includes `request_id` so a caller can correlate one 
 
 | File | Role |
 |------|------|
-| `01-foundation/recommendation/api.py` | `ServingMetrics`, `/metrics`, request timing, request IDs, error accounting. |
+| `src/ml_production_ecosystem/recommendation/api.py` | `ServingMetrics`, `/metrics`, request timing, request IDs, error accounting. |
 | `tests/test_recommendation_api.py` | Coverage for metrics before/after success, request ID, and missing-active error count. |
 | `docs/features/step-5-local-fastapi-serving.md` | Serving endpoint docs updated with metrics endpoint. |
 
@@ -74,7 +74,7 @@ Start local serving:
 
 ```bash
 uv run foundation-serve-recommender \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --host 127.0.0.1 \
   --port 8000
 ```

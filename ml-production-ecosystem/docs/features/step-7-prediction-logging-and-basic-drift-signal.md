@@ -15,7 +15,7 @@ author: fauzan
 
 # Prediction Logging and Basic Drift Signal
 
-[Foundation recommender API](../../01-foundation/recommendation/api.py) now writes local prediction audit logs and exposes a naive output drift signal.
+[Foundation recommender API](../../src/ml_production_ecosystem/recommendation/api.py) now writes local prediction audit logs and exposes a naive output drift signal.
 
 ## Context
 
@@ -28,7 +28,7 @@ This is not statistical drift detection. It is a foundation signal that compares
 `foundation-serve-recommender` accepts `--prediction-log-path`, defaulting to:
 
 ```text
-01-foundation/logs/predictions.jsonl
+logs/predictions.jsonl
 ```
 
 Every `/predict/v1` attempt appends one JSONL row. Successful rows include the request ID returned to the caller, request inputs, model identity, recommended movie IDs, status, latency, and no error. Error rows still record request ID, request inputs, status, latency, and error message.
@@ -85,9 +85,9 @@ Drift response shape:
 
 | File | Role |
 |------|------|
-| `01-foundation/recommendation/api.py` | JSONL prediction logging, `--prediction-log-path`, and `/drift`. |
+| `src/ml_production_ecosystem/recommendation/api.py` | JSONL prediction logging, `--prediction-log-path`, and `/drift`. |
 | `tests/test_recommendation_api.py` | Coverage for success logs, error logs, drift response, metrics compatibility. |
-| `.gitignore` | Ignores local `01-foundation/logs/` outputs. |
+| `.gitignore` | Ignores local `logs/` outputs. |
 
 ## Commands
 
@@ -95,7 +95,7 @@ Serve with default prediction log path:
 
 ```bash
 uv run foundation-serve-recommender \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --host 127.0.0.1 \
   --port 8000
 ```
@@ -104,8 +104,8 @@ Serve with explicit prediction log path:
 
 ```bash
 uv run foundation-serve-recommender \
-  --registry-path 01-foundation/registry/models.json \
-  --prediction-log-path 01-foundation/logs/predictions.jsonl \
+  --registry-path registry/models.json \
+  --prediction-log-path logs/predictions.jsonl \
   --host 127.0.0.1 \
   --port 8000
 ```

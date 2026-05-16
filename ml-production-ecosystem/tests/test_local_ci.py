@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
 SCRIPT_PATH = ROOT / "scripts" / "validate-production-patterns.sh"
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ml-production-ecosystem-ci.yml"
-DOC_PATH = ROOT / "02-production-patterns" / "docs" / "local-ci.md"
+DOC_PATH = ROOT / "docs" / "domains" / "production-patterns" / "local-ci.md"
 REQUIRED_TESTS = [
     "tests/test_production_patterns_scaffold.py",
     "tests/test_production_retraining.py",

@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_PROJECT_ROOT = Path(".")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/local-platform-apply.json")
-ADAPTER_PATH = Path("04-platform-and-cloud/adapters/local/adapter.py")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/local-platform-apply.json")
+ADAPTER_PATH = Path("configs/platform/adapters/local/adapter.py")
 
 
 def apply_local_platform(

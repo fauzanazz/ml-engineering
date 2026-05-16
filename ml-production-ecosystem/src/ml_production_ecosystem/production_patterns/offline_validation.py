@@ -9,7 +9,7 @@ import yaml
 
 from .quality_gate import evaluate_quality_gate
 
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/offline-validation.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/offline-validation.json")
 
 
 def _load_config(config_path: Path) -> dict[str, Any]:

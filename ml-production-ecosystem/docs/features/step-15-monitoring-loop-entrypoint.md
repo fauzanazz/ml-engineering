@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add a `02-production-patterns` monitoring command that reads serving health, metrics, and drift responses, then returns one health summary.
+Add a `production-patterns domain` monitoring command that reads serving health, metrics, and drift responses, then returns one health summary.
 
 ## User Story
 
@@ -50,12 +50,12 @@ Failing threshold returns `status: "unhealthy"` and marks the failed check with 
 
 ## Key Files
 
-- `02-production-patterns/production_patterns/monitoring_loop.py`
+- `src/ml_production_ecosystem/production_patterns/monitoring_loop.py`
 - `pyproject.toml` script: `production-monitor`
 - `tests/test_monitoring_loop.py`
 - `tests/test_production_monitoring_loop.py`
-- `02-production-patterns/docs/monitoring-loop.md`
-- `02-production-patterns/docs/alerting-runbook.md`
+- `docs/domains/production-patterns/monitoring-loop.md`
+- `docs/domains/production-patterns/alerting-runbook.md`
 
 ## Pattern
 
@@ -87,7 +87,7 @@ foundation-api
 
 ## Definition Of Done
 
-`02-production-patterns` has first monitoring loop automation. Project covers train → gate → serve → observe → monitor summary.
+`production-patterns domain` has first monitoring loop automation. Project covers train → gate → serve → observe → monitor summary.
 
 ## Next Step
 

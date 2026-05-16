@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-DEFAULT_OUTPUT_PATH = Path("03-scale-and-reliability/reports/autoscaling-decision.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/scale-reliability/autoscaling-decision.json")
 DEFAULT_TARGET_REQUESTS_PER_REPLICA = 50
 
 

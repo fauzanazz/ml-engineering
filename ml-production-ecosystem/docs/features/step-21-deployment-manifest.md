@@ -10,7 +10,7 @@ Sebagai ML engineer, gw bisa lihat “model serving service” ini dideploy sepe
 
 ## Manifest Fields
 
-`02-production-patterns/deploy/deployment-manifest.yaml` records:
+`configs/production-patterns/deploy/deployment-manifest.yaml` records:
 
 | Field | Value |
 |---|---|
@@ -22,16 +22,16 @@ Sebagai ML engineer, gw bisa lihat “model serving service” ini dideploy sepe
 | `metrics_endpoint` | `/metrics` |
 | `metrics_json_endpoint` | `/metrics.json` |
 | `drift_endpoint` | `/drift` |
-| `registry_path` | `01-foundation/registry/models.json` |
-| `release_checklist` | `02-production-patterns/docs/release-checklist.md` |
+| `registry_path` | `registry/models.json` |
+| `release_checklist` | `docs/domains/production-patterns/release-checklist.md` |
 | `rollback_command` | `uv run production-rollback-model ...` |
 
-Companion docs live in `02-production-patterns/docs/deployment-manifest.md` and explain each field plus when to update it.
+Companion docs live in `docs/domains/production-patterns/deployment-manifest.md` and explain each field plus when to update it.
 
 ## Key Files
 
-- `02-production-patterns/deploy/deployment-manifest.yaml`
-- `02-production-patterns/docs/deployment-manifest.md`
+- `configs/production-patterns/deploy/deployment-manifest.yaml`
+- `docs/domains/production-patterns/deployment-manifest.md`
 - `tests/test_deployment_manifest.py`
 
 ## Pattern
@@ -62,7 +62,7 @@ release checklist
 
 ## Definition Of Done
 
-`02-production-patterns` has release checklist plus deployment manifest. Project covers train → gate → activate → serve → monitor → alert → rollback → deploy metadata.
+`production-patterns domain` has release checklist plus deployment manifest. Project covers train → gate → activate → serve → monitor → alert → rollback → deploy metadata.
 
 ## Next Step
 

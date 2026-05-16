@@ -5,8 +5,8 @@ import argparse
 import json
 from typing import Any
 
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/continual-learning-decision.json")
-DEFAULT_HISTORY_PATH = Path("02-production-patterns/reports/continual-learning-history.jsonl")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/continual-learning-decision.json")
+DEFAULT_HISTORY_PATH = Path("artifacts/reports/production-patterns/continual-learning-history.jsonl")
 
 
 def _read_report(path: Path | None) -> dict[str, Any]:

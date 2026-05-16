@@ -10,7 +10,7 @@ Sebagai ML engineer, gw bisa lihat kapan model serving dianggap bermasalah, aler
 
 ## Alert Rules
 
-Rules live in `02-production-patterns/alerts/rules.yaml` and describe the first serving alerts:
+Rules live in `configs/production-patterns/alerts/rules.yaml` and describe the first serving alerts:
 
 | Rule | Signal | Purpose |
 |---|---|---|
@@ -23,7 +23,7 @@ Each rule is human-readable and includes name, condition, threshold, severity, a
 
 ## Runbook
 
-The runbook lives at `02-production-patterns/docs/alerting-runbook.md` and maps alert names to manual operations:
+The runbook lives at `docs/domains/production-patterns/alerting-runbook.md` and maps alert names to manual operations:
 
 - Symptoms.
 - Checks.
@@ -55,9 +55,9 @@ curl http://127.0.0.1:8000/drift
 
 ## Key Files
 
-- `02-production-patterns/alerts/rules.yaml`
-- `02-production-patterns/docs/alerting-runbook.md`
-- `02-production-patterns/production_patterns/monitoring_loop.py`
+- `configs/production-patterns/alerts/rules.yaml`
+- `docs/domains/production-patterns/alerting-runbook.md`
+- `src/ml_production_ecosystem/production_patterns/monitoring_loop.py`
 - `tests/test_alerting_rules.py`
 
 ## Pattern
@@ -88,7 +88,7 @@ foundation-api metrics/drift/health
 
 ## Definition Of Done
 
-`02-production-patterns` has observe → monitor → alert documentation loop. Project covers train → gate → serve → observe → monitor → scheduled retrain → DAG skeleton → alert rules.
+`production-patterns domain` has observe → monitor → alert documentation loop. Project covers train → gate → serve → observe → monitor → scheduled retrain → DAG skeleton → alert rules.
 
 ## Next Step
 

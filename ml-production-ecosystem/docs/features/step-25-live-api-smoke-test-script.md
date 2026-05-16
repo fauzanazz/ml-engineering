@@ -52,10 +52,10 @@ The script fails fast on HTTP/API failure so release verification stops early.
 ## Key Files
 
 - `scripts/smoke-test-foundation-api.sh`
-- `02-production-patterns/docs/live-smoke-test.md`
-- `02-production-patterns/docs/production-compose.md`
-- `02-production-patterns/docs/release-checklist.md`
-- `02-production-patterns/deploy/deployment-manifest.yaml`
+- `docs/domains/production-patterns/live-smoke-test.md`
+- `docs/domains/production-patterns/production-compose.md`
+- `docs/domains/production-patterns/release-checklist.md`
+- `configs/production-patterns/deploy/deployment-manifest.yaml`
 
 ## Pattern
 
@@ -87,7 +87,7 @@ production compose running
 
 ## Definition Of Done
 
-`02-production-patterns` has production-like compose plus live API smoke verification path. Project covers train → gate → activate → serve → smoke test → monitor → alert → rollback → deploy metadata → CI.
+`production-patterns domain` has production-like compose plus live API smoke verification path. Project covers train → gate → activate → serve → smoke test → monitor → alert → rollback → deploy metadata → CI.
 
 ## Next Step
 

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _copy_platform(tmp_path: Path) -> None:
-    shutil.copytree(ROOT / "04-platform-and-cloud", tmp_path / "04-platform-and-cloud")
+    shutil.copytree(ROOT / "configs" / "platform", tmp_path / "configs" / "platform")
 
 
 def test_local_secret_injections_match_local_plan(tmp_path: Path) -> None:
@@ -27,7 +27,7 @@ def test_local_secret_injections_match_local_plan(tmp_path: Path) -> None:
 
 def test_local_secret_injections_fail_when_target_missing(tmp_path: Path) -> None:
     _copy_platform(tmp_path)
-    manifest_path = tmp_path / "04-platform-and-cloud" / "secrets" / "local" / "secret-injections.yaml"
+    manifest_path = tmp_path / "configs" / "platform" / "secrets" / "local" / "secret-injections.yaml"
     manifest_path.write_text(manifest_path.read_text().replace("LOCAL_MODEL_REGISTRY_TOKEN", "OTHER_TOKEN"))
 
     report = validate_local_secret_injections(tmp_path, tmp_path / "local-secrets.json")
@@ -38,7 +38,7 @@ def test_local_secret_injections_fail_when_target_missing(tmp_path: Path) -> Non
 
 def test_local_secret_injections_fail_when_values_not_external_only(tmp_path: Path) -> None:
     _copy_platform(tmp_path)
-    manifest_path = tmp_path / "04-platform-and-cloud" / "secrets" / "local" / "secret-injections.yaml"
+    manifest_path = tmp_path / "configs" / "platform" / "secrets" / "local" / "secret-injections.yaml"
     manifest_path.write_text(manifest_path.read_text().replace("external-only", "inline"))
 
     report = validate_local_secret_injections(tmp_path, tmp_path / "local-secrets.json")

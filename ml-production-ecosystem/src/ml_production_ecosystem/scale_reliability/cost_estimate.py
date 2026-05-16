@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-DEFAULT_OUTPUT_PATH = Path("03-scale-and-reliability/reports/cost-estimate.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/scale-reliability/cost-estimate.json")
 DEFAULT_REPLICA_HOURLY_COST = 0.05
 DEFAULT_HOURS_PER_MONTH = 730
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNBOOK_PATH = ROOT / "03-scale-and-reliability" / "docs" / "reliability-runbook.md"
+RUNBOOK_PATH = ROOT / "docs" / "domains" / "scale-reliability" / "reliability-runbook.md"
 
 
 def test_reliability_runbook_doc_exists() -> None:

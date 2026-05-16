@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_ROOT = Path(".")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/goal-readiness.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/goal-readiness.json")
 
 CHECKS = (
     {
@@ -54,9 +54,9 @@ CHECKS = (
         "name": "cloud_provider_adapters",
         "description": "AWS/GCP/Azure adapters load and preview provider-neutral deployments without provider SDK dependencies.",
         "evidence": (
-            "04-platform-and-cloud/adapters/aws/adapter.py",
-            "04-platform-and-cloud/adapters/gcp/adapter.py",
-            "04-platform-and-cloud/adapters/azure/adapter.py",
+            "configs/platform/adapters/aws/adapter.py",
+            "configs/platform/adapters/gcp/adapter.py",
+            "configs/platform/adapters/azure/adapter.py",
             "tests/test_cloud_provider_adapters.py",
         ),
         "required_text": ("ProviderAdapter", "MODEL_REGISTRY_TOKEN", "deploy", "planned"),
@@ -65,22 +65,22 @@ CHECKS = (
         "name": "iac_secret_policy_as_code",
         "description": "Local/AWS/GCP/Azure IaC, secret refs, policies, and local injection manifest exist.",
         "evidence": (
-            "04-platform-and-cloud/iac/local/platform-plan.yaml",
-            "04-platform-and-cloud/iac/aws/platform-plan.yaml",
-            "04-platform-and-cloud/iac/gcp/platform-plan.yaml",
-            "04-platform-and-cloud/iac/azure/platform-plan.yaml",
-            "04-platform-and-cloud/policies/local/model-registry-read.yaml",
-            "04-platform-and-cloud/policies/aws/model-registry-read.yaml",
-            "04-platform-and-cloud/policies/gcp/model-registry-read.yaml",
-            "04-platform-and-cloud/policies/azure/model-registry-read.yaml",
-            "04-platform-and-cloud/secrets/local/secret-injections.yaml",
+            "configs/platform/local/platform-plan.yaml",
+            "configs/platform/aws/platform-plan.yaml",
+            "configs/platform/gcp/platform-plan.yaml",
+            "configs/platform/azure/platform-plan.yaml",
+            "configs/platform/policies/local/model-registry-read.yaml",
+            "configs/platform/policies/aws/model-registry-read.yaml",
+            "configs/platform/policies/gcp/model-registry-read.yaml",
+            "configs/platform/policies/azure/model-registry-read.yaml",
+            "configs/platform/secrets/local/secret-injections.yaml",
         ),
         "required_text": (),
     },
     {
         "name": "local_adapter_executable",
         "description": "Local adapter can create filesystem resources from plan references.",
-        "evidence": ("04-platform-and-cloud/adapters/local/adapter.py", "tests/test_local_platform.py", "pyproject.toml"),
+        "evidence": ("configs/platform/adapters/local/adapter.py", "tests/test_local_platform.py", "pyproject.toml"),
         "required_text": ("ensure_resources", "production-apply-local-platform"),
     },
     {
@@ -92,49 +92,49 @@ CHECKS = (
     {
         "name": "local_canary_router",
         "description": "Local traffic-splitting canary simulation routes stable and candidate model requests.",
-        "evidence": ("src/ml_production_ecosystem/production_patterns/canary_router.py", "tests/test_canary_router.py", "02-production-patterns/docs/release-checklist.md", "pyproject.toml"),
+        "evidence": ("src/ml_production_ecosystem/production_patterns/canary_router.py", "tests/test_canary_router.py", "docs/domains/production-patterns/release-checklist.md", "pyproject.toml"),
         "required_text": ("production-canary-router", "local-traffic-splitting-simulation", "rollback"),
     },
     {
         "name": "slo_burn_rate_simulation",
         "description": "Local SLO burn-rate simulation exists for load and drift evidence.",
-        "evidence": ("src/ml_production_ecosystem/scale_reliability/slo_burn_rate.py", "tests/test_slo_burn_rate.py", "03-scale-and-reliability/docs/slo-definition.md"),
+        "evidence": ("src/ml_production_ecosystem/scale_reliability/slo_burn_rate.py", "tests/test_slo_burn_rate.py", "docs/domains/scale-reliability/slo-definition.md"),
         "required_text": ("burn_rate", "scale-slo-burn-rate"),
     },
     {
         "name": "multi_window_burn_rate_alerting",
         "description": "Local multi-window burn-rate alert simulation exists.",
-        "evidence": ("src/ml_production_ecosystem/scale_reliability/burn_rate_alert.py", "tests/test_burn_rate_alert.py", "03-scale-and-reliability/docs/burn-rate-alerting.md"),
+        "evidence": ("src/ml_production_ecosystem/scale_reliability/burn_rate_alert.py", "tests/test_burn_rate_alert.py", "docs/domains/scale-reliability/burn-rate-alerting.md"),
         "required_text": ("scale-burn-rate-alert", "critical", "warning"),
     },
     {
         "name": "autoscaling_decision_simulation",
         "description": "Local autoscaling decision simulation exists from load and SLO evidence.",
-        "evidence": ("src/ml_production_ecosystem/scale_reliability/autoscaling_decision.py", "tests/test_autoscaling_decision.py", "03-scale-and-reliability/docs/autoscaling-simulation.md"),
+        "evidence": ("src/ml_production_ecosystem/scale_reliability/autoscaling_decision.py", "tests/test_autoscaling_decision.py", "docs/domains/scale-reliability/autoscaling-simulation.md"),
         "required_text": ("scale-autoscaling-decision", "scale_up", "scale_down"),
     },
     {
         "name": "distributed_load_aggregation",
         "description": "Local distributed-load shard aggregation exists.",
-        "evidence": ("src/ml_production_ecosystem/scale_reliability/load_aggregate.py", "tests/test_load_aggregate.py", "03-scale-and-reliability/docs/distributed-load-aggregation.md"),
+        "evidence": ("src/ml_production_ecosystem/scale_reliability/load_aggregate.py", "tests/test_load_aggregate.py", "docs/domains/scale-reliability/distributed-load-aggregation.md"),
         "required_text": ("scale-aggregate-load", "shard", "distributed-load"),
     },
     {
         "name": "local_cost_estimation",
         "description": "Local cost estimate exists from autoscaling and load evidence.",
-        "evidence": ("src/ml_production_ecosystem/scale_reliability/cost_estimate.py", "tests/test_cost_estimate.py", "03-scale-and-reliability/docs/cost-estimation.md"),
+        "evidence": ("src/ml_production_ecosystem/scale_reliability/cost_estimate.py", "tests/test_cost_estimate.py", "docs/domains/scale-reliability/cost-estimation.md"),
         "required_text": ("scale-cost-estimate", "estimated_monthly_cost", "learning-units"),
     },
     {
         "name": "local_kubernetes_parity",
         "description": "Local Kubernetes/kind manifest validation exists without applying cluster changes.",
-        "evidence": ("04-platform-and-cloud/iac/local/kubernetes/foundation-api.yaml", "src/ml_production_ecosystem/production_patterns/local_kubernetes.py", "tests/test_local_kubernetes.py", "pyproject.toml"),
+        "evidence": ("configs/platform/local/kubernetes/foundation-api.yaml", "src/ml_production_ecosystem/production_patterns/local_kubernetes.py", "tests/test_local_kubernetes.py", "pyproject.toml"),
         "required_text": ("foundation-api", "secretKeyRef", "production-validate-local-kubernetes"),
     },
     {
         "name": "local_scheduler_plan",
         "description": "Local cron-compatible scheduler plan validation and runtime exist before managed schedulers.",
-        "evidence": ("04-platform-and-cloud/iac/local/scheduler/jobs.yaml", "src/ml_production_ecosystem/production_patterns/local_scheduler.py", "tests/test_local_scheduler.py", "pyproject.toml"),
+        "evidence": ("configs/platform/local/scheduler/jobs.yaml", "src/ml_production_ecosystem/production_patterns/local_scheduler.py", "tests/test_local_scheduler.py", "pyproject.toml"),
         "required_text": ("production-validate-local-scheduler", "production-run-local-scheduler", "local-scheduler-runtime", "cron-compatible"),
     },
 )

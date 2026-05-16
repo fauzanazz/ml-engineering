@@ -27,9 +27,9 @@ def test_monitoring_compose_services_are_defined() -> None:
     assert foundation_api["build"]["dockerfile"] == "Dockerfile"
     assert foundation_api["command"] == ["foundation-serve-recommender", "--host", "0.0.0.0", "--port", "8000"]
     assert "8000:8000" in foundation_api["ports"]
-    assert "./01-foundation/artifacts:/app/01-foundation/artifacts" in foundation_api["volumes"]
-    assert "./01-foundation/registry:/app/01-foundation/registry" in foundation_api["volumes"]
-    assert "./01-foundation/logs:/app/01-foundation/logs" in foundation_api["volumes"]
+    assert "./artifacts/foundation:/app/artifacts/foundation" in foundation_api["volumes"]
+    assert "./registry:/app/registry" in foundation_api["volumes"]
+    assert "./logs:/app/logs" in foundation_api["volumes"]
 
     assert "prometheus" in services
     assert services["prometheus"]["image"] == "prom/prometheus:v2.55.1"

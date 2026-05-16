@@ -12,10 +12,10 @@ def test_production_patterns_scaffold_exists() -> None:
         base / "batch_inference.py",
         base / "quality_gate.py",
         base / "retraining.py",
-        ROOT / "02-production-patterns" / "docs" / "online-serving.md",
-        ROOT / "02-production-patterns" / "docs" / "batch-inference.md",
-        ROOT / "02-production-patterns" / "docs" / "retraining.md",
-        ROOT / "02-production-patterns" / "docs" / "monitoring-loop.md",
+        ROOT / "docs" / "domains" / "production-patterns" / "online-serving.md",
+        ROOT / "docs" / "domains" / "production-patterns" / "batch-inference.md",
+        ROOT / "docs" / "domains" / "production-patterns" / "retraining.md",
+        ROOT / "docs" / "domains" / "production-patterns" / "monitoring-loop.md",
     ]
 
     for path in expected_paths:
@@ -23,7 +23,7 @@ def test_production_patterns_scaffold_exists() -> None:
 
 
 def test_production_patterns_readme_classifies_foundation_boundary() -> None:
-    readme = (ROOT / "02-production-patterns" / "README.md").read_text()
+    readme = (ROOT / "docs" / "domains" / "production-patterns" / "README.md").read_text()
 
     assert "Progress Through Step 27" in readme
     assert "01 Foundation is closed at Step 10" in readme

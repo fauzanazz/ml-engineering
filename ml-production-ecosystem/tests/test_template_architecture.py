@@ -20,10 +20,10 @@ def test_runtime_code_lives_under_src_package() -> None:
 
 
 def test_stage_folders_no_longer_contain_importable_runtime_packages() -> None:
-    assert not (ROOT / "01-foundation" / "recommendation").exists()
-    assert not (ROOT / "02-production-patterns" / "production_patterns").exists()
-    assert not (ROOT / "03-scale-and-reliability" / "scale_reliability").exists()
-    assert not (ROOT / "05-reasoning-post-training" / "reasoning_post_training").exists()
+    assert not (ROOT / "src" / "ml_production_ecosystem" / "legacy_foundation").exists()
+    assert not (ROOT / "src" / "ml_production_ecosystem" / "legacy_production_patterns").exists()
+    assert not (ROOT / "docs" / "domains" / "scale-reliability" / "scale_reliability").exists()
+    assert not (ROOT / "src" / "ml_production_ecosystem" / "legacy_reasoning_post_training").exists()
     assert not (ROOT / "shared").exists()
 
 

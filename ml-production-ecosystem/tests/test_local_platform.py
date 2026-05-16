@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _copy_adapter(tmp_path: Path) -> Path:
-    source = ROOT / "04-platform-and-cloud" / "adapters" / "local" / "adapter.py"
-    target = tmp_path / "04-platform-and-cloud" / "adapters" / "local" / "adapter.py"
+    source = ROOT / "configs" / "platform" / "adapters" / "local" / "adapter.py"
+    target = tmp_path / "configs" / "platform" / "adapters" / "local" / "adapter.py"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(source.read_text())
     return target
@@ -26,9 +26,9 @@ def test_apply_local_platform_creates_filesystem_resources(tmp_path: Path) -> No
 
     assert summary["status"] == "ready"
     assert summary["provider"] == "local"
-    assert (tmp_path / "01-foundation" / "artifacts").is_dir()
-    assert (tmp_path / "01-foundation" / "logs").is_dir()
-    assert (tmp_path / "01-foundation" / "registry").is_dir()
+    assert (tmp_path / "artifacts" / "foundation").is_dir()
+    assert (tmp_path / "logs").is_dir()
+    assert (tmp_path / "registry").is_dir()
     assert "LOCAL_MODEL_REGISTRY_TOKEN" in summary["secret_references"]
     assert json.loads(output_path.read_text()) == summary
 

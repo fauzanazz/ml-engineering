@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
+ml-struct = "ml_production_ecosystem.production_patterns.orchestrator_cli:main"
 mle = "ml_production_ecosystem.production_patterns.orchestrator_cli:main"
 foundation-prepare-data = "ml_production_ecosystem.recommendation.data:main"
 foundation-train-recommender = "ml_production_ecosystem.recommendation.train:main"

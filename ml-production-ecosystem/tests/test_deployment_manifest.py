@@ -4,12 +4,12 @@ import os
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST_PATH = ROOT / "02-production-patterns" / "deploy" / "deployment-manifest.yaml"
-DOC_PATH = ROOT / "02-production-patterns" / "docs" / "deployment-manifest.md"
+MANIFEST_PATH = ROOT / "configs" / "production-patterns" / "deploy" / "deployment-manifest.yaml"
+DOC_PATH = ROOT / "docs" / "domains" / "production-patterns" / "deployment-manifest.md"
 COMPOSE_PATH = ROOT / "docker-compose.production.yaml"
-COMPOSE_DOC_PATH = ROOT / "02-production-patterns" / "docs" / "production-compose.md"
+COMPOSE_DOC_PATH = ROOT / "docs" / "domains" / "production-patterns" / "production-compose.md"
 SMOKE_SCRIPT_PATH = ROOT / "scripts" / "smoke-test-foundation-api.sh"
-SMOKE_DOC_PATH = ROOT / "02-production-patterns" / "docs" / "live-smoke-test.md"
+SMOKE_DOC_PATH = ROOT / "docs" / "domains" / "production-patterns" / "live-smoke-test.md"
 
 
 def test_deployment_manifest_yaml_exists_and_parses() -> None:
@@ -18,14 +18,14 @@ def test_deployment_manifest_yaml_exists_and_parses() -> None:
 
     assert manifest["service_name"] == "foundation-api"
     assert manifest["image"] == "ml-production-ecosystem-foundation-api"
-    assert manifest["command"] == "uv run foundation-serve-recommender --host 0.0.0.0 --port 8000 --prediction-log-path 01-foundation/logs/production-compose-predictions.jsonl"
+    assert manifest["command"] == "uv run foundation-serve-recommender --host 0.0.0.0 --port 8000 --prediction-log-path logs/production-compose-predictions.jsonl"
     assert manifest["port"] == 8000
     assert manifest["health_endpoint"] == "/health"
     assert manifest["metrics_endpoint"] == "/metrics"
     assert manifest["metrics_json_endpoint"] == "/metrics.json"
     assert manifest["drift_endpoint"] == "/drift"
-    assert manifest["registry_path"] == "01-foundation/registry/models.json"
-    assert manifest["release_checklist"] == "02-production-patterns/docs/release-checklist.md"
+    assert manifest["registry_path"] == "registry/models.json"
+    assert manifest["release_checklist"] == "docs/domains/production-patterns/release-checklist.md"
     assert "uv run production-rollback-model" in manifest["rollback_command"]
 
 
@@ -66,8 +66,8 @@ def test_production_compose_matches_deployment_manifest_service() -> None:
     assert service["command"] == manifest["command"]
     assert service["ports"] == ["8000:8000"]
     assert manifest["health_endpoint"] in " ".join(service["healthcheck"]["test"])
-    assert "01-foundation/artifacts" in " ".join(service["volumes"])
-    assert "01-foundation/registry" in " ".join(service["volumes"])
+    assert "artifacts/foundation" in " ".join(service["volumes"])
+    assert "registry" in " ".join(service["volumes"])
 
 
 def test_production_compose_doc_explains_start_verify_stop_flow() -> None:
@@ -81,7 +81,7 @@ def test_production_compose_doc_explains_start_verify_stop_flow() -> None:
     assert "--max-drift-score 0.2" in doc
     assert "--max-latency-ms-last 100" in doc
     assert "docker compose -f docker-compose.production.yaml down" in doc
-    assert "01-foundation/logs/production-compose-predictions.jsonl" in doc
+    assert "logs/production-compose-predictions.jsonl" in doc
     assert "/health" in doc
     assert "/metrics" in doc
     assert "/drift" in doc

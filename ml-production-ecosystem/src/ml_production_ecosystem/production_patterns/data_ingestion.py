@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/dataset-manifest.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/dataset-manifest.json")
 
 
 def _load_config(config_path: Path) -> dict[str, Any]:

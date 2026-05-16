@@ -6,7 +6,7 @@ import json
 
 from .monitoring_loop import HttpClient, evaluate_monitoring_summary
 
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/deployment-demo.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/deployment-demo.json")
 
 
 def build_deployment_demo_report(

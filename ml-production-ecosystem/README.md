@@ -2,9 +2,11 @@
 
 Local-first toolkit untuk belajar, mencontoh, dan men-generate project ML yang siap bergerak dari eksperimen ke production workflow.
 
+Use this command first: `ml-struct new <project-name>`.
+
 Repo ini punya dua fungsi utama:
 
-- **Scaffold wizard**: bikin boilerplate project ML untuk Kaggle, served model, atau enterprise pipeline.
+- **Scaffold wizard**: bikin boilerplate project ML untuk Kaggle, served model, ASR, atau enterprise pipeline.
 - **Production playground**: contoh local workflow untuk training, registry, serving, validation, monitoring, rollback, reliability, dan provider boundary.
 
 Tujuannya bukan bikin platform besar dari awal. Tujuannya bikin starting point yang rapi, bisa dites lokal, dan gampang dinaikkan levelnya sesuai kebutuhan project.
@@ -13,25 +15,31 @@ Tujuannya bukan bikin platform besar dari awal. Tujuannya bikin starting point y
 
 | Use case | Command | Output |
 |---|---|---|
-| Kaggle competition | `uv run mle new --preset kaggle` | training baseline, feature module, submission script, docs, tests |
-| Model served as API | `uv run mle new --preset served-model` | FastAPI app, prediction contract, Dockerfile, smoke-testable package |
-| Enterprise ML pipeline | `uv run mle new --preset enterprise-pipeline` | ingestion-to-rollback skeleton, quality gate, runbook, tests |
-| Learn production lifecycle | `uv run mle quickstart` | local train → validate → approve → deploy demo → monitor evidence |
+| Kaggle competition | `uv run ml-struct new house-prices --preset kaggle` | training baseline, feature module, submission script, docs, tests |
+| Model served as API | `uv run ml-struct new churn-api --preset served-model` | FastAPI app, prediction contract, Dockerfile, smoke-testable package |
+| Generic classifier | `uv run ml-struct new churn-model --preset generic-classifier` | features, predict seam, train summary, accuracy gate |
+| Batch inference | `uv run ml-struct new nightly-scorer --preset batch-inference` | batch processing seam without API assumptions |
+| Existing model wrapper | `uv run ml-struct new asr-wrapper --preset existing-model-wrapper` | config + adapter around existing train/eval commands |
+| Recommendation | `uv run ml-struct new recommender --preset recommendation` | candidate ranking seam and recommendation metric gate |
+| LLM post-training | `uv run ml-struct new reasoner --preset llm-post-training` | dataset/evaluator seams for reasoning/LLM workflows |
+| ASR served model | `uv run ml-struct new banking-asr --preset asr-served-model` | speech-to-text contract, WER/CER quality gate, FastAPI app, train/eval seam |
+| Enterprise ML pipeline | `uv run ml-struct new fraud-pipeline --preset enterprise-pipeline` | ingestion-to-rollback skeleton, quality gate, runbook, tests |
+| Learn production lifecycle | `uv run ml-struct quickstart` | local train → validate → approve → deploy demo → monitor evidence |
 
 ## Quickstart
 
 ```bash
 cd ml-production-ecosystem
-uv run mle
+uv run ml-struct
 ```
 
 Non-interactive path:
 
 ```bash
-uv run mle doctor
-uv run mle quickstart
-uv run mle status
-uv run mle explain
+uv run ml-struct doctor
+uv run ml-struct quickstart
+uv run ml-struct status
+uv run ml-struct explain
 ```
 
 ## Create New Project
@@ -39,15 +47,22 @@ uv run mle explain
 Interactive wizard:
 
 ```bash
-uv run mle new
+uv run ml-struct new banking-asr --preset asr-served-model
 ```
 
 Preset commands:
 
 ```bash
-uv run mle new --preset kaggle --name house-prices --target ../house-prices
-uv run mle new --preset served-model --name churn-api --target ../churn-api
-uv run mle new --preset enterprise-pipeline --name fraud-pipeline --target ../fraud-pipeline
+uv run ml-struct new house-prices --preset kaggle
+uv run ml-struct new churn-api --preset served-model
+uv run ml-struct new churn-model --preset generic-classifier
+uv run ml-struct new banking-asr --preset asr-served-model
+uv run ml-struct new asr-wrapper --preset existing-model-wrapper
+uv run ml-struct new recommender --preset recommendation
+uv run ml-struct new nightly-scorer --preset batch-inference
+uv run ml-struct new reasoner --preset llm-post-training
+uv run ml-struct new fraud-pipeline --preset enterprise-pipeline
+uv run ml-struct new --list-presets
 ```
 
 Generated projects follow same baseline shape:
@@ -63,6 +78,17 @@ project/
   tests/
 ```
 
+
+Bun commands after publishing `create-ml-struct` to npm:
+
+```bash
+# Bun create convention: resolves create-ml-struct
+bun create ml-struct
+
+# Direct package execution
+bunx create-ml-struct
+```
+
 ## Architecture
 
 | Area | Folder | Purpose |
@@ -70,11 +96,10 @@ project/
 | Runtime Package | `src/ml_production_ecosystem/` | importable Python code for recommendation, production patterns, reliability, reasoning, and shared contracts |
 | Scaffold Templates | `templates/scaffold/` | template-first project assets with `template.yaml` metadata contracts per preset |
 | Examples | `examples/samples/` | runnable sample data and command-trained example models, separate from packaged runtime code |
-| Foundation | `01-foundation/` | local artifacts, registry, serving data, and docs for foundation workflow |
-| Production Patterns | `02-production-patterns/` | lifecycle docs, reports, deployment files, and pattern documentation |
-| Scale And Reliability | `03-scale-and-reliability/` | docs for load, retry, backpressure, caching, SLO, cost, readiness simulations |
-| Platform And Cloud | `04-platform-and-cloud/` | provider-neutral boundaries, adapter/IaC scope, secret references |
-| Reasoning Post-Training | `05-reasoning-post-training/` | local reasoning SFT/RL-style data, docs, artifacts, and provider adapter boundary |
+| Runtime State | `artifacts/`, `logs/`, `registry/` | generated local outputs kept outside source code |
+| Configs | `configs/` | lifecycle, deployment, alert, platform, and provider config files |
+| Docs | `docs/domains/` | moved domain READMEs and runbooks, replacing old numbered folders |
+| Reasoning Data | `examples/data/reasoning-post-training/` | local reasoning SFT/RL-style sample data |
 
 ## Design Rules
 
@@ -103,8 +128,8 @@ Expected test result:
 
 - Local lifecycle: `docs/lifecycle-easy-path.md`
 - Local runbook: `docs/local-lifecycle-runbook.md`
-- Production patterns: `02-production-patterns/README.md`
-- Reasoning post-training: `05-reasoning-post-training/docs/reasoning-post-training.md`
+- Production patterns: `docs/domains/production-patterns/README.md`
+- Reasoning post-training: `docs/domains/reasoning-post-training/reasoning-post-training.md`
 - Feature history: `docs/features/`
 
 ## Current Scope

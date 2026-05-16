@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-DEFAULT_OUTPUT_PATH = Path("03-scale-and-reliability/reports/slo-burn-rate.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/scale-reliability/slo-burn-rate.json")
 DEFAULT_AVAILABILITY_TARGET = 0.99
 DEFAULT_ERROR_RATE_TARGET = 0.01
 DEFAULT_LATENCY_P95_MS_TARGET = 200.0

@@ -8,9 +8,9 @@ from typing import Any
 
 import yaml
 
-DEFAULT_PLAN_PATH = Path("04-platform-and-cloud/iac/local/scheduler/jobs.yaml")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/local-scheduler-validation.json")
-DEFAULT_RUN_OUTPUT_PATH = Path("02-production-patterns/reports/local-scheduler-run.json")
+DEFAULT_PLAN_PATH = Path("configs/platform/local/scheduler/jobs.yaml")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/local-scheduler-validation.json")
+DEFAULT_RUN_OUTPUT_PATH = Path("artifacts/reports/production-patterns/local-scheduler-run.json")
 ALLOWED_COMMAND_PREFIX = ("uv", "run")
 
 
@@ -104,7 +104,7 @@ def _job_failures(index: int, job: dict[str, Any], seen_names: set[str]) -> list
             failures.append(f"jobs[{index}].command must run production CLI")
 
     output_path = str(job.get("output_path", ""))
-    if not output_path.startswith("02-production-patterns/reports/"):
+    if not output_path.startswith("artifacts/reports/production-patterns/"):
         failures.append(f"jobs[{index}].output_path must stay under production reports")
     return failures
 

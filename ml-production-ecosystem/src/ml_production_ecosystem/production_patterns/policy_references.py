@@ -8,9 +8,9 @@ from typing import Any
 import yaml
 
 DEFAULT_ROOT = Path(".")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/policy-reference-validation.json")
-PLAN_ROOT = Path("04-platform-and-cloud/iac")
-POLICY_ROOT = Path("04-platform-and-cloud/policies")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/policy-reference-validation.json")
+PLAN_ROOT = Path("configs/platform/iac")
+POLICY_ROOT = Path("configs/platform/policies")
 REQUIRED_POLICY_FIELDS = {
     "actions",
     "effect",

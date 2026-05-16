@@ -19,16 +19,16 @@ from .offline_validation import build_offline_validation_report
 from .platform_plan import DEFAULT_PLAN_PATH, validate_platform_plan
 from .retraining import DEFAULT_MODEL_NAME, run_retraining
 
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/lifecycle-demo.json")
-DEFAULT_GRAPH_PATH = Path("02-production-patterns/reports/lifecycle-demo.mmd")
-DEFAULT_DATASET_MANIFEST_PATH = Path("02-production-patterns/reports/dataset-manifest.json")
-DEFAULT_VALIDATION_REPORT_PATH = Path("02-production-patterns/reports/offline-validation.json")
-DEFAULT_APPROVAL_PATH = Path("02-production-patterns/reports/approval-decision.json")
-DEFAULT_DEPLOYMENT_DEMO_PATH = Path("02-production-patterns/reports/deployment-demo.json")
-DEFAULT_DRIFT_REPORT_PATH = Path("02-production-patterns/reports/drift-report.json")
-DEFAULT_CONTINUAL_LEARNING_PATH = Path("02-production-patterns/reports/continual-learning-decision.json")
-DEFAULT_MODEL_CONTRACT_PATH = Path("02-production-patterns/reports/model-contract-manifest.json")
-DEFAULT_PLATFORM_REPORT_PATH = Path("02-production-patterns/reports/platform-plan-validation.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/lifecycle-demo.json")
+DEFAULT_GRAPH_PATH = Path("artifacts/reports/production-patterns/lifecycle-demo.mmd")
+DEFAULT_DATASET_MANIFEST_PATH = Path("artifacts/reports/production-patterns/dataset-manifest.json")
+DEFAULT_VALIDATION_REPORT_PATH = Path("artifacts/reports/production-patterns/offline-validation.json")
+DEFAULT_APPROVAL_PATH = Path("artifacts/reports/production-patterns/approval-decision.json")
+DEFAULT_DEPLOYMENT_DEMO_PATH = Path("artifacts/reports/production-patterns/deployment-demo.json")
+DEFAULT_DRIFT_REPORT_PATH = Path("artifacts/reports/production-patterns/drift-report.json")
+DEFAULT_CONTINUAL_LEARNING_PATH = Path("artifacts/reports/production-patterns/continual-learning-decision.json")
+DEFAULT_MODEL_CONTRACT_PATH = Path("artifacts/reports/production-patterns/model-contract-manifest.json")
+DEFAULT_PLATFORM_REPORT_PATH = Path("artifacts/reports/production-patterns/platform-plan-validation.json")
 
 
 def _load_config(config_path: Path) -> dict[str, Any]:

@@ -8,8 +8,8 @@ from typing import Any
 import yaml
 
 DEFAULT_ROOT = Path(".")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/secret-reference-validation.json")
-SCAN_DIRS = (Path("configs"), Path("04-platform-and-cloud"))
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/secret-reference-validation.json")
+SCAN_DIRS = (Path("configs"), Path("configs/platform"))
 SCANNED_SUFFIXES = {".yaml", ".yml", ".json"}
 FORBIDDEN_SECRET_VALUE_KEYS = {
     "access_key",

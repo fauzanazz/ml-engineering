@@ -5,18 +5,18 @@ import argparse
 import html
 import json
 
-DEFAULT_MERMAID_PATH = Path("02-production-patterns/reports/lifecycle-demo.mmd")
-DEFAULT_HTML_PATH = Path("02-production-patterns/reports/lifecycle-demo.html")
+DEFAULT_MERMAID_PATH = Path("artifacts/reports/production-patterns/lifecycle-demo.mmd")
+DEFAULT_HTML_PATH = Path("artifacts/reports/production-patterns/lifecycle-demo.html")
 
 NODES = (
-    ("contract", "Validate Model Contract", "02-production-patterns/reports/model-contract-manifest.json"),
-    ("data", "Add Data", "02-production-patterns/reports/dataset-manifest.json"),
-    ("train", "Train Candidate", "01-foundation/experiments/runs"),
-    ("validate", "Offline Validation", "02-production-patterns/reports/offline-validation.json"),
-    ("approve", "Approve Deployment", "02-production-patterns/reports/approval-decision.json"),
-    ("demo", "Deployment Demo Test", "02-production-patterns/reports/deployment-demo.json"),
-    ("drift", "Drift Detection", "02-production-patterns/reports/drift-report.json"),
-    ("continual", "Continual Learning", "02-production-patterns/reports/continual-learning-decision.json"),
+    ("contract", "Validate Model Contract", "artifacts/reports/production-patterns/model-contract-manifest.json"),
+    ("data", "Add Data", "artifacts/reports/production-patterns/dataset-manifest.json"),
+    ("train", "Train Candidate", "artifacts/experiments/runs"),
+    ("validate", "Offline Validation", "artifacts/reports/production-patterns/offline-validation.json"),
+    ("approve", "Approve Deployment", "artifacts/reports/production-patterns/approval-decision.json"),
+    ("demo", "Deployment Demo Test", "artifacts/reports/production-patterns/deployment-demo.json"),
+    ("drift", "Drift Detection", "artifacts/reports/production-patterns/drift-report.json"),
+    ("continual", "Continual Learning", "artifacts/reports/production-patterns/continual-learning-decision.json"),
 )
 
 EDGES = (

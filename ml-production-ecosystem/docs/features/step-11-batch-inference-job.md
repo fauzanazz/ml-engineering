@@ -8,9 +8,9 @@ Add offline JSONL batch prediction path for the foundation recommender, alongsid
 
 ```bash
 uv run foundation-batch-recommend \
-  --registry-path 01-foundation/registry/models.json \
-  --input-path 01-foundation/data/batch/input.jsonl \
-  --output-path 01-foundation/logs/batch-output.jsonl
+  --registry-path registry/models.json \
+  --input-path examples/data/batch/input.jsonl \
+  --output-path logs/batch-output.jsonl
 ```
 
 ## Input JSONL
@@ -50,7 +50,7 @@ Per-row errors do not fail the whole job. Invalid config or missing input file s
 Command prints JSON summary:
 
 ```json
-{"failed":0,"input_rows":1,"output_path":"01-foundation/logs/batch-output.jsonl","succeeded":1}
+{"failed":0,"input_rows":1,"output_path":"logs/batch-output.jsonl","succeeded":1}
 ```
 
 ## Pattern

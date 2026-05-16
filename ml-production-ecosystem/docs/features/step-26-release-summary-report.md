@@ -12,12 +12,12 @@ Sebagai ML engineer, setelah release manual, gw bisa generate satu file ringkasa
 
 ```bash
 uv run production-release-summary \
-  --retraining-report 02-production-patterns/reports/scheduled-retraining.json \
-  --deployment-manifest 02-production-patterns/deploy/deployment-manifest.yaml \
-  --monitor-summary 02-production-patterns/reports/monitoring-loop.json \
+  --retraining-report artifacts/reports/production-patterns/scheduled-retraining.json \
+  --deployment-manifest configs/production-patterns/deploy/deployment-manifest.yaml \
+  --monitor-summary artifacts/reports/production-patterns/monitoring-loop.json \
   --smoke-status passed \
   --rollback-target foundation-config-v1 \
-  --output-path 02-production-patterns/reports/release-summary.json
+  --output-path artifacts/reports/production-patterns/release-summary.json
 ```
 
 ## Output
@@ -50,12 +50,12 @@ Otherwise, `status` is `blocked`. Missing input files return a blocked summary w
 
 ## Key Files
 
-- `02-production-patterns/production_patterns/release_summary.py`
+- `src/ml_production_ecosystem/production_patterns/release_summary.py`
 - `pyproject.toml` script: `production-release-summary`
-- `02-production-patterns/reports/release-summary.json`
+- `artifacts/reports/production-patterns/release-summary.json`
 - `tests/test_release_summary.py`
-- `02-production-patterns/docs/release-checklist.md`
-- `02-production-patterns/docs/local-ci.md`
+- `docs/domains/production-patterns/release-checklist.md`
+- `docs/domains/production-patterns/local-ci.md`
 
 ## Pattern
 
@@ -89,8 +89,8 @@ scheduled retraining report
 
 ## Definition Of Done
 
-`02-production-patterns` has release evidence artifact. Project covers train → gate → activate → serve → smoke test → monitor → alert → rollback → deploy metadata → CI → release summary.
+`production-patterns domain` has release evidence artifact. Project covers train → gate → activate → serve → smoke test → monitor → alert → rollback → deploy metadata → CI → release summary.
 
 ## Next Step
 
-Step 27 can be `02-production-patterns` scope review / gap checklist before moving to next topic.
+Step 27 can be `production-patterns domain` scope review / gap checklist before moving to next topic.

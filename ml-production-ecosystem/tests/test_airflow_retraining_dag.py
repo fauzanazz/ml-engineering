@@ -2,7 +2,7 @@ from pathlib import Path
 import importlib.util
 
 ROOT = Path(__file__).resolve().parents[1]
-DAG_PATH = ROOT / "02-production-patterns" / "airflow" / "retraining_dag.py"
+DAG_PATH = ROOT / "configs" / "production-patterns" / "airflow" / "retraining_dag.py"
 
 
 def test_retraining_dag_skeleton_exists_with_expected_tasks_and_commands() -> None:
@@ -17,7 +17,7 @@ def test_retraining_dag_skeleton_exists_with_expected_tasks_and_commands() -> No
     assert "--config configs/foundation-recommender.yaml" in source
     assert "--set-active" in source
     assert "--require-quality-gate" in source
-    assert "--output-path 02-production-patterns/reports/scheduled-retraining.json" in source
+    assert "--output-path artifacts/reports/production-patterns/scheduled-retraining.json" in source
     assert "uv run production-monitor" in source
     assert "--base-url http://127.0.0.1:8000" in source
     assert "--max-error-count 0" in source

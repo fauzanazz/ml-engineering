@@ -3,9 +3,9 @@ __pycache__
 .pytest_cache
 *.pyc
 
-01-foundation/data
-01-foundation/artifacts
-01-foundation/logs
+examples/data/foundation
+artifacts/foundation
+logs
 
 artifacts
 ml_production_ecosystem.egg-info

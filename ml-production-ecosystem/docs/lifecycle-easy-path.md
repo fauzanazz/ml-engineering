@@ -98,7 +98,7 @@ Create explicit approval decision:
 
 ```bash
 uv run production-approve-model \
-  --validation-report 02-production-patterns/reports/offline-validation.json \
+  --validation-report artifacts/reports/production-patterns/offline-validation.json \
   --approve
 ```
 
@@ -130,12 +130,12 @@ Write continual-learning decision:
 
 ```bash
 uv run production-continual-decision \
-  --drift-report 02-production-patterns/reports/drift-report.json \
-  --deployment-demo 02-production-patterns/reports/deployment-demo.json \
-  --history-path 02-production-patterns/reports/continual-learning-history.jsonl
+  --drift-report artifacts/reports/production-patterns/drift-report.json \
+  --deployment-demo artifacts/reports/production-patterns/deployment-demo.json \
+  --history-path artifacts/reports/production-patterns/continual-learning-history.jsonl
 ```
 
-`continual-learning-history.jsonl` appends decisions over repeated checks. Summarize it locally with `uv run production-continual-summary --history-path 02-production-patterns/reports/continual-learning-history.jsonl`, giving local continual-learning monitoring trends without managed services.
+`continual-learning-history.jsonl` appends decisions over repeated checks. Summarize it locally with `uv run production-continual-summary --history-path artifacts/reports/production-patterns/continual-learning-history.jsonl`, giving local continual-learning monitoring trends without managed services.
 
 Write lifecycle graph artifacts:
 
@@ -218,19 +218,19 @@ uv run production-lifecycle-demo \
 Outputs:
 
 ```text
-02-production-patterns/reports/lifecycle-demo.json
-02-production-patterns/reports/lifecycle-demo.mmd
-02-production-patterns/reports/lifecycle-demo.html
-02-production-patterns/reports/platform-plan-validation.json
-02-production-patterns/reports/model-contract-manifest.json
-02-production-patterns/reports/dataset-manifest.json
-02-production-patterns/reports/offline-validation.json
-02-production-patterns/reports/approval-decision.json
-02-production-patterns/reports/deployment-demo.json
-02-production-patterns/reports/drift-report.json
-02-production-patterns/reports/continual-learning-decision.json
-02-production-patterns/reports/continual-learning-history.jsonl
-02-production-patterns/reports/continual-learning-summary.json
+artifacts/reports/production-patterns/lifecycle-demo.json
+artifacts/reports/production-patterns/lifecycle-demo.mmd
+artifacts/reports/production-patterns/lifecycle-demo.html
+artifacts/reports/production-patterns/platform-plan-validation.json
+artifacts/reports/production-patterns/model-contract-manifest.json
+artifacts/reports/production-patterns/dataset-manifest.json
+artifacts/reports/production-patterns/offline-validation.json
+artifacts/reports/production-patterns/approval-decision.json
+artifacts/reports/production-patterns/deployment-demo.json
+artifacts/reports/production-patterns/drift-report.json
+artifacts/reports/production-patterns/continual-learning-decision.json
+artifacts/reports/production-patterns/continual-learning-history.jsonl
+artifacts/reports/production-patterns/continual-learning-summary.json
 ```
 
 The command stays local-first. Provider adapters may add AWS/GCP/Azure deployment targets later, but must not change model contracts or core lifecycle semantics.

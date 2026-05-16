@@ -14,7 +14,7 @@ author: fauzan
 
 # Local Experiment Tracking
 
-[Foundation recommender](../../01-foundation/recommendation/) now records every config-driven training run as a local experiment folder.
+[Foundation recommender](../../src/ml_production_ecosystem/recommendation/) now records every config-driven training run as a local experiment folder.
 
 ## Context
 
@@ -28,14 +28,14 @@ This is intentionally not [MLflow](https://mlflow.org/). The goal is to introduc
 
 ```yaml
 experiments:
-  tracking_dir: 01-foundation/experiments/runs
+  tracking_dir: artifacts/experiments/runs
   run_id: foundation-config-v1
 ```
 
 When `tracking_dir` is present, training writes one run folder:
 
 ```text
-01-foundation/experiments/runs/<run_id>/
+artifacts/experiments/runs/<run_id>/
 ├── artifact.json
 ├── config.yaml
 ├── metrics.json
@@ -52,8 +52,8 @@ Example `run.json` shape:
   "run_id": "foundation-config-v1",
   "model_name": "movielens-popularity",
   "version": "foundation-config-v1",
-  "artifact_uri": "01-foundation/artifacts/recommendation/foundation-config-v1",
-  "metrics_uri": "01-foundation/artifacts/recommendation/foundation-config-v1/metrics.json",
+  "artifact_uri": "artifacts/foundation/recommendation/foundation-config-v1",
+  "metrics_uri": "artifacts/foundation/recommendation/foundation-config-v1/metrics.json",
   "status": "completed",
   "created_at": "2026-05-13T..."
 }
@@ -63,9 +63,9 @@ Example `run.json` shape:
 
 | File | Role |
 |------|------|
-| `01-foundation/recommendation/train.py` | Writes local experiment run records and lists run metadata. |
+| `src/ml_production_ecosystem/recommendation/train.py` | Writes local experiment run records and lists run metadata. |
 | `configs/foundation-recommender.yaml` | Adds `experiments.tracking_dir` and optional `experiments.run_id`. |
-| `01-foundation/experiments/runs/` | Ignored local run-history storage. |
+| `artifacts/experiments/runs/` | Ignored local run-history storage. |
 | `tests/test_recommendation_workflow.py` | Verifies run record creation and listing. |
 | `.gitignore` | Ignores local experiment outputs. |
 
@@ -80,7 +80,7 @@ uv run foundation-train-from-config --config configs/foundation-recommender.yaml
 List recorded runs:
 
 ```bash
-uv run foundation-list-runs --tracking-dir 01-foundation/experiments/runs
+uv run foundation-list-runs --tracking-dir artifacts/experiments/runs
 ```
 
 ## Decisions & Trade-offs

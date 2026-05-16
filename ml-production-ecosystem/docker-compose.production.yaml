@@ -4,13 +4,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: uv run foundation-serve-recommender --host 0.0.0.0 --port 8000 --prediction-log-path 01-foundation/logs/production-compose-predictions.jsonl
+    command: uv run foundation-serve-recommender --host 0.0.0.0 --port 8000 --prediction-log-path logs/production-compose-predictions.jsonl
     ports:
       - "8000:8000"
     volumes:
-      - ./01-foundation/artifacts:/app/01-foundation/artifacts
-      - ./01-foundation/registry:/app/01-foundation/registry
-      - ./01-foundation/logs:/app/01-foundation/logs
+      - ./artifacts/foundation:/app/artifacts/foundation
+      - ./registry:/app/registry
+      - ./logs:/app/logs
     healthcheck:
       test:
         - CMD-SHELL

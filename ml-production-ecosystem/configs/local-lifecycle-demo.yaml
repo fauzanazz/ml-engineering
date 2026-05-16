@@ -21,20 +21,20 @@ model_contract:
   prediction_key: recommendations
 
 artifacts:
-  artifact_dir: 01-foundation/artifacts
+  artifact_dir: artifacts/foundation
 
 experiments:
-  tracking_dir: 01-foundation/experiments/runs
+  tracking_dir: artifacts/experiments/runs
   run_id: local-demo-v1
 
 registry:
-  path: 01-foundation/registry/models.json
+  path: registry/models.json
   stage: candidate
   set_active: false
 
 quality_gate:
   enabled: true
-  metrics_path: 01-foundation/artifacts/recommendation/local-demo-v1/metrics.json
+  metrics_path: artifacts/foundation/recommendation/local-demo-v1/metrics.json
   minimums:
     candidate_count: 1
     ratings_rows: 1

@@ -18,8 +18,8 @@ LOCAL_LIFECYCLE_GRAPH_HTML_PATH = DEFAULT_REPORT_DIR / "local-lifecycle-demo.htm
 DOCTOR_REQUIRED_PATHS = (
     Path("pyproject.toml"),
     DEFAULT_CONFIG_PATH,
-    Path("01-foundation"),
-    Path("02-production-patterns"),
+    Path("artifacts/foundation"),
+    Path("artifacts/reports/production-patterns"),
     Path("src/ml_production_ecosystem"),
     Path("templates/scaffold"),
 )
@@ -154,9 +154,22 @@ def run_explain(args: argparse.Namespace) -> int:
 
 
 def run_new(args: argparse.Namespace) -> int:
-    preset = args.preset or _prompt_preset()
-    name = args.name or _prompt_required("Project name")
-    target = args.target or Path(input(f"Target directory [{name}]: ").strip() or name)
+    if getattr(args, "list_presets", False):
+        print_preset_list()
+        return 0
+
+    name = args.name or getattr(args, "project_name", None)
+    no_input = getattr(args, "no_input", False)
+    interactive = not no_input and (args.preset is None or name is None)
+    if interactive:
+        _print_header("Create ML Production Project")
+    preset = args.preset or (None if no_input else _prompt_preset())
+    if preset is None:
+        raise SystemExit("--preset is required with --no-input")
+    name = name or (None if no_input else _prompt_required("Project name"))
+    if name is None:
+        raise SystemExit("project name is required with --no-input")
+    target = args.target or default_target_for_name(name)
     result = scaffold_project(
         ScaffoldRequest(
             preset=preset,
@@ -171,17 +184,50 @@ def run_new(args: argparse.Namespace) -> int:
     print(f"Package: {result.package_name}")
     print(f"Target: {result.target}")
     print(f"Files: {len(result.written_paths)}")
-    print(f"\nNext: cd {result.target} && uv run pytest")
+    print(f"\nNext: cd {display_target(result.target)} && uv run pytest")
     return 0
 
 
+PRESET_DESCRIPTIONS = {
+    "kaggle": "competition baseline, features, submission",
+    "generic-classifier": "classifier with pluggable features and quality gate",
+    "served-model": "FastAPI prediction service",
+    "asr-served-model": "speech-to-text API with WER/CER gate",
+    "recommendation": "candidate ranking and recommendation metrics",
+    "batch-inference": "offline batch prediction seam",
+    "existing-model-wrapper": "wrap existing train/evaluate commands",
+    "llm-post-training": "reasoning/LLM data and evaluator seams",
+    "enterprise-pipeline": "ingestion-to-rollback skeleton",
+}
+
+
+def print_preset_list() -> None:
+    for preset in SUPPORTED_PRESETS:
+        print(f"{preset}: {PRESET_DESCRIPTIONS[preset]}")
+
+
 def _prompt_preset() -> str:
-    choices = ", ".join(SUPPORTED_PRESETS)
+    choices = list(SUPPORTED_PRESETS)
     while True:
-        preset = input(f"Preset ({choices}): ").strip().lower()
-        if preset in SUPPORTED_PRESETS:
-            return preset
-        print(f"Choose one of: {choices}")
+        print("Project type:")
+        for index, preset in enumerate(choices, start=1):
+            print(f"  {index}. {preset}")
+        answer = input("Choose preset: ").strip().lower()
+        if answer.isdigit() and 1 <= int(answer) <= len(choices):
+            return choices[int(answer) - 1]
+        if answer in SUPPORTED_PRESETS:
+            return answer
+        print(f"Choose 1-{len(choices)} or one of: {', '.join(choices)}")
+
+def default_target_for_name(project_name: str) -> Path:
+    return Path(project_name.strip().lower().replace(" ", "-"))
+
+
+def display_target(target: Path) -> Path:
+    try:
+        return target.resolve().relative_to(Path.cwd().resolve())
+    except ValueError:
+        return target
 
 
 def _prompt_required(label: str) -> str:
@@ -243,10 +289,24 @@ def build_parser() -> argparse.ArgumentParser:
     explain.add_argument("--output-path", type=Path, default=DEFAULT_OUTPUT_PATH)
     explain.set_defaults(handler=run_explain)
 
-    new = subparsers.add_parser("new", help="Create a boilerplate ML project scaffold.")
+    new = subparsers.add_parser(
+        "new",
+        help="Create a boilerplate ML project scaffold.",
+        epilog=(
+            "Examples:\n"
+            "  ml-struct new banking-asr --preset asr-served-model\n"
+            "  ml-struct new existing-asr --preset existing-model-wrapper\n"
+            "  ml-struct new churn-api --preset served-model --target ../churn-api\n"
+            "  ml-struct new --list-presets"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    new.add_argument("project_name", nargs="?")
     new.add_argument("--preset", choices=SUPPORTED_PRESETS)
     new.add_argument("--name")
     new.add_argument("--target", type=Path)
+    new.add_argument("--no-input", action="store_true")
+    new.add_argument("--list-presets", action="store_true")
     new.add_argument("--force", action="store_true")
     new.set_defaults(handler=run_new)
 

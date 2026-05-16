@@ -10,7 +10,7 @@ import yaml
 from ml_production_ecosystem.production_patterns.local_scheduler import run_local_scheduler, validate_local_scheduler
 
 ROOT = Path(__file__).resolve().parents[1]
-PLAN = ROOT / "04-platform-and-cloud" / "iac" / "local" / "scheduler" / "jobs.yaml"
+PLAN = ROOT / "configs" / "platform" / "local" / "scheduler" / "jobs.yaml"
 
 
 def test_local_scheduler_plan_passes(tmp_path: Path) -> None:

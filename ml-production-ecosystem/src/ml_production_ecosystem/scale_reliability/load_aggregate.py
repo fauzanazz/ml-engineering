@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-DEFAULT_OUTPUT_PATH = Path("03-scale-and-reliability/reports/distributed-load-aggregate.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/scale-reliability/distributed-load-aggregate.json")
 
 
 def aggregate_load_reports(

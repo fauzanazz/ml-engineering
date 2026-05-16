@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = ROOT / "03-scale-and-reliability"
+MODULE_PATH = ROOT / "docs" / "domains" / "scale-reliability"
 README_PATH = MODULE_PATH / "README.md"
 FEATURE_DOC_PATH = ROOT / "docs" / "features" / "step-28-module-scaffold-and-scope.md"
 

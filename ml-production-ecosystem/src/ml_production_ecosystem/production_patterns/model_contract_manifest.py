@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/model-contract-manifest.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/model-contract-manifest.json")
 REQUIRED_FIELDS = ("input_schema_uri", "output_schema_uri", "task_type", "prediction_key")
 
 

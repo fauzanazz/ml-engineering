@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ml_production_ecosystem.shared.model_storage.registry import list_model_versions, set_active_model
 
-DEFAULT_REPORT_PATH = Path("02-production-patterns/reports/rollback.json")
+DEFAULT_REPORT_PATH = Path("artifacts/reports/production-patterns/rollback.json")
 
 
 def _write_report(report_path: Path, summary: dict[str, object]) -> None:

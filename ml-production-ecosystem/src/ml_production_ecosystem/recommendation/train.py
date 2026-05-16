@@ -383,7 +383,7 @@ def config_main() -> None:
 
 def list_runs_main() -> None:
     parser = argparse.ArgumentParser(description="List local foundation experiment runs.")
-    parser.add_argument("--tracking-dir", type=Path, default=Path("01-foundation/experiments/runs"))
+    parser.add_argument("--tracking-dir", type=Path, default=Path("artifacts/experiments/runs"))
     args = parser.parse_args()
     for run in list_experiment_runs(args.tracking_dir):
         print(json.dumps(run, sort_keys=True))
@@ -391,7 +391,7 @@ def list_runs_main() -> None:
 
 def list_models_main() -> None:
     parser = argparse.ArgumentParser(description="List local registered foundation model versions.")
-    parser.add_argument("--registry-path", type=Path, default=Path("01-foundation/registry/models.json"))
+    parser.add_argument("--registry-path", type=Path, default=Path("registry/models.json"))
     parser.add_argument("--model-name")
     args = parser.parse_args()
     for model in list_model_versions(args.registry_path, args.model_name):
@@ -400,7 +400,7 @@ def list_models_main() -> None:
 
 def set_active_model_main() -> None:
     parser = argparse.ArgumentParser(description="Set active local foundation model version.")
-    parser.add_argument("--registry-path", type=Path, default=Path("01-foundation/registry/models.json"))
+    parser.add_argument("--registry-path", type=Path, default=Path("registry/models.json"))
     parser.add_argument("--model-name", required=True)
     parser.add_argument("--version", required=True)
     args = parser.parse_args()

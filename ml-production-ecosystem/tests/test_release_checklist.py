@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CHECKLIST_PATH = ROOT / "02-production-patterns" / "docs" / "release-checklist.md"
+CHECKLIST_PATH = ROOT / "docs" / "domains" / "production-patterns" / "release-checklist.md"
 
 
 def test_release_checklist_has_required_sections() -> None:
@@ -42,14 +42,14 @@ def test_release_checklist_contains_copy_paste_commands() -> None:
     assert "--config configs/foundation-recommender.yaml \\" in checklist
     assert "--set-active \\" in checklist
     assert "--require-quality-gate \\" in checklist
-    assert "--output-path 02-production-patterns/reports/scheduled-retraining.json" in checklist
+    assert "--output-path artifacts/reports/production-patterns/scheduled-retraining.json" in checklist
     assert "uv run production-monitor \\" in checklist
     assert "--base-url http://127.0.0.1:8000 \\" in checklist
     assert "--max-error-count 0 \\" in checklist
     assert "--max-drift-score 0.2 \\" in checklist
     assert "--max-latency-ms-last 100" in checklist
     assert "uv run production-rollback-model \\" in checklist
-    assert "--registry-path 01-foundation/registry/models.json \\" in checklist
+    assert "--registry-path registry/models.json \\" in checklist
     assert "--model-name movielens-popularity \\" in checklist
     assert "--target-version foundation-config-v1 \\" in checklist
     assert '--reason "release verification failed"' in checklist

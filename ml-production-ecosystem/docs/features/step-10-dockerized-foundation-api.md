@@ -8,7 +8,7 @@ Package the foundation FastAPI recommender as a local Docker Compose service whi
 
 ```text
 local train/register/set active
-  -> local 01-foundation/artifacts + registry
+  -> local artifacts/foundation + registry
   -> foundation-api container mounts runtime dirs
   -> Prometheus scrapes foundation-api:8000/metrics
   -> Grafana dashboard reads Prometheus
@@ -25,12 +25,12 @@ foundation-serve-recommender --host 0.0.0.0 --port 8000
 Mounted runtime dirs:
 
 ```text
-01-foundation/artifacts -> /app/01-foundation/artifacts
-01-foundation/registry  -> /app/01-foundation/registry
-01-foundation/logs      -> /app/01-foundation/logs
+artifacts/foundation -> /app/artifacts/foundation
+registry  -> /app/registry
+logs      -> /app/logs
 ```
 
-Prediction logs persist in local `01-foundation/logs`.
+Prediction logs persist in local `logs`.
 
 ## Run Flow
 
@@ -40,9 +40,9 @@ Run from `ml-production-ecosystem`.
 
 ```bash
 uv run foundation-train-recommender \
-  --ratings-path 01-foundation/data/raw/ml-25m/ratings.csv \
-  --movies-path 01-foundation/data/raw/ml-25m/movies.csv \
-  --artifact-dir 01-foundation/artifacts \
+  --ratings-path examples/samples/recommendation/ratings.csv \
+  --movies-path examples/samples/recommendation/movies.csv \
+  --artifact-dir artifacts/foundation \
   --version api-v1
 ```
 
@@ -50,7 +50,7 @@ uv run foundation-train-recommender \
 
 ```bash
 uv run foundation-set-active-model \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --model-name movielens-popularity \
   --version api-v1
 ```

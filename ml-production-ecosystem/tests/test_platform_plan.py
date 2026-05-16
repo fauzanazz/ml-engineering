@@ -16,7 +16,7 @@ environment: development
 resources:
   - kind: local-path
     name: model-artifacts
-    uri: 01-foundation/artifacts
+    uri: artifacts/foundation
 secrets:
   - provider: local
     name: development/local/model-registry-token
@@ -57,7 +57,7 @@ secrets:
 
 def test_validate_all_provider_platform_plans_are_reference_only(tmp_path: Path) -> None:
     for provider in ("local", "aws", "gcp", "azure"):
-        plan_path = ROOT / "04-platform-and-cloud" / "iac" / provider / "platform-plan.yaml"
+        plan_path = ROOT / "configs" / "platform" / provider / "platform-plan.yaml"
         report = validate_platform_plan(plan_path, tmp_path / f"{provider}-report.json")
 
         assert report["status"] == "passed"

@@ -47,8 +47,8 @@ Endpoints stay aligned with [Step 21 deployment manifest](./step-21-deployment-m
 ## Key Files
 
 - `docker-compose.production.yaml`
-- `02-production-patterns/docs/production-compose.md`
-- `02-production-patterns/deploy/deployment-manifest.yaml`
+- `docs/domains/production-patterns/production-compose.md`
+- `configs/production-patterns/deploy/deployment-manifest.yaml`
 - `tests/test_deployment_manifest.py`
 
 ## Pattern
@@ -81,7 +81,7 @@ deployment manifest conventions
 
 ## Definition Of Done
 
-`02-production-patterns` has local production-like runtime profile. Project covers train → gate → activate → serve → monitor → alert → rollback → deploy metadata → CI → production-like compose.
+`production-patterns domain` has local production-like runtime profile. Project covers train → gate → activate → serve → monitor → alert → rollback → deploy metadata → CI → production-like compose.
 
 ## Next Step
 

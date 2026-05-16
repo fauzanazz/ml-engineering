@@ -6,7 +6,7 @@ import json
 import re
 
 DEFAULT_ROOT = Path(".")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/provider-boundary-validation.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/provider-boundary-validation.json")
 FORBIDDEN_PROVIDER_IMPORT = re.compile(
     r"^\s*(?:from|import)\s+"
     r"(boto3|botocore|google\.cloud|azure|kubernetes|terraform)"
@@ -14,8 +14,8 @@ FORBIDDEN_PROVIDER_IMPORT = re.compile(
     re.MULTILINE,
 )
 ALLOWED_PROVIDER_PATHS = (
-    Path("04-platform-and-cloud/adapters"),
-    Path("04-platform-and-cloud/iac"),
+    Path("configs/platform/adapters"),
+    Path("configs/platform"),
 )
 IGNORED_PATH_PARTS = {".git", ".venv", "__pycache__"}
 

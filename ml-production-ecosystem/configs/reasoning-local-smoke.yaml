@@ -1,6 +1,6 @@
 backend: local
 seed: 7
 candidates: 3
-train_data: 05-reasoning-post-training/data/reasoning_train.json
-eval_data: 05-reasoning-post-training/data/reasoning_eval.json
+train_data: examples/data/reasoning-post-training/reasoning_train.json
+eval_data: examples/data/reasoning-post-training/reasoning_eval.json
 output_dir: artifacts/reasoning-runs

@@ -1,5 +1,6 @@
 from argparse import Namespace
 from pathlib import Path
+import importlib
 
 import pytest
 
@@ -83,6 +84,24 @@ def test_served_model_scaffold_includes_api_and_dockerfile(tmp_path: Path) -> No
     assert (target / "churn_api" / "api.py").exists()
     assert "uvicorn" in (target / "Dockerfile").read_text()
 
+def test_asr_served_model_scaffold_includes_contract_and_api(tmp_path: Path) -> None:
+    target = tmp_path / "banking-asr"
+
+    scaffold_project(
+        ScaffoldRequest(
+            preset="asr-served-model",
+            name="Banking ASR",
+            target=target,
+        )
+    )
+
+    config = (target / "configs" / "project.yaml").read_text()
+    assert "task_type: speech_to_text" in config
+    assert "wer: 0.25" in config
+    assert (target / "schemas" / "asr" / "input.json").exists()
+    assert (target / "banking_asr" / "api.py").exists()
+    assert (target / "banking_asr" / "train.py").exists()
+
 
 def test_enterprise_pipeline_scaffold_includes_quality_gate(tmp_path: Path) -> None:
     target = tmp_path / "enterprise"
@@ -122,7 +141,23 @@ def test_parser_allows_interactive_new_command() -> None:
     assert args.handler.__name__ == "run_new"
     assert args.preset is None
     assert args.name is None
+    assert args.project_name is None
     assert args.target is None
+
+
+def test_parser_accepts_positional_project_name() -> None:
+    args = build_parser().parse_args(["new", "banking-asr", "--preset", "asr-served-model"])
+
+    assert args.project_name == "banking-asr"
+    assert args.preset == "asr-served-model"
+
+
+def test_parser_accepts_no_input_and_list_presets() -> None:
+    no_input_args = build_parser().parse_args(["new", "banking-asr", "--preset", "asr-served-model", "--no-input"])
+    list_args = build_parser().parse_args(["new", "--list-presets"])
+
+    assert no_input_args.no_input is True
+    assert list_args.list_presets is True
 
 
 def test_run_new_prints_next_command(tmp_path: Path, capsys) -> None:
@@ -146,7 +181,7 @@ def test_run_new_prints_next_command(tmp_path: Path, capsys) -> None:
 
 def test_run_new_prompts_for_missing_values(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    answers = iter(["served-model", "Churn API", "churn-api"])
+    answers = iter(["2", "Churn API", "churn-api"])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
 
     result = run_new(
@@ -162,3 +197,85 @@ def test_run_new_prompts_for_missing_values(tmp_path: Path, monkeypatch, capsys)
     assert result == 0
     assert "Preset: served-model" in output
     assert (tmp_path / "churn-api" / "churn_api" / "api.py").exists()
+
+def test_run_new_uses_safe_default_directory(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    answers = iter(["3", "Banking ASR", ""])
+    monkeypatch.setattr("builtins.input", lambda _: next(answers))
+
+    result = run_new(
+        Namespace(
+            preset=None,
+            name=None,
+            target=None,
+            force=False,
+        )
+    )
+
+    assert result == 0
+    assert (tmp_path / "banking-asr" / "banking_asr" / "api.py").exists()
+
+
+def test_run_new_uses_positional_name_and_default_target(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    result = run_new(
+        Namespace(
+            project_name="Banking ASR",
+            preset="asr-served-model",
+            name=None,
+            target=None,
+            no_input=True,
+            list_presets=False,
+            force=False,
+        )
+    )
+
+    assert result == 0
+    assert (tmp_path / "banking-asr" / "banking_asr" / "api.py").exists()
+
+
+def test_run_new_lists_presets(capsys) -> None:
+    result = run_new(
+        Namespace(
+            project_name=None,
+            preset=None,
+            name=None,
+            target=None,
+            no_input=False,
+            list_presets=True,
+            force=False,
+        )
+    )
+
+    output = capsys.readouterr().out
+    assert result == 0
+    assert "asr-served-model: speech-to-text API" in output
+
+
+def test_help_includes_examples(capsys) -> None:
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["new", "--help"])
+
+    output = capsys.readouterr().out
+    assert "Examples:" in output
+    assert "ml-struct new banking-asr --preset asr-served-model" in output
+
+
+def test_generated_asr_package_imports_and_writes_summary(tmp_path: Path, monkeypatch) -> None:
+    target = tmp_path / "banking-asr"
+    scaffold_project(
+        ScaffoldRequest(
+            preset="asr-served-model",
+            name="Banking ASR",
+            target=target,
+        )
+    )
+    monkeypatch.syspath_prepend(str(target))
+
+    train = importlib.import_module("banking_asr.train")
+    summary = train.write_training_summary(target / "reports" / "training-summary.json")
+
+    assert summary["model_name"] == "banking_asr"
+    assert (target / "reports" / "training-summary.json").exists()
+    assert (target / "reports" / "metrics.json").exists()

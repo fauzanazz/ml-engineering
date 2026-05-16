@@ -3,8 +3,8 @@ pipeline:
   version: foundation-config-v1
 
 dataset:
-  ratings_path: 01-foundation/data/raw/ml-25m/ratings.csv
-  movies_path: 01-foundation/data/raw/ml-25m/movies.csv
+  ratings_path: examples/samples/recommendation/ratings.csv
+  movies_path: examples/samples/recommendation/movies.csv
 
 model:
   type: popularity
@@ -18,20 +18,20 @@ model_contract:
   prediction_key: recommendations
 
 artifacts:
-  artifact_dir: 01-foundation/artifacts
+  artifact_dir: artifacts/foundation
 
 experiments:
-  tracking_dir: 01-foundation/experiments/runs
+  tracking_dir: artifacts/experiments/runs
   run_id: foundation-config-v1
 
 registry:
-  path: 01-foundation/registry/models.json
+  path: registry/models.json
   stage: candidate
   set_active: false
 
 quality_gate:
   enabled: true
-  metrics_path: 01-foundation/artifacts/recommendation/foundation-config-v1/metrics.json
+  metrics_path: artifacts/foundation/recommendation/foundation-config-v1/metrics.json
   minimums:
     candidate_count: 1
     ratings_rows: 1

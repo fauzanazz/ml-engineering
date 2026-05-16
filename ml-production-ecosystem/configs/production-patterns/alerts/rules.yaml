@@ -1,0 +1,36 @@
+rules:
+  - name: high_error_count
+    condition: prediction_error_count > 0
+    threshold: 0
+    severity: critical
+    source: GET /metrics.json
+    metric: prediction_error_count
+    runbook: docs/domains/production-patterns/alerting-runbook.md
+    description: Serving API recorded prediction errors above allowed threshold.
+
+  - name: high_latency
+    condition: prediction_latency_ms_last > 100
+    threshold: 100
+    severity: warning
+    source: GET /metrics.json
+    metric: prediction_latency_ms_last
+    runbook: docs/domains/production-patterns/alerting-runbook.md
+    description: Last prediction latency exceeded interactive serving budget.
+
+  - name: high_drift_score
+    condition: drift_score > 0.2
+    threshold: 0.2
+    severity: warning
+    source: GET /drift
+    metric: drift_score
+    runbook: docs/domains/production-patterns/alerting-runbook.md
+    description: Recent prediction distribution drifted beyond baseline tolerance.
+
+  - name: api_unhealthy
+    condition: /health status != ok
+    threshold: ok
+    severity: critical
+    source: GET /health
+    metric: status
+    runbook: docs/domains/production-patterns/alerting-runbook.md
+    description: Serving API health endpoint is not reporting ok.

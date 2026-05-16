@@ -10,7 +10,7 @@ Sebagai ML engineer, gw punya checklist rilis model: train, quality gate, activa
 
 ## Checklist Sections
 
-The checklist lives at `02-production-patterns/docs/release-checklist.md` and covers:
+The checklist lives at `docs/domains/production-patterns/release-checklist.md` and covers:
 
 - Pre-release.
 - Train Candidate.
@@ -32,7 +32,7 @@ uv run production-scheduled-retrain \
   --config configs/foundation-recommender.yaml \
   --set-active \
   --require-quality-gate \
-  --output-path 02-production-patterns/reports/scheduled-retraining.json
+  --output-path artifacts/reports/production-patterns/scheduled-retraining.json
 ```
 
 Monitor after activation:
@@ -49,7 +49,7 @@ Rollback if verification fails:
 
 ```bash
 uv run production-rollback-model \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --model-name movielens-popularity \
   --target-version foundation-config-v1 \
   --reason "release verification failed"
@@ -57,11 +57,11 @@ uv run production-rollback-model \
 
 ## Key Files
 
-- `02-production-patterns/docs/release-checklist.md`
-- `02-production-patterns/production_patterns/scheduled_retraining.py`
-- `02-production-patterns/production_patterns/monitoring_loop.py`
-- `02-production-patterns/production_patterns/rollback.py`
-- `02-production-patterns/alerts/rules.yaml`
+- `docs/domains/production-patterns/release-checklist.md`
+- `src/ml_production_ecosystem/production_patterns/scheduled_retraining.py`
+- `src/ml_production_ecosystem/production_patterns/monitoring_loop.py`
+- `src/ml_production_ecosystem/production_patterns/rollback.py`
+- `configs/production-patterns/alerts/rules.yaml`
 - `tests/test_release_checklist.py`
 
 ## Pattern
@@ -96,7 +96,7 @@ pre-release review
 
 ## Definition Of Done
 
-`02-production-patterns` has manual production release workflow. Project covers train → gate → activate → serve → monitor → alert → rollback.
+`production-patterns domain` has manual production release workflow. Project covers train → gate → activate → serve → monitor → alert → rollback.
 
 ## Next Step
 

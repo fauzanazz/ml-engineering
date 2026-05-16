@@ -15,7 +15,7 @@ author: fauzan
 
 # Local Model Registry
 
-[Foundation recommender](../../01-foundation/recommendation/) now has a human-readable local registry for registered and active model versions.
+[Foundation recommender](../../src/ml_production_ecosystem/recommendation/) now has a human-readable local registry for registered and active model versions.
 
 ## Context
 
@@ -29,7 +29,7 @@ This registry is deliberately lightweight. It is a JSON file, not [MLflow Model 
 
 ```yaml
 registry:
-  path: 01-foundation/registry/models.json
+  path: registry/models.json
   stage: candidate
   set_active: false
 ```
@@ -44,8 +44,8 @@ Registry shape:
     {
       "model_name": "movielens-popularity",
       "version": "foundation-config-v1",
-      "artifact_uri": "01-foundation/artifacts/recommendation/foundation-config-v1",
-      "metrics_uri": "01-foundation/artifacts/recommendation/foundation-config-v1/metrics.json",
+      "artifact_uri": "artifacts/foundation/recommendation/foundation-config-v1",
+      "metrics_uri": "artifacts/foundation/recommendation/foundation-config-v1/metrics.json",
       "stage": "candidate",
       "created_at": "2026-05-13T..."
     }
@@ -62,10 +62,10 @@ The active pointer lets future prediction and serving paths resolve a model by r
 
 | File | Role |
 |------|------|
-| `01-foundation/recommendation/train.py` | Registry helpers, config integration, and registry CLIs. |
-| `01-foundation/recommendation/predict.py` | Active-model prediction helper and `--registry-path` CLI support. |
+| `src/ml_production_ecosystem/recommendation/train.py` | Registry helpers, config integration, and registry CLIs. |
+| `src/ml_production_ecosystem/recommendation/predict.py` | Active-model prediction helper and `--registry-path` CLI support. |
 | `configs/foundation-recommender.yaml` | Adds `registry.path`, `registry.stage`, and `registry.set_active`. |
-| `01-foundation/registry/models.json` | Ignored local registry state. |
+| `registry/models.json` | Ignored local registry state. |
 | `tests/test_recommendation_workflow.py` | Covers register/list/get/set-active and active registry prediction. |
 
 ## API Surface
@@ -113,14 +113,14 @@ uv run foundation-train-from-config --config configs/foundation-recommender.yaml
 List registered model versions:
 
 ```bash
-uv run foundation-list-models --registry-path 01-foundation/registry/models.json
+uv run foundation-list-models --registry-path registry/models.json
 ```
 
 Set active model:
 
 ```bash
 uv run foundation-set-active-model \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --model-name movielens-popularity \
   --version foundation-config-v1
 ```
@@ -129,7 +129,7 @@ Predict from active registry model:
 
 ```bash
 uv run foundation-recommend \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --top-k 5
 ```
 

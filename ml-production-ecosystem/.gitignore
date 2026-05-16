@@ -1,8 +1,8 @@
-01-foundation/data/
-01-foundation/artifacts/
+examples/data/foundation/
+artifacts/foundation/
 01-foundation/experiments/
-01-foundation/registry/
-01-foundation/logs/
+registry/
+logs/
 .pytest_cache/
 __pycache__/
 *.py[cod]

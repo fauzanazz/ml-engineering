@@ -41,18 +41,18 @@ Cons:
    - PostgreSQL dependency.
 
 3. Add RT foundation package.
-   - Create `01-foundation/recommendation/rt_transport.py`.
+   - Create `src/ml_production_ecosystem/recommendation/rt_transport.py`.
    - Define topic, producer, consumer, serialization, deserialization.
    - Keep adapter replaceable.
 
 4. Add warehouse package.
-   - Create `01-foundation/recommendation/warehouse.py`.
+   - Create `src/ml_production_ecosystem/recommendation/warehouse.py`.
    - Create schema/table.
    - Insert processed recommendation request results.
    - Query/read back rows.
 
 5. Add demo workflow.
-   - Create `01-foundation/recommendation/rt_demo.py`.
+   - Create `src/ml_production_ecosystem/recommendation/rt_demo.py`.
    - Add CLI script `foundation-rt-demo`.
    - Flow: ensure table, produce sample events, consume events, store rows, read rows, print summary.
 
@@ -63,7 +63,7 @@ Cons:
    - Default `uv run pytest` expects Docker services running.
 
 7. Add docs.
-   - Update `01-foundation/README.md` with Docker/demo/test commands.
+   - Update `docs/domains/foundation/README.md` with Docker/demo/test commands.
    - Explain Redpanda/Kafka and PostgreSQL/warehouse mapping.
 
 8. Verify.

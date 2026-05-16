@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_platform_plan_adapter_loads_all_provider_plans() -> None:
     for provider in ("local", "aws", "gcp", "azure"):
         adapter: ProviderAdapter = PlatformPlanAdapter(
-            ROOT / "04-platform-and-cloud" / "iac" / provider / "platform-plan.yaml"
+            ROOT / "configs" / "platform" / provider / "platform-plan.yaml"
         )
 
         plan = adapter.plan("development")
@@ -22,7 +22,7 @@ def test_platform_plan_adapter_loads_all_provider_plans() -> None:
 
 def test_platform_plan_adapter_deploys_without_provider_sdk() -> None:
     adapter: ProviderAdapter = PlatformPlanAdapter(
-        ROOT / "04-platform-and-cloud" / "iac" / "aws" / "platform-plan.yaml"
+        ROOT / "configs" / "platform" / "aws" / "platform-plan.yaml"
     )
 
     execution = adapter.deploy("development")
@@ -34,7 +34,7 @@ def test_platform_plan_adapter_deploys_without_provider_sdk() -> None:
     assert "s3://" in execution.actions[0].uri
 
 def test_platform_plan_adapter_rejects_environment_mismatch() -> None:
-    adapter = PlatformPlanAdapter(ROOT / "04-platform-and-cloud" / "iac" / "local" / "platform-plan.yaml")
+    adapter = PlatformPlanAdapter(ROOT / "configs" / "platform" / "local" / "platform-plan.yaml")
 
     with pytest.raises(ValueError, match="does not match"):
         adapter.plan("production")

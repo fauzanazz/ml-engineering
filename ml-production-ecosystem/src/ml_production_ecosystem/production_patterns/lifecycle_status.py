@@ -5,7 +5,7 @@ import argparse
 import json
 from typing import Any
 
-DEFAULT_REPORT_DIR = Path("02-production-patterns/reports")
+DEFAULT_REPORT_DIR = Path("artifacts/reports/production-patterns")
 DEFAULT_OUTPUT_PATH = DEFAULT_REPORT_DIR / "lifecycle-status.json"
 REPORT_FILES = {
     "model_contract": ("model-contract-manifest.json",),

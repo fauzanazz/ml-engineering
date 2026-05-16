@@ -16,7 +16,7 @@ author: fauzan
 
 # Local FastAPI Serving
 
-[Foundation recommender](../../01-foundation/recommendation/) can serve the active registered model through local HTTP endpoints.
+[Foundation recommender](../../src/ml_production_ecosystem/recommendation/) can serve the active registered model through local HTTP endpoints.
 
 ## Context
 
@@ -26,7 +26,7 @@ This remains foundation scope. There is no auth, Docker image, async worker, Pro
 
 ## How It Works
 
-`foundation-serve-recommender` starts `recommendation.api.create_app()` with a registry path. The API reads `01-foundation/registry/models.json`, resolves the active `movielens-popularity` model, and calls existing registry-backed prediction logic.
+`foundation-serve-recommender` starts `recommendation.api.create_app()` with a registry path. The API reads `registry/models.json`, resolves the active `movielens-popularity` model, and calls existing registry-backed prediction logic.
 
 Endpoints:
 
@@ -83,9 +83,9 @@ If no active model exists, `/models/active` and `/predict/v1` return `404` with 
 
 | File | Role |
 |------|------|
-| `01-foundation/recommendation/api.py` | FastAPI app factory, endpoints, and serve CLI. |
-| `01-foundation/recommendation/predict.py` | Registry-backed prediction helper reused by HTTP endpoint. |
-| `01-foundation/recommendation/train.py` | Registry helpers used by serving to resolve active model metadata. |
+| `src/ml_production_ecosystem/recommendation/api.py` | FastAPI app factory, endpoints, and serve CLI. |
+| `src/ml_production_ecosystem/recommendation/predict.py` | Registry-backed prediction helper reused by HTTP endpoint. |
+| `src/ml_production_ecosystem/recommendation/train.py` | Registry helpers used by serving to resolve active model metadata. |
 | `tests/test_recommendation_api.py` | FastAPI TestClient coverage for health, active model, prediction, and missing-active behavior. |
 | `pyproject.toml` | Adds `fastapi`, `uvicorn`, `httpx`, and `foundation-serve-recommender`. |
 
@@ -101,7 +101,7 @@ Set active model if config did not set it automatically:
 
 ```bash
 uv run foundation-set-active-model \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --model-name movielens-popularity \
   --version foundation-config-v1
 ```
@@ -110,7 +110,7 @@ Serve locally:
 
 ```bash
 uv run foundation-serve-recommender \
-  --registry-path 01-foundation/registry/models.json \
+  --registry-path registry/models.json \
   --host 127.0.0.1 \
   --port 8000
 ```

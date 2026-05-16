@@ -8,7 +8,7 @@ import sys
 from ml_production_ecosystem.production_patterns.local_kubernetes import validate_local_kubernetes
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "04-platform-and-cloud" / "iac" / "local" / "kubernetes" / "foundation-api.yaml"
+MANIFEST = ROOT / "configs" / "platform" / "local" / "kubernetes" / "foundation-api.yaml"
 
 
 def test_local_kubernetes_manifest_passes(tmp_path: Path) -> None:

@@ -14,7 +14,7 @@ author: fauzan
 
 # Foundation YAML-Driven Training
 
-[Foundation recommender](../../01-foundation/recommendation/) can train the popularity baseline from one YAML config and one command.
+[Foundation recommender](../../src/ml_production_ecosystem/recommendation/) can train the popularity baseline from one YAML config and one command.
 
 ## Context
 
@@ -26,7 +26,7 @@ This keeps [MovieLens 25M](https://grouplens.org/datasets/movielens/25m/) traini
 
 `foundation-train-from-config` loads `configs/foundation-recommender.yaml`, reads dataset paths, artifact directory, model type, `version`, and `min_rating`, then calls `train_popularity_recommender()` directly. Training logic was intentionally reused instead of rewritten.
 
-Artifacts still use the old local format under `01-foundation/artifacts/recommendation/<version>/`:
+Artifacts still use the old local format under `artifacts/foundation/recommendation/<version>/`:
 
 - `model.json`
 - `metadata.json`
@@ -40,8 +40,8 @@ pipeline:
   version: foundation-config-v1
 
 dataset:
-  ratings_path: 01-foundation/data/raw/ml-25m/ratings.csv
-  movies_path: 01-foundation/data/raw/ml-25m/movies.csv
+  ratings_path: examples/samples/recommendation/ratings.csv
+  movies_path: examples/samples/recommendation/movies.csv
 
 model:
   type: popularity
@@ -49,7 +49,7 @@ model:
     min_rating: 4.0
 
 artifacts:
-  artifact_dir: 01-foundation/artifacts
+  artifact_dir: artifacts/foundation
 ```
 
 ## Key Files
@@ -57,7 +57,7 @@ artifacts:
 | File | Role |
 |------|------|
 | `configs/foundation-recommender.yaml` | Example training config. |
-| `01-foundation/recommendation/train.py` | Config parser, CLI entrypoint, and reused popularity training call. |
+| `src/ml_production_ecosystem/recommendation/train.py` | Config parser, CLI entrypoint, and reused popularity training call. |
 | `tests/test_recommendation_workflow.py` | Test coverage for config-driven artifact creation. |
 | `pyproject.toml` | Registers `foundation-train-from-config`. |
 
@@ -70,7 +70,7 @@ uv run foundation-train-from-config --config configs/foundation-recommender.yaml
 The command writes artifact files to:
 
 ```text
-01-foundation/artifacts/recommendation/foundation-config-v1/
+artifacts/foundation/recommendation/foundation-config-v1/
 ```
 
 ## Decisions & Trade-offs

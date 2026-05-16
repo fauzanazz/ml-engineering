@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SLO_DOC_PATH = ROOT / "03-scale-and-reliability" / "docs" / "slo-definition.md"
+SLO_DOC_PATH = ROOT / "docs" / "domains" / "scale-reliability" / "slo-definition.md"
 
 
 def test_slo_definition_doc_exists() -> None:

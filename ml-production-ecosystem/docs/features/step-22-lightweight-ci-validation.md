@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add a local CI validation command/script that runs core checks for `02-production-patterns` without needing an external CI provider.
+Add a local CI validation command/script that runs core checks for `production-patterns domain` without needing an external CI provider.
 
 ## User Story
 
@@ -35,12 +35,12 @@ The current script also includes release summary coverage because [Step 26](./st
 
 ## Documentation
 
-`02-production-patterns/docs/local-ci.md` explains when to run local CI before push or before release.
+`docs/domains/production-patterns/local-ci.md` explains when to run local CI before push or before release.
 
 ## Key Files
 
 - `scripts/validate-production-patterns.sh`
-- `02-production-patterns/docs/local-ci.md`
+- `docs/domains/production-patterns/local-ci.md`
 - `tests/test_local_ci.py`
 
 ## Pattern
@@ -71,7 +71,7 @@ local change
 
 ## Definition Of Done
 
-`02-production-patterns` has repeatable local validation loop. Project covers train → gate → activate → serve → monitor → alert → rollback → deploy metadata → local CI.
+`production-patterns domain` has repeatable local validation loop. Project covers train → gate → activate → serve → monitor → alert → rollback → deploy metadata → local CI.
 
 ## Next Step
 

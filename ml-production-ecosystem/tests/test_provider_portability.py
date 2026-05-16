@@ -17,8 +17,8 @@ def test_provider_portability_passes_current_provider_plans(tmp_path: Path) -> N
     assert json.loads((tmp_path / "portability.json").read_text()) == report
 
 def test_provider_portability_fails_when_cloud_resource_sets_diverge(tmp_path: Path) -> None:
-    source_root = ROOT / "04-platform-and-cloud"
-    target_root = tmp_path / "04-platform-and-cloud"
+    source_root = ROOT / "configs" / "platform"
+    target_root = tmp_path / "configs" / "platform"
     shutil.copytree(source_root, target_root)
     azure_plan = target_root / "iac" / "azure" / "platform-plan.yaml"
     azure_plan.write_text(azure_plan.read_text().replace("name: model-serving", "name: azure-only-serving", 1))

@@ -8,9 +8,9 @@ from typing import Any
 import yaml
 
 DEFAULT_ROOT = Path(".")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/local-secret-injections.json")
-LOCAL_PLAN_PATH = Path("04-platform-and-cloud/iac/local/platform-plan.yaml")
-LOCAL_INJECTION_PATH = Path("04-platform-and-cloud/secrets/local/secret-injections.yaml")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/local-secret-injections.json")
+LOCAL_PLAN_PATH = Path("configs/platform/iac/local/platform-plan.yaml")
+LOCAL_INJECTION_PATH = Path("configs/platform/secrets/local/secret-injections.yaml")
 REQUIRED_INJECTION_FIELDS = {
     "injection_target",
     "name",

@@ -17,9 +17,9 @@ Step ini memisahkan empat komponen awal:
 
 ```text
 ml-production-ecosystem/
-├── 01-foundation/
-├── 02-production-patterns/
-├── 03-million-scale/
+├── foundation docs/state/
+├── production-patterns domain/
+├── scale domain/
 ├── docs/
 ├── shared/
 └── tests/

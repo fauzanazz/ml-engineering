@@ -77,50 +77,50 @@ uv run foundation-serve-recommender --port 18080
 uv run production-demo-deployment --base-url http://127.0.0.1:18080
 uv run production-detect-drift --base-url http://127.0.0.1:18080
 uv run production-canary-decision \
-  --deployment-demo 02-production-patterns/reports/deployment-demo.json \
-  --drift-report 02-production-patterns/reports/drift-report.json
+  --deployment-demo artifacts/reports/production-patterns/deployment-demo.json \
+  --drift-report artifacts/reports/production-patterns/drift-report.json
 uv run production-canary-router \
-  --decision 02-production-patterns/reports/local-canary-decision.json \
+  --decision artifacts/reports/production-patterns/local-canary-decision.json \
   --stable-model-id foundation-config-v1 \
   --candidate-model-id local-candidate-v2
 uv run production-continual-decision \
-  --drift-report 02-production-patterns/reports/drift-report.json \
-  --deployment-demo 02-production-patterns/reports/deployment-demo.json \
-  --history-path 02-production-patterns/reports/continual-learning-history.jsonl
+  --drift-report artifacts/reports/production-patterns/drift-report.json \
+  --deployment-demo artifacts/reports/production-patterns/deployment-demo.json \
+  --history-path artifacts/reports/production-patterns/continual-learning-history.jsonl
 uv run production-continual-summary \
-  --history-path 02-production-patterns/reports/continual-learning-history.jsonl
+  --history-path artifacts/reports/production-patterns/continual-learning-history.jsonl
 ```
 
 ## Outputs
 
 ```text
-02-production-patterns/reports/local-platform-apply.json
-02-production-patterns/reports/local-secret-injections.json
-02-production-patterns/reports/local-kubernetes-validation.json
-02-production-patterns/reports/local-scheduler-validation.json
-02-production-patterns/reports/local-scheduler-run.json
-02-production-patterns/reports/local-lifecycle-demo.json
-02-production-patterns/reports/local-lifecycle-demo.mmd
-02-production-patterns/reports/local-lifecycle-demo.html
-02-production-patterns/reports/local-lifecycle-status.json
-02-production-patterns/reports/local-deployment-lifecycle.json
-02-production-patterns/reports/local-deployment-demo.json
-02-production-patterns/reports/local-deployment-drift.json
-02-production-patterns/reports/local-canary-decision.json
-02-production-patterns/reports/local-canary-router.json
-02-production-patterns/reports/local-deployment-status.json
-02-production-patterns/reports/platform-plan-validation.json
-02-production-patterns/reports/model-contract-manifest.json
-02-production-patterns/reports/dataset-manifest.json
-02-production-patterns/reports/offline-validation.json
-02-production-patterns/reports/approval-decision.json
-02-production-patterns/reports/deployment-demo.json
-02-production-patterns/reports/drift-report.json
-02-production-patterns/reports/continual-learning-decision.json
-02-production-patterns/reports/continual-learning-history.jsonl
-02-production-patterns/reports/continual-learning-summary.json
-02-production-patterns/reports/lifecycle-status.json
-02-production-patterns/reports/goal-readiness.json
+artifacts/reports/production-patterns/local-platform-apply.json
+artifacts/reports/production-patterns/local-secret-injections.json
+artifacts/reports/production-patterns/local-kubernetes-validation.json
+artifacts/reports/production-patterns/local-scheduler-validation.json
+artifacts/reports/production-patterns/local-scheduler-run.json
+artifacts/reports/production-patterns/local-lifecycle-demo.json
+artifacts/reports/production-patterns/local-lifecycle-demo.mmd
+artifacts/reports/production-patterns/local-lifecycle-demo.html
+artifacts/reports/production-patterns/local-lifecycle-status.json
+artifacts/reports/production-patterns/local-deployment-lifecycle.json
+artifacts/reports/production-patterns/local-deployment-demo.json
+artifacts/reports/production-patterns/local-deployment-drift.json
+artifacts/reports/production-patterns/local-canary-decision.json
+artifacts/reports/production-patterns/local-canary-router.json
+artifacts/reports/production-patterns/local-deployment-status.json
+artifacts/reports/production-patterns/platform-plan-validation.json
+artifacts/reports/production-patterns/model-contract-manifest.json
+artifacts/reports/production-patterns/dataset-manifest.json
+artifacts/reports/production-patterns/offline-validation.json
+artifacts/reports/production-patterns/approval-decision.json
+artifacts/reports/production-patterns/deployment-demo.json
+artifacts/reports/production-patterns/drift-report.json
+artifacts/reports/production-patterns/continual-learning-decision.json
+artifacts/reports/production-patterns/continual-learning-history.jsonl
+artifacts/reports/production-patterns/continual-learning-summary.json
+artifacts/reports/production-patterns/lifecycle-status.json
+artifacts/reports/production-patterns/goal-readiness.json
 ```
 
 These reports are generated artifacts. Do not commit them unless a future release policy says otherwise.

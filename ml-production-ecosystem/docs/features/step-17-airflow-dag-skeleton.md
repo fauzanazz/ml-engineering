@@ -29,7 +29,7 @@ uv run production-scheduled-retrain \
   --config configs/foundation-recommender.yaml \
   --set-active \
   --require-quality-gate \
-  --output-path 02-production-patterns/reports/scheduled-retraining.json
+  --output-path artifacts/reports/production-patterns/scheduled-retraining.json
 ```
 
 Post-retrain monitor command:
@@ -44,12 +44,12 @@ uv run production-monitor \
 
 ## Key Files
 
-- `02-production-patterns/airflow/retraining_dag.py`
-- `02-production-patterns/production_patterns/scheduled_retraining.py`
-- `02-production-patterns/production_patterns/monitoring_loop.py`
+- `configs/production-patterns/airflow/retraining_dag.py`
+- `src/ml_production_ecosystem/production_patterns/scheduled_retraining.py`
+- `src/ml_production_ecosystem/production_patterns/monitoring_loop.py`
 - `tests/test_airflow_retraining_dag.py`
-- `02-production-patterns/docs/retraining.md`
-- `02-production-patterns/docs/monitoring-loop.md`
+- `docs/domains/production-patterns/retraining.md`
+- `docs/domains/production-patterns/monitoring-loop.md`
 
 ## Pattern
 
@@ -80,7 +80,7 @@ Airflow later
 
 ## Definition Of Done
 
-`02-production-patterns` shows first scheduler orchestration layer. Project covers train → gate → serve → observe → monitor → scheduled retrain → DAG skeleton.
+`production-patterns domain` shows first scheduler orchestration layer. Project covers train → gate → serve → observe → monitor → scheduled retrain → DAG skeleton.
 
 ## Next Step
 

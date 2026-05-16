@@ -3,8 +3,8 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-RULES_PATH = ROOT / "02-production-patterns" / "alerts" / "rules.yaml"
-RUNBOOK_PATH = ROOT / "02-production-patterns" / "docs" / "alerting-runbook.md"
+RULES_PATH = ROOT / "configs" / "production-patterns" / "alerts" / "rules.yaml"
+RUNBOOK_PATH = ROOT / "docs" / "domains" / "production-patterns" / "alerting-runbook.md"
 
 
 def test_alert_rules_parse_with_required_fields() -> None:
@@ -24,7 +24,7 @@ def test_alert_rules_parse_with_required_fields() -> None:
         assert rule["condition"]
         assert "threshold" in rule
         assert rule["severity"] in {"warning", "critical"}
-        assert rule["runbook"] == "02-production-patterns/docs/alerting-runbook.md"
+        assert rule["runbook"] == "docs/domains/production-patterns/alerting-runbook.md"
 
 
 def test_alert_rules_tie_to_monitoring_metrics_and_health_endpoint() -> None:

@@ -15,12 +15,12 @@ uv run production-scheduled-retrain \
   --config configs/foundation-recommender.yaml \
   --set-active \
   --require-quality-gate \
-  --output-path 02-production-patterns/reports/scheduled-retraining.json
+  --output-path artifacts/reports/production-patterns/scheduled-retraining.json
 ```
 
 ## What It Reuses
 
-This step reuses [production retraining](../../02-production-patterns/production_patterns/retraining.py) instead of duplicating training logic. The scheduled entrypoint wraps `production_patterns.retraining.run_retraining` so future schedulers can call one stable command.
+This step reuses [production retraining](../../src/ml_production_ecosystem/production_patterns/retraining.py) instead of duplicating training logic. The scheduled entrypoint wraps `production_patterns.retraining.run_retraining` so future schedulers can call one stable command.
 
 ## Output
 
@@ -54,12 +54,12 @@ When `--output-path` is provided, the same summary is written to a JSON report f
 
 ## Key Files
 
-- `02-production-patterns/production_patterns/scheduled_retraining.py`
-- `02-production-patterns/production_patterns/retraining.py`
+- `src/ml_production_ecosystem/production_patterns/scheduled_retraining.py`
+- `src/ml_production_ecosystem/production_patterns/retraining.py`
 - `pyproject.toml` script: `production-scheduled-retrain`
 - `tests/test_scheduled_retraining.py`
-- `02-production-patterns/docs/retraining.md`
-- `02-production-patterns/docs/release-checklist.md`
+- `docs/domains/production-patterns/retraining.md`
+- `docs/domains/production-patterns/release-checklist.md`
 
 ## Pattern
 
@@ -94,7 +94,7 @@ scheduler/terminal
 
 ## Definition Of Done
 
-`02-production-patterns` has scheduler-ready retraining entrypoint. Project covers train → gate → serve → observe → monitor → scheduled retrain summary.
+`production-patterns domain` has scheduler-ready retraining entrypoint. Project covers train → gate → serve → observe → monitor → scheduled retrain summary.
 
 ## Next Step
 

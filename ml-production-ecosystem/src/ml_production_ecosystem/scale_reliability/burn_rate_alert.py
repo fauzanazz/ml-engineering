@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-DEFAULT_OUTPUT_PATH = Path("03-scale-and-reliability/reports/burn-rate-alert.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/scale-reliability/burn-rate-alert.json")
 DEFAULT_CRITICAL_SHORT_BURN_RATE = 14.0
 DEFAULT_CRITICAL_LONG_BURN_RATE = 2.0
 DEFAULT_WARNING_LONG_BURN_RATE = 1.0

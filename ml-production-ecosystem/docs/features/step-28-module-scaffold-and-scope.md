@@ -2,7 +2,7 @@
 
 ## Goal
 
-Create `03-scale-and-reliability/` as the next learning module with a clear scope boundary before any implementation starts.
+Create `scale-reliability domain/` as the next learning module with a clear scope boundary before any implementation starts.
 
 ## User Story
 
@@ -12,7 +12,7 @@ Sebagai learner, gw bisa lihat module 03 mulai dari apa yang akan dipelajari, ba
 
 Add module scaffold:
 
-`/Users/fauzan/github/personal-project/ml-engineering/ml-production-ecosystem/03-scale-and-reliability/`
+`/Users/fauzan/github/personal-project/ml-engineering/ml-production-ecosystem/scale-reliability domain/`
 
 Define scope:
 
@@ -40,10 +40,10 @@ Step 28 intentionally excludes:
 
 ## Acceptance Criteria
 
-- `03-scale-and-reliability/` exists.
+- `scale-reliability domain/` exists.
 - Module README defines scope: scale, reliability, load behavior, failure handling.
 - Module README defines out-of-scope: full cloud infra, Kubernetes production, real million traffic.
-- Project README links Step 28 and points next work to `03-scale-and-reliability`.
+- Project README links Step 28 and points next work to `scale-reliability domain`.
 - Tests assert scaffold and scope boundary.
 - Existing tests stay green.
 

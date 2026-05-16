@@ -80,7 +80,7 @@ environment: development
 resources:
   - kind: local-path
     name: model-artifacts
-    uri: 01-foundation/artifacts
+    uri: artifacts/foundation
 secrets: []
 """.strip()
     )

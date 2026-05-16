@@ -16,8 +16,8 @@ from .predict import recommend_top_k_from_registry
 from .train import get_active_model
 
 DEFAULT_MODEL_NAME = "movielens-popularity"
-DEFAULT_REGISTRY_PATH = Path("01-foundation/registry/models.json")
-DEFAULT_PREDICTION_LOG_PATH = Path("01-foundation/logs/predictions.jsonl")
+DEFAULT_REGISTRY_PATH = Path("registry/models.json")
+DEFAULT_PREDICTION_LOG_PATH = Path("logs/predictions.jsonl")
 
 
 class PredictionRequest(BaseModel):

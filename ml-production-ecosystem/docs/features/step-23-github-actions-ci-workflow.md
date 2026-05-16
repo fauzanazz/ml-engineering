@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add a GitHub Actions workflow that runs `02-production-patterns` validation on push and pull request.
+Add a GitHub Actions workflow that runs `production-patterns domain` validation on push and pull request.
 
 ## User Story
 
@@ -42,13 +42,13 @@ Workflow setup:
 
 ## Documentation
 
-`02-production-patterns/docs/local-ci.md` notes that local CI mirrors GitHub Actions remote CI.
+`docs/domains/production-patterns/local-ci.md` notes that local CI mirrors GitHub Actions remote CI.
 
 ## Key Files
 
 - `.github/workflows/ml-production-ecosystem-ci.yml`
 - `scripts/validate-production-patterns.sh`
-- `02-production-patterns/docs/local-ci.md`
+- `docs/domains/production-patterns/local-ci.md`
 - `tests/test_local_ci.py`
 
 ## Pattern
@@ -81,7 +81,7 @@ push or pull_request
 
 ## Definition Of Done
 
-`02-production-patterns` has local CI plus remote CI skeleton. Project covers train → gate → activate → serve → monitor → alert → rollback → deploy metadata → local CI → remote CI.
+`production-patterns domain` has local CI plus remote CI skeleton. Project covers train → gate → activate → serve → monitor → alert → rollback → deploy metadata → local CI → remote CI.
 
 ## Next Step
 

@@ -6,13 +6,13 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PLATFORM_ROOT = ROOT / "04-platform-and-cloud"
+PLATFORM_ROOT = ROOT / "configs" / "platform"
 
 
 def test_platform_stage_documents_provider_boundaries() -> None:
-    readme = (PLATFORM_ROOT / "README.md").read_text()
-    boundaries = (PLATFORM_ROOT / "docs" / "provider-boundaries.md").read_text()
-    provider_swap = (PLATFORM_ROOT / "docs" / "provider-swap.md").read_text()
+    readme = (ROOT / "docs" / "domains" / "platform-cloud" / "README.md").read_text()
+    boundaries = (ROOT / "docs" / "domains" / "platform-cloud" / "provider-boundaries.md").read_text()
+    provider_swap = (ROOT / "docs" / "domains" / "platform-cloud" / "provider-swap.md").read_text()
 
     assert "model-agnostic core workflows" in readme
     assert "Provider examples are adapters" in readme
@@ -26,17 +26,17 @@ def test_platform_stage_documents_provider_boundaries() -> None:
 
 def test_provider_adapter_and_iac_scopes_exist() -> None:
     for provider in ("local", "aws", "gcp", "azure"):
-        adapter_readme = PLATFORM_ROOT / "adapters" / provider / "README.md"
-        iac_readme = PLATFORM_ROOT / "iac" / provider / "README.md"
+        adapter_doc = ROOT / "docs" / "domains" / "platform-cloud" / f"{provider}-adapter.md"
+        iac_doc = ROOT / "docs" / "domains" / "platform-cloud" / f"{provider}-iac.md"
 
-        assert adapter_readme.exists()
-        assert iac_readme.exists()
-        assert "shared contracts" in adapter_readme.read_text()
-        assert "secret values" in iac_readme.read_text()
+        assert adapter_doc.exists()
+        assert iac_doc.exists()
+        assert "shared contracts" in adapter_doc.read_text()
+        assert "secret values" in iac_doc.read_text()
 
 
 def test_secret_management_doc_forbids_secret_values() -> None:
-    doc = (PLATFORM_ROOT / "docs" / "secret-management.md").read_text()
+    doc = (ROOT / "docs" / "domains" / "platform-cloud" / "secret-management.md").read_text()
 
     assert "never commits secret values" in doc
     assert "Secret names" in doc
@@ -73,9 +73,9 @@ def test_local_provider_adapter_can_apply_filesystem_resources(tmp_path: Path) -
     summary = adapter.ensure_resources(environment="development")
 
     assert summary["status"] == "ready"
-    assert (tmp_path / "01-foundation" / "artifacts").is_dir()
-    assert (tmp_path / "01-foundation" / "logs").is_dir()
-    assert (tmp_path / "01-foundation" / "registry").is_dir()
+    assert (tmp_path / "artifacts" / "foundation").is_dir()
+    assert (tmp_path / "logs").is_dir()
+    assert (tmp_path / "registry").is_dir()
     assert summary["secret_references"] == ["LOCAL_MODEL_REGISTRY_TOKEN"]
 
 def test_local_iac_plan_matches_adapter_contract() -> None:
@@ -88,7 +88,7 @@ def test_local_iac_plan_matches_adapter_contract() -> None:
         "model-registry",
         "prediction-logs",
     }
-    assert next(resource["uri"] for resource in plan["resources"] if resource["name"] == "model-artifacts") == "01-foundation/artifacts"
+    assert next(resource["uri"] for resource in plan["resources"] if resource["name"] == "model-artifacts") == "artifacts/foundation"
     assert plan["secrets"] == [
         {
             "provider": "local",
@@ -131,7 +131,7 @@ def test_core_code_does_not_import_cloud_providers() -> None:
         r"^\s*(?:from|import)\s+(boto3|botocore|google\.cloud|azure)(?:\b|\.)",
         re.MULTILINE,
     )
-    allowed_root = ROOT / "04-platform-and-cloud"
+    allowed_root = ROOT / "configs" / "platform"
     source_files = [
         path
         for path in ROOT.rglob("*.py")

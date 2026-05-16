@@ -10,7 +10,7 @@ Manual record untuk step penting di `ml-production-ecosystem`.
 - 2026-05-12
 
 **Scope**
-- membuat folder skala: `01-foundation`, `02-production-patterns`, `03-million-scale`
+- membuat folder skala: `foundation docs/state`, `production-patterns domain`, `scale domain`
 - membuat shared contracts untuk deployment, model storage, observability, monitoring
 - setup `uv` project
 - setup pytest

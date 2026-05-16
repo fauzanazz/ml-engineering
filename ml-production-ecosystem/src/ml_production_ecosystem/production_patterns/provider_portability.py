@@ -7,13 +7,13 @@ import json
 from ml_production_ecosystem.shared.platform import PlatformPlanAdapter
 
 DEFAULT_ROOT = Path(".")
-DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/provider-portability.json")
+DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/provider-portability.json")
 PROVIDERS = ("local", "aws", "gcp", "azure")
 REQUIRED_RESOURCE_NAMES = {"model-artifacts", "model-registry", "prediction-logs"}
 REQUIRED_SECRET_TARGETS = {"MODEL_REGISTRY_TOKEN", "LOCAL_MODEL_REGISTRY_TOKEN"}
 
 def _plan_path(root: Path, provider: str) -> Path:
-    return root / "04-platform-and-cloud" / "iac" / provider / "platform-plan.yaml"
+    return root / "configs" / "platform" / "iac" / provider / "platform-plan.yaml"
 
 def _resource_names(root: Path, provider: str) -> set[str]:
     plan = PlatformPlanAdapter(_plan_path(root, provider)).plan("development")

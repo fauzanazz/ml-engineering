@@ -4,7 +4,7 @@ set -euo pipefail
 BASE_URL="${BASE_URL:-http://127.0.0.1:18080}"
 HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-18080}"
-PREDICTION_LOG_PATH="${PREDICTION_LOG_PATH:-01-foundation/logs/local-deployment-smoke-predictions.jsonl}"
+PREDICTION_LOG_PATH="${PREDICTION_LOG_PATH:-logs/local-deployment-smoke-predictions.jsonl}"
 
 rm -f "$PREDICTION_LOG_PATH"
 
@@ -12,9 +12,9 @@ uv run production-lifecycle-demo \
   --config configs/local-lifecycle-demo.yaml \
   --approve \
   --set-active \
-  --output-path 02-production-patterns/reports/local-deployment-lifecycle.json \
-  --graph-path 02-production-patterns/reports/local-deployment-lifecycle.mmd \
-  --graph-html-path 02-production-patterns/reports/local-deployment-lifecycle.html
+  --output-path artifacts/reports/production-patterns/local-deployment-lifecycle.json \
+  --graph-path artifacts/reports/production-patterns/local-deployment-lifecycle.mmd \
+  --graph-html-path artifacts/reports/production-patterns/local-deployment-lifecycle.html
 
 uv run foundation-serve-recommender \
   --host "$HOST" \
@@ -63,45 +63,45 @@ PY
 
 uv run production-demo-deployment \
   --base-url "$BASE_URL" \
-  --output-path 02-production-patterns/reports/local-deployment-demo.json
+  --output-path artifacts/reports/production-patterns/local-deployment-demo.json
 
 uv run production-detect-drift \
   --base-url "$BASE_URL" \
-  --output-path 02-production-patterns/reports/local-deployment-drift.json
+  --output-path artifacts/reports/production-patterns/local-deployment-drift.json
 
 uv run production-canary-decision \
-  --deployment-demo 02-production-patterns/reports/local-deployment-demo.json \
-  --drift-report 02-production-patterns/reports/local-deployment-drift.json \
-  --approval 02-production-patterns/reports/approval-decision.json \
-  --output-path 02-production-patterns/reports/local-canary-decision.json
+  --deployment-demo artifacts/reports/production-patterns/local-deployment-demo.json \
+  --drift-report artifacts/reports/production-patterns/local-deployment-drift.json \
+  --approval artifacts/reports/production-patterns/approval-decision.json \
+  --output-path artifacts/reports/production-patterns/local-canary-decision.json
 
 uv run production-canary-router \
-  --decision 02-production-patterns/reports/local-canary-decision.json \
+  --decision artifacts/reports/production-patterns/local-canary-decision.json \
   --stable-model-id foundation-config-v1 \
   --candidate-model-id local-deployment-candidate \
   --request-count 100 \
-  --output-path 02-production-patterns/reports/local-canary-router.json
+  --output-path artifacts/reports/production-patterns/local-canary-router.json
 
 uv run production-continual-decision \
-  --drift-report 02-production-patterns/reports/local-deployment-drift.json \
-  --deployment-demo 02-production-patterns/reports/local-deployment-demo.json \
-  --output-path 02-production-patterns/reports/continual-learning-decision.json \
-  --history-path 02-production-patterns/reports/continual-learning-history.jsonl
+  --drift-report artifacts/reports/production-patterns/local-deployment-drift.json \
+  --deployment-demo artifacts/reports/production-patterns/local-deployment-demo.json \
+  --output-path artifacts/reports/production-patterns/continual-learning-decision.json \
+  --history-path artifacts/reports/production-patterns/continual-learning-history.jsonl
 
 uv run production-continual-summary \
-  --history-path 02-production-patterns/reports/continual-learning-history.jsonl \
-  --output-path 02-production-patterns/reports/continual-learning-summary.json
+  --history-path artifacts/reports/production-patterns/continual-learning-history.jsonl \
+  --output-path artifacts/reports/production-patterns/continual-learning-summary.json
 
 uv run production-lifecycle-status \
-  --output-path 02-production-patterns/reports/local-deployment-status.json
+  --output-path artifacts/reports/production-patterns/local-deployment-status.json
 
 python - <<'PY'
 import json
 from pathlib import Path
 
-demo = json.loads(Path("02-production-patterns/reports/local-deployment-demo.json").read_text())
-drift = json.loads(Path("02-production-patterns/reports/local-deployment-drift.json").read_text())
-status = json.loads(Path("02-production-patterns/reports/local-deployment-status.json").read_text())
+demo = json.loads(Path("artifacts/reports/production-patterns/local-deployment-demo.json").read_text())
+drift = json.loads(Path("artifacts/reports/production-patterns/local-deployment-drift.json").read_text())
+status = json.loads(Path("artifacts/reports/production-patterns/local-deployment-status.json").read_text())
 
 if demo["status"] != "passed":
     raise SystemExit(f"deployment demo status {demo['status']!r}, expected 'passed'")

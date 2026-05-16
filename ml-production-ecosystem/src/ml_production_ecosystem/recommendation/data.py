@@ -101,7 +101,7 @@ def prepare_movielens_25m(data_dir: Path) -> tuple[Path, Path]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Download, unpack, and validate MovieLens 25M.")
-    parser.add_argument("--data-dir", type=Path, default=Path("01-foundation/data"))
+    parser.add_argument("--data-dir", type=Path, default=Path("examples/data/foundation"))
     args = parser.parse_args()
     ratings_path, movies_path = prepare_movielens_25m(args.data_dir)
     print(f"ratings_path={ratings_path}")

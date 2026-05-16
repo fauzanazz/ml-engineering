@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCOPE_REVIEW_PATH = ROOT / "02-production-patterns" / "docs" / "scope-review.md"
+SCOPE_REVIEW_PATH = ROOT / "docs" / "domains" / "production-patterns" / "scope-review.md"
 
 
 def test_scope_review_doc_has_required_sections() -> None:
@@ -74,4 +74,4 @@ def test_scope_review_maps_functional_requirements_and_boundaries() -> None:
     ]:
         assert gap in doc
 
-    assert "03-scale-and-reliability" in doc
+    assert "scale-reliability" in doc

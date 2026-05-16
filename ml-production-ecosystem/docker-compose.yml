@@ -43,9 +43,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./01-foundation/artifacts:/app/01-foundation/artifacts
-      - ./01-foundation/registry:/app/01-foundation/registry
-      - ./01-foundation/logs:/app/01-foundation/logs
+      - ./artifacts/foundation:/app/artifacts/foundation
+      - ./registry:/app/registry
+      - ./logs:/app/logs
 
   prometheus:
     image: prom/prometheus:v2.55.1
