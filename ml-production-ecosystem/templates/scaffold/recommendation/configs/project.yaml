@@ -1,0 +1,10 @@
+project: {{project_name}}
+preset: recommendation
+model_contract:
+  task_type: recommendation
+  prediction_key: recommendations
+quality_gate:
+  enabled: true
+  metrics_path: reports/metrics.json
+  minimums:
+    precision_at_10: 0.1

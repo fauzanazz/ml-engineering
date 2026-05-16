@@ -1,0 +1,10 @@
+project: {{project_name}}
+preset: llm-post-training
+model_contract:
+  task_type: reasoning_post_training
+  prediction_key: answer
+quality_gate:
+  enabled: true
+  metrics_path: reports/metrics.json
+  minimums:
+    pass_rate: 0.7

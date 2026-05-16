@@ -1,0 +1,10 @@
+project: {{project_name}}
+preset: generic-classifier
+model_contract:
+  task_type: classification
+  prediction_key: label
+quality_gate:
+  enabled: true
+  metrics_path: reports/metrics.json
+  minimums:
+    accuracy: 0.8

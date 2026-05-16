@@ -1,0 +1,9 @@
+{
+  "title": "ASRPredictionInput",
+  "type": "object",
+  "required": ["audio_uri"],
+  "properties": {
+    "audio_uri": {"type": "string"},
+    "language": {"type": "string", "default": "id"}
+  }
+}

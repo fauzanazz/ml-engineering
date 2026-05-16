@@ -1,0 +1,11 @@
+project: {{project_name}}
+preset: existing-model-wrapper
+model_contract:
+  task_type: external_model
+  prediction_key: prediction
+external_commands:
+  train: []
+  evaluate: []
+quality_gate:
+  enabled: true
+  metrics_path: reports/metrics.json

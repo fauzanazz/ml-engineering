@@ -1,0 +1,10 @@
+{
+  "name": "create-ml-struct",
+  "version": "0.1.0",
+  "description": "Create ML production project structures.",
+  "bin": {
+    "create-ml-struct": "bin/create-ml-struct.js"
+  },
+  "files": ["bin"],
+  "license": "UNLICENSED"
+}

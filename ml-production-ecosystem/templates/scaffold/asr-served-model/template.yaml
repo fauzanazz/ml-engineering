@@ -1,0 +1,23 @@
+name: asr-served-model
+version: 1
+contract:
+  required_variables:
+    - project_name
+    - package_name
+    - preset
+  entrypoints:
+    test: uv run pytest
+    serve: uv run uvicorn {{package_name}}.api:app --reload
+  generated_paths:
+    - README.md
+    - pyproject.toml
+    - configs/project.yaml
+    - schemas/asr/input.json
+    - schemas/asr/output.json
+    - data/README.md
+    - docs/runbook.md
+    - tests/test_scaffold.py
+    - "{{package_name}}/api.py"
+    - "{{package_name}}/metrics.py"
+    - "{{package_name}}/train.py"
+    - "{{package_name}}/transcribe.py"

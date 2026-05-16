@@ -70,6 +70,30 @@ def test_scaffold_project_writes_common_boilerplate(tmp_path: Path, preset: str)
     assert all("{{" not in path.read_text() for path in result.written_paths)
 
 
+
+
+def test_scaffold_project_writes_modular_axes(tmp_path: Path) -> None:
+    target = tmp_path / "modular"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="existing-model-wrapper",
+            name="Existing ASR",
+            target=target,
+            task="speech-to-text",
+            model_type="whisper",
+            backend="external-command",
+            infra=("registry", "quality-gate", "monitoring"),
+        )
+    )
+
+    config = (target / "ml-struct.yaml").read_text()
+    checklist = (target / "docs" / "infra-checklist.md").read_text()
+    assert result.task == "speech-to-text"
+    assert "model_type: whisper" in config
+    assert "backend: external-command" in config
+    assert "- [ ] registry" in checklist
+
 def test_served_model_scaffold_includes_api_and_dockerfile(tmp_path: Path) -> None:
     target = tmp_path / "served"
 
@@ -102,6 +126,37 @@ def test_asr_served_model_scaffold_includes_contract_and_api(tmp_path: Path) -> 
     assert (target / "banking_asr" / "api.py").exists()
     assert (target / "banking_asr" / "train.py").exists()
 
+
+
+
+@pytest.mark.parametrize(
+    ("preset", "package_file", "expected_text"),
+    [
+        ("generic-classifier", "predict.py", "positive"),
+        ("recommendation", "rank.py", "recommend"),
+        ("batch-inference", "batch.py", "predict_batch"),
+        ("existing-model-wrapper", "adapter.py", "write_summary"),
+        ("llm-post-training", "evaluate.py", "pass_rate"),
+    ],
+)
+def test_flexible_gap_presets_include_main_seam(
+    tmp_path: Path,
+    preset: str,
+    package_file: str,
+    expected_text: str,
+) -> None:
+    target = tmp_path / preset
+
+    scaffold_project(
+        ScaffoldRequest(
+            preset=preset,
+            name="Flexible Project",
+            target=target,
+        )
+    )
+
+    assert expected_text in (target / "flexible_project" / package_file).read_text()
+    assert (target / "configs" / "project.yaml").exists()
 
 def test_enterprise_pipeline_scaffold_includes_quality_gate(tmp_path: Path) -> None:
     target = tmp_path / "enterprise"
@@ -181,7 +236,7 @@ def test_run_new_prints_next_command(tmp_path: Path, capsys) -> None:
 
 def test_run_new_prompts_for_missing_values(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    answers = iter(["2", "Churn API", "churn-api"])
+    answers = iter(["served-model", "Churn API", "churn-api", "", "", "", ""])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
 
     result = run_new(
@@ -200,7 +255,7 @@ def test_run_new_prompts_for_missing_values(tmp_path: Path, monkeypatch, capsys)
 
 def test_run_new_uses_safe_default_directory(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    answers = iter(["3", "Banking ASR", ""])
+    answers = iter(["asr-served-model", "Banking ASR", "", "", "", "", ""])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
 
     result = run_new(
@@ -250,7 +305,8 @@ def test_run_new_lists_presets(capsys) -> None:
 
     output = capsys.readouterr().out
     assert result == 0
-    assert "asr-served-model: speech-to-text API" in output
+    assert "existing-model-wrapper: wrap existing train/evaluate commands" in output
+    assert "llm-post-training: reasoning/LLM data" in output
 
 
 def test_help_includes_examples(capsys) -> None:

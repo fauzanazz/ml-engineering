@@ -9,7 +9,7 @@ from typing import Callable
 
 from .lifecycle_demo import run_lifecycle_demo
 from .lifecycle_status import DEFAULT_OUTPUT_PATH, DEFAULT_REPORT_DIR, build_lifecycle_status
-from .scaffold import SUPPORTED_PRESETS, ScaffoldRequest, scaffold_project
+from .scaffold import SUPPORTED_BACKENDS, SUPPORTED_INFRA, SUPPORTED_MODEL_TYPES, SUPPORTED_PRESETS, SUPPORTED_TASKS, ScaffoldRequest, scaffold_project
 
 DEFAULT_CONFIG_PATH = Path("configs/local-lifecycle-demo.yaml")
 LOCAL_LIFECYCLE_OUTPUT_PATH = DEFAULT_REPORT_DIR / "local-lifecycle-demo.json"
@@ -170,12 +170,22 @@ def run_new(args: argparse.Namespace) -> int:
     if name is None:
         raise SystemExit("project name is required with --no-input")
     target = args.target or default_target_for_name(name)
+    task = getattr(args, "task", None) or (None if no_input or not interactive else _prompt_axis("Task", SUPPORTED_TASKS, None))
+    model_type = getattr(args, "model_type", None) or (None if no_input or not interactive else _prompt_axis("Model type", SUPPORTED_MODEL_TYPES, None))
+    backend = getattr(args, "backend", None) or (None if no_input or not interactive else _prompt_axis("Backend", SUPPORTED_BACKENDS, None))
+    infra = tuple(getattr(args, "infra", None) or ())
+    if not infra and not no_input and interactive:
+        infra = _prompt_infra()
     result = scaffold_project(
         ScaffoldRequest(
             preset=preset,
             name=name,
             target=target,
             force=args.force,
+            task=task,
+            model_type=model_type,
+            backend=backend,
+            infra=infra,
         )
     )
     _print_header("Project Scaffolded")
@@ -183,6 +193,10 @@ def run_new(args: argparse.Namespace) -> int:
     print(f"Name: {result.name}")
     print(f"Package: {result.package_name}")
     print(f"Target: {result.target}")
+    print(f"Task: {result.task}")
+    print(f"Model type: {result.model_type}")
+    print(f"Backend: {result.backend}")
+    print(f"Infra: {', '.join(result.infra)}")
     print(f"Files: {len(result.written_paths)}")
     print(f"\nNext: cd {display_target(result.target)} && uv run pytest")
     return 0
@@ -205,6 +219,24 @@ def print_preset_list() -> None:
     for preset in SUPPORTED_PRESETS:
         print(f"{preset}: {PRESET_DESCRIPTIONS[preset]}")
 
+
+def _prompt_axis(label: str, choices: tuple[str, ...], default: str | None) -> str | None:
+    print(f"{label} options: {', '.join(choices)}")
+    prompt = f"{label}" + (f" [{default}]" if default else "") + ": "
+    answer = input(prompt).strip().lower()
+    if not answer:
+        return default
+    if answer in choices:
+        return answer
+    print(f"Unknown {label.lower()}, using preset default.")
+    return default
+
+def _prompt_infra() -> tuple[str, ...]:
+    print(f"Infra options: {', '.join(SUPPORTED_INFRA)}")
+    answer = input("Infra comma-list [preset default]: ").strip().lower()
+    if not answer:
+        return ()
+    return tuple(item.strip() for item in answer.split(",") if item.strip())
 
 def _prompt_preset() -> str:
     choices = list(SUPPORTED_PRESETS)
@@ -295,7 +327,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  ml-struct new banking-asr --preset asr-served-model\n"
-            "  ml-struct new existing-asr --preset existing-model-wrapper\n"
+            "  ml-struct new existing-asr --preset existing-model-wrapper --task speech-to-text --model-type whisper --backend external-command --infra registry --infra quality-gate\n"
             "  ml-struct new churn-api --preset served-model --target ../churn-api\n"
             "  ml-struct new --list-presets"
         ),
@@ -305,6 +337,10 @@ def build_parser() -> argparse.ArgumentParser:
     new.add_argument("--preset", choices=SUPPORTED_PRESETS)
     new.add_argument("--name")
     new.add_argument("--target", type=Path)
+    new.add_argument("--task", choices=SUPPORTED_TASKS)
+    new.add_argument("--model-type", choices=SUPPORTED_MODEL_TYPES)
+    new.add_argument("--backend", choices=SUPPORTED_BACKENDS)
+    new.add_argument("--infra", action="append", choices=SUPPORTED_INFRA)
     new.add_argument("--no-input", action="store_true")
     new.add_argument("--list-presets", action="store_true")
     new.add_argument("--force", action="store_true")

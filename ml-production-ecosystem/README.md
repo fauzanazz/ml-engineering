@@ -89,6 +89,31 @@ bun create ml-struct
 bunx create-ml-struct
 ```
 
+
+## Modular Wizard
+
+`preset` is only starter shape. Real scaffold is composed from axes:
+
+- `--task`: classification, regression, recommendation, speech-to-text, nlp, computer-vision, forecasting, llm-post-training, batch-inference, existing-model
+- `--model-type`: sklearn, xgboost, pytorch, transformers, whisper, llm, rules, external
+- `--backend`: local, fastapi, batch, spark, airflow, kubernetes, serverless, external-command
+- `--infra`: repeatable checklist items: api, batch, registry, quality-gate, monitoring, drift, retraining, rollback, docker, kubernetes, secrets, ci
+
+Example: wrap existing ASR repo without moving its code:
+
+```bash
+uv run ml-struct new asr-wrapper \
+  --preset existing-model-wrapper \
+  --task speech-to-text \
+  --model-type whisper \
+  --backend external-command \
+  --infra registry \
+  --infra quality-gate \
+  --infra monitoring
+```
+
+Generated projects include `ml-struct.yaml` and `docs/infra-checklist.md`.
+
 ## Architecture
 
 | Area | Folder | Purpose |

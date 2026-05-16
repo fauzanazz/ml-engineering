@@ -1,0 +1,9 @@
+{
+  "title": "ASRPredictionOutput",
+  "type": "object",
+  "required": ["transcript"],
+  "properties": {
+    "transcript": {"type": "string"},
+    "model_version": {"type": "string"}
+  }
+}

@@ -1,0 +1,22 @@
+project: {{project_name}}
+preset: asr-served-model
+model_contract:
+  input_schema_uri: schemas/asr/input.json
+  output_schema_uri: schemas/asr/output.json
+  task_type: speech_to_text
+  prediction_key: transcript
+training:
+  type: command
+  command:
+    - python
+    - -m
+    - {{package_name}}.train
+    - --summary-path
+    - reports/training-summary.json
+  summary_path: reports/training-summary.json
+quality_gate:
+  enabled: true
+  metrics_path: reports/metrics.json
+  maximums:
+    wer: 0.25
+    cer: 0.12

@@ -1,0 +1,20 @@
+name: generic-classifier
+version: 1
+contract:
+  required_variables:
+    - project_name
+    - package_name
+    - preset
+  entrypoints:
+    test: uv run pytest
+  generated_paths:
+    - "README.md"
+    - "pyproject.toml"
+    - "configs/project.yaml"
+    - "data/README.md"
+    - "docs/runbook.md"
+    - "tests/test_scaffold.py"
+    - "{{package_name}}/__init__.py"
+    - "{{package_name}}/features.py"
+    - "{{package_name}}/predict.py"
+    - "{{package_name}}/train.py"

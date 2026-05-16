@@ -1,0 +1,7 @@
+project: {{project_name}}
+preset: batch-inference
+model_contract:
+  task_type: batch_inference
+  prediction_key: prediction
+quality_gate:
+  enabled: false
