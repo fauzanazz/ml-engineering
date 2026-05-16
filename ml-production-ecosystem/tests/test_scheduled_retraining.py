@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.scheduled_retraining import run_scheduled_retraining
+from ml_production_ecosystem.production_patterns.scheduled_retraining import run_scheduled_retraining
 
 
 def test_scheduled_retraining_returns_completed_summary_and_writes_report(tmp_path: Path) -> None:

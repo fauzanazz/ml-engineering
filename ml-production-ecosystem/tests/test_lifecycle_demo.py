@@ -1,8 +1,8 @@
 from pathlib import Path
 import json
 
-from production_patterns.lifecycle_demo import run_lifecycle_demo
-from recommendation.train import get_active_model
+from ml_production_ecosystem.production_patterns.lifecycle_demo import run_lifecycle_demo
+from ml_production_ecosystem.recommendation.train import get_active_model
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "recommendation"
 

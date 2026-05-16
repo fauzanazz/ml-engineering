@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-from shared.model_storage.registry import set_active_model
+from ml_production_ecosystem.shared.model_storage.registry import set_active_model
 from .approval import build_approval_decision
 from .continual_learning import build_continual_learning_decision
 from .data_ingestion import build_dataset_manifest

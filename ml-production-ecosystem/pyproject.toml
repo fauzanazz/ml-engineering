@@ -13,56 +13,56 @@ dependencies = [
 ]
 
 [project.scripts]
-mle = "production_patterns.orchestrator_cli:main"
-foundation-prepare-data = "recommendation.data:main"
-foundation-train-recommender = "recommendation.train:main"
-foundation-train-from-config = "recommendation.train:config_main"
-foundation-list-runs = "recommendation.train:list_runs_main"
-foundation-list-models = "recommendation.train:list_models_main"
-foundation-set-active-model = "recommendation.train:set_active_model_main"
-foundation-recommend = "recommendation.predict:main"
-foundation-batch-recommend = "recommendation.batch:main"
-foundation-serve-recommender = "recommendation.api:main"
-foundation-rt-demo = "recommendation.rt_demo:main"
-production-batch-recommend = "production_patterns.batch_inference:main"
-production-ingest-data = "production_patterns.data_ingestion:main"
-production-validate-offline = "production_patterns.offline_validation:main"
-production-approve-model = "production_patterns.approval:main"
-production-demo-deployment = "production_patterns.deployment_demo:main"
-production-canary-decision = "production_patterns.canary_decision:main"
-production-canary-router = "production_patterns.canary_router:main"
-production-detect-drift = "production_patterns.drift_detection:main"
-production-continual-decision = "production_patterns.continual_learning:main"
-production-continual-summary = "production_patterns.continual_summary:main"
-production-lifecycle-graph = "production_patterns.lifecycle_graph:main"
-production-lifecycle-status = "production_patterns.lifecycle_status:main"
-production-goal-readiness = "production_patterns.goal_readiness:main"
-production-validate-model-contract = "production_patterns.model_contract_manifest:main"
-production-validate-platform-plan = "production_patterns.platform_plan:main"
-production-validate-provider-boundaries = "production_patterns.provider_boundaries:main"
-production-validate-provider-portability = "production_patterns.provider_portability:main"
-production-provider-swap-matrix = "production_patterns.provider_swap_matrix:main"
-production-validate-secret-references = "production_patterns.secret_references:main"
-production-validate-local-secret-injections = "production_patterns.local_secret_injections:main"
-production-validate-local-kubernetes = "production_patterns.local_kubernetes:main"
-production-validate-local-scheduler = "production_patterns.local_scheduler:main"
-production-run-local-scheduler = "production_patterns.local_scheduler:run_main"
-production-validate-policy-references = "production_patterns.policy_references:main"
-production-apply-local-platform = "production_patterns.local_platform:main"
-production-retrain = "production_patterns.retraining:main"
-production-monitor = "production_patterns.monitoring_loop:main"
-production-scheduled-retrain = "production_patterns.scheduled_retraining:main"
-production-rollback-model = "production_patterns.rollback:main"
-production-release-summary = "production_patterns.release_summary:main"
-production-lifecycle-demo = "production_patterns.lifecycle_demo:main"
-scale-slo-burn-rate = "scale_reliability.slo_burn_rate:main"
-scale-burn-rate-alert = "scale_reliability.burn_rate_alert:main"
-scale-autoscaling-decision = "scale_reliability.autoscaling_decision:main"
-scale-cost-estimate = "scale_reliability.cost_estimate:main"
-scale-load-test = "scale_reliability.load_test:main"
-scale-aggregate-load = "scale_reliability.load_aggregate:main"
-production-load-test = "scale_reliability.load_test:main"
-reasoning-post-training = "reasoning_post_training.cli:main"
+mle = "ml_production_ecosystem.production_patterns.orchestrator_cli:main"
+foundation-prepare-data = "ml_production_ecosystem.recommendation.data:main"
+foundation-train-recommender = "ml_production_ecosystem.recommendation.train:main"
+foundation-train-from-config = "ml_production_ecosystem.recommendation.train:config_main"
+foundation-list-runs = "ml_production_ecosystem.recommendation.train:list_runs_main"
+foundation-list-models = "ml_production_ecosystem.recommendation.train:list_models_main"
+foundation-set-active-model = "ml_production_ecosystem.recommendation.train:set_active_model_main"
+foundation-recommend = "ml_production_ecosystem.recommendation.predict:main"
+foundation-batch-recommend = "ml_production_ecosystem.recommendation.batch:main"
+foundation-serve-recommender = "ml_production_ecosystem.recommendation.api:main"
+foundation-rt-demo = "ml_production_ecosystem.recommendation.rt_demo:main"
+production-batch-recommend = "ml_production_ecosystem.production_patterns.batch_inference:main"
+production-ingest-data = "ml_production_ecosystem.production_patterns.data_ingestion:main"
+production-validate-offline = "ml_production_ecosystem.production_patterns.offline_validation:main"
+production-approve-model = "ml_production_ecosystem.production_patterns.approval:main"
+production-demo-deployment = "ml_production_ecosystem.production_patterns.deployment_demo:main"
+production-canary-decision = "ml_production_ecosystem.production_patterns.canary_decision:main"
+production-canary-router = "ml_production_ecosystem.production_patterns.canary_router:main"
+production-detect-drift = "ml_production_ecosystem.production_patterns.drift_detection:main"
+production-continual-decision = "ml_production_ecosystem.production_patterns.continual_learning:main"
+production-continual-summary = "ml_production_ecosystem.production_patterns.continual_summary:main"
+production-lifecycle-graph = "ml_production_ecosystem.production_patterns.lifecycle_graph:main"
+production-lifecycle-status = "ml_production_ecosystem.production_patterns.lifecycle_status:main"
+production-goal-readiness = "ml_production_ecosystem.production_patterns.goal_readiness:main"
+production-validate-model-contract = "ml_production_ecosystem.production_patterns.model_contract_manifest:main"
+production-validate-platform-plan = "ml_production_ecosystem.production_patterns.platform_plan:main"
+production-validate-provider-boundaries = "ml_production_ecosystem.production_patterns.provider_boundaries:main"
+production-validate-provider-portability = "ml_production_ecosystem.production_patterns.provider_portability:main"
+production-provider-swap-matrix = "ml_production_ecosystem.production_patterns.provider_swap_matrix:main"
+production-validate-secret-references = "ml_production_ecosystem.production_patterns.secret_references:main"
+production-validate-local-secret-injections = "ml_production_ecosystem.production_patterns.local_secret_injections:main"
+production-validate-local-kubernetes = "ml_production_ecosystem.production_patterns.local_kubernetes:main"
+production-validate-local-scheduler = "ml_production_ecosystem.production_patterns.local_scheduler:main"
+production-run-local-scheduler = "ml_production_ecosystem.production_patterns.local_scheduler:run_main"
+production-validate-policy-references = "ml_production_ecosystem.production_patterns.policy_references:main"
+production-apply-local-platform = "ml_production_ecosystem.production_patterns.local_platform:main"
+production-retrain = "ml_production_ecosystem.production_patterns.retraining:main"
+production-monitor = "ml_production_ecosystem.production_patterns.monitoring_loop:main"
+production-scheduled-retrain = "ml_production_ecosystem.production_patterns.scheduled_retraining:main"
+production-rollback-model = "ml_production_ecosystem.production_patterns.rollback:main"
+production-release-summary = "ml_production_ecosystem.production_patterns.release_summary:main"
+production-lifecycle-demo = "ml_production_ecosystem.production_patterns.lifecycle_demo:main"
+scale-slo-burn-rate = "ml_production_ecosystem.scale_reliability.slo_burn_rate:main"
+scale-burn-rate-alert = "ml_production_ecosystem.scale_reliability.burn_rate_alert:main"
+scale-autoscaling-decision = "ml_production_ecosystem.scale_reliability.autoscaling_decision:main"
+scale-cost-estimate = "ml_production_ecosystem.scale_reliability.cost_estimate:main"
+scale-load-test = "ml_production_ecosystem.scale_reliability.load_test:main"
+scale-aggregate-load = "ml_production_ecosystem.scale_reliability.load_aggregate:main"
+production-load-test = "ml_production_ecosystem.scale_reliability.load_test:main"
+reasoning-post-training = "ml_production_ecosystem.reasoning_post_training.cli:main"
 
 [dependency-groups]
 dev = [
@@ -72,7 +72,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", "01-foundation", "02-production-patterns", "03-scale-and-reliability", "05-reasoning-post-training"]
+pythonpath = ["src"]
 
 
 [build-system]
@@ -80,8 +80,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["shared", "shared.deployment", "shared.lifecycle", "shared.model_contracts", "shared.model_storage", "shared.monitoring", "shared.observability", "shared.platform", "recommendation", "production_patterns", "scale_reliability", "reasoning_post_training"]
-package-dir = {recommendation = "01-foundation/recommendation", production_patterns = "02-production-patterns/production_patterns", scale_reliability = "03-scale-and-reliability/scale_reliability", reasoning_post_training = "05-reasoning-post-training/reasoning_post_training"}
+package-dir = {"" = "src"}
 
-[tool.setuptools.package-data]
-production_patterns = ["templates/**/*"]
+[tool.setuptools.packages.find]
+where = ["src"]

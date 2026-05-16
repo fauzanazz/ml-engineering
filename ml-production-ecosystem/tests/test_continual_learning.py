@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.continual_learning import build_continual_learning_decision
+from ml_production_ecosystem.production_patterns.continual_learning import build_continual_learning_decision
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> Path:

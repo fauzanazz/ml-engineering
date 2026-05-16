@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from reasoning_post_training.backends import ProviderBackend, backend_from_config
-from reasoning_post_training.core import ReasoningExample, RuleVerifierReward
-from reasoning_post_training.pipeline import evaluate, run_grpo_step, run_smoke_pipeline, train_sft, train_verifier
-from reasoning_post_training.rollout import LocalRolloutGenerator, ProviderRolloutGenerator, shard_prompts
+from ml_production_ecosystem.reasoning_post_training.backends import ProviderBackend, backend_from_config
+from ml_production_ecosystem.reasoning_post_training.core import ReasoningExample, RuleVerifierReward
+from ml_production_ecosystem.reasoning_post_training.pipeline import evaluate, run_grpo_step, run_smoke_pipeline, train_sft, train_verifier
+from ml_production_ecosystem.reasoning_post_training.rollout import LocalRolloutGenerator, ProviderRolloutGenerator, shard_prompts
 
 
 def test_sft_verifier_grpo_and_eval_cover_major_stages() -> None:

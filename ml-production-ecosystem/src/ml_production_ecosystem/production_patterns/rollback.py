@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from shared.model_storage.registry import list_model_versions, set_active_model
+from ml_production_ecosystem.shared.model_storage.registry import list_model_versions, set_active_model
 
 DEFAULT_REPORT_PATH = Path("02-production-patterns/reports/rollback.json")
 

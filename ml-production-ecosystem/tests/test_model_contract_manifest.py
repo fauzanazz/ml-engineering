@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.model_contract_manifest import build_model_contract_manifest
+from ml_production_ecosystem.production_patterns.model_contract_manifest import build_model_contract_manifest
 
 
 def test_model_contract_manifest_accepts_existing_schemas(tmp_path: Path) -> None:

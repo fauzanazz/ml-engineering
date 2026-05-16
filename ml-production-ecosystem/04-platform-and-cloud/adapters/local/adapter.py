@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from shared.platform import CloudResourceRef, InfrastructurePlan, SecretRef
+from ml_production_ecosystem.shared.platform import CloudResourceRef, InfrastructurePlan, SecretRef
 
 @dataclass(frozen=True)
 class LocalAdapterConfig:

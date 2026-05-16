@@ -3,8 +3,8 @@ import json
 import subprocess
 import sys
 
-from recommendation.train import get_active_model, register_model_version
-from production_patterns.rollback import rollback_model
+from ml_production_ecosystem.recommendation.train import get_active_model, register_model_version
+from ml_production_ecosystem.production_patterns.rollback import rollback_model
 
 
 def _write_registry(registry_path: Path) -> None:
@@ -100,7 +100,7 @@ def test_production_rollback_model_cli_prints_json_summary(tmp_path: Path) -> No
         [
             sys.executable,
             "-m",
-            "production_patterns.rollback",
+            "ml_production_ecosystem.production_patterns.rollback",
             "--registry-path",
             str(registry_path),
             "--model-name",

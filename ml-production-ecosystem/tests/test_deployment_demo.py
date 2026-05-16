@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 from typing import Any
 
-from production_patterns.deployment_demo import build_deployment_demo_report
+from ml_production_ecosystem.production_patterns.deployment_demo import build_deployment_demo_report
 
 
 class FakeResponse:

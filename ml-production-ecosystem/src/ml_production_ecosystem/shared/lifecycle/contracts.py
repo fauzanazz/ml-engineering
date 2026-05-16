@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from shared.model_contracts import ModelMetadata
+from ml_production_ecosystem.shared.model_contracts import ModelMetadata
 
 
 @dataclass(frozen=True)

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from shared.platform import DeploymentExecution, InfrastructurePlan, PlatformPlanAdapter
+from ml_production_ecosystem.shared.platform import DeploymentExecution, InfrastructurePlan, PlatformPlanAdapter
 
 DEFAULT_PLAN_PATH = Path("04-platform-and-cloud/iac/gcp/platform-plan.yaml")
 

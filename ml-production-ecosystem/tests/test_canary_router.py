@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from production_patterns.canary_router import build_canary_routes
+from ml_production_ecosystem.production_patterns.canary_router import build_canary_routes
 
 def _write_json(path: Path, payload: dict[str, object]) -> Path:
     path.write_text(json.dumps(payload))
@@ -45,7 +45,7 @@ def test_canary_router_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.canary_router",
+            "ml_production_ecosystem.production_patterns.canary_router",
             "--decision",
             str(decision),
             "--stable-model-id",

@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.provider_boundaries import validate_provider_boundaries
+from ml_production_ecosystem.production_patterns.provider_boundaries import validate_provider_boundaries
 
 def test_validate_provider_boundaries_allows_adapter_imports(tmp_path: Path) -> None:
     adapter_path = tmp_path / "04-platform-and-cloud" / "adapters" / "aws" / "adapter.py"
@@ -9,7 +9,7 @@ def test_validate_provider_boundaries_allows_adapter_imports(tmp_path: Path) -> 
     adapter_path.parent.mkdir(parents=True)
     core_path.parent.mkdir(parents=True)
     adapter_path.write_text("import boto3\n")
-    core_path.write_text("from shared.lifecycle import LifecycleRun\n")
+    core_path.write_text("from ml_production_ecosystem.shared.lifecycle import LifecycleRun\n")
 
     report = validate_provider_boundaries(tmp_path, tmp_path / "report.json")
 

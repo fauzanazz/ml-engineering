@@ -3,11 +3,11 @@ import json
 
 import pytest
 
-from recommendation.artifacts import load_artifact, make_run_dir
-from recommendation.data import DatasetValidationError, load_three_way_ratings_split, validate_movielens_files
-from recommendation.evaluate import evaluate_popularity_recommender
-from recommendation.predict import recommend_top_k, recommend_top_k_from_registry
-from recommendation.train import (
+from ml_production_ecosystem.recommendation.artifacts import load_artifact, make_run_dir
+from ml_production_ecosystem.recommendation.data import DatasetValidationError, load_three_way_ratings_split, validate_movielens_files
+from ml_production_ecosystem.recommendation.evaluate import evaluate_popularity_recommender
+from ml_production_ecosystem.recommendation.predict import recommend_top_k, recommend_top_k_from_registry
+from ml_production_ecosystem.recommendation.train import (
     get_active_model,
     get_model_version,
     list_experiment_runs,

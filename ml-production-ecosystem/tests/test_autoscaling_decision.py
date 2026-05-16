@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from scale_reliability.autoscaling_decision import build_autoscaling_decision
+from ml_production_ecosystem.scale_reliability.autoscaling_decision import build_autoscaling_decision
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> Path:
@@ -75,7 +75,7 @@ def test_autoscaling_decision_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "scale_reliability.autoscaling_decision",
+            "ml_production_ecosystem.scale_reliability.autoscaling_decision",
             "--load-report",
             str(load),
             "--output-path",

@@ -5,17 +5,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_production_patterns_scaffold_exists() -> None:
-    base = ROOT / "02-production-patterns"
+    base = ROOT / "src" / "ml_production_ecosystem" / "production_patterns"
 
     expected_paths = [
-        base / "production_patterns" / "__init__.py",
-        base / "production_patterns" / "batch_inference.py",
-        base / "production_patterns" / "quality_gate.py",
-        base / "production_patterns" / "retraining.py",
-        base / "docs" / "online-serving.md",
-        base / "docs" / "batch-inference.md",
-        base / "docs" / "retraining.md",
-        base / "docs" / "monitoring-loop.md",
+        base / "__init__.py",
+        base / "batch_inference.py",
+        base / "quality_gate.py",
+        base / "retraining.py",
+        ROOT / "02-production-patterns" / "docs" / "online-serving.md",
+        ROOT / "02-production-patterns" / "docs" / "batch-inference.md",
+        ROOT / "02-production-patterns" / "docs" / "retraining.md",
+        ROOT / "02-production-patterns" / "docs" / "monitoring-loop.md",
     ]
 
     for path in expected_paths:
@@ -35,16 +35,16 @@ def test_production_patterns_readme_classifies_foundation_boundary() -> None:
 
 
 def test_production_batch_wrapper_reuses_foundation_batch_entrypoint() -> None:
-    wrapper = (ROOT / "02-production-patterns" / "production_patterns" / "batch_inference.py").read_text()
+    wrapper = (ROOT / "src" / "ml_production_ecosystem" / "production_patterns" / "batch_inference.py").read_text()
 
-    assert "from recommendation.batch import main as foundation_batch_main" in wrapper
+    assert "from ml_production_ecosystem.recommendation.batch import main as foundation_batch_main" in wrapper
     assert "foundation_batch_main()" in wrapper
 
 
 def test_production_patterns_cli_is_registered() -> None:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
-    assert pyproject["project"]["scripts"]["production-batch-recommend"] == "production_patterns.batch_inference:main"
-    assert pyproject["project"]["scripts"]["production-retrain"] == "production_patterns.retraining:main"
-    assert "02-production-patterns" in pyproject["tool"]["pytest"]["ini_options"]["pythonpath"]
-    assert "production_patterns" in pyproject["tool"]["setuptools"]["packages"]
+    assert pyproject["project"]["scripts"]["production-batch-recommend"] == "ml_production_ecosystem.production_patterns.batch_inference:main"
+    assert pyproject["project"]["scripts"]["production-retrain"] == "ml_production_ecosystem.production_patterns.retraining:main"
+    assert pyproject["tool"]["pytest"]["ini_options"]["pythonpath"] == ["src"]
+    assert pyproject["tool"]["setuptools"]["packages"]["find"]["where"] == ["src"]

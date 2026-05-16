@@ -1,6 +1,6 @@
 import pytest
 
-from scale_reliability.cache import PredictionCache, stable_cache_key
+from ml_production_ecosystem.scale_reliability.cache import PredictionCache, stable_cache_key
 
 
 def test_prediction_cache_records_miss_then_hit_for_equivalent_payload() -> None:

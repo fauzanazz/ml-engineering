@@ -3,7 +3,7 @@
 from pathlib import Path
 import importlib.util
 
-from shared.platform import ProviderAdapter
+from ml_production_ecosystem.shared.platform import ProviderAdapter
 
 ROOT = Path(__file__).resolve().parents[1]
 PLATFORM_ROOT = ROOT / "04-platform-and-cloud"

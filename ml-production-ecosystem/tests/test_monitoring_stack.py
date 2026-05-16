@@ -11,9 +11,8 @@ def test_foundation_api_dockerfile_packages_local_service() -> None:
 
     assert "FROM python:3.13-slim" in dockerfile
     assert "COPY pyproject.toml uv.lock README.md ./" in dockerfile
-    assert "COPY 01-foundation ./01-foundation" in dockerfile
-    assert "COPY 02-production-patterns/production_patterns ./02-production-patterns/production_patterns" in dockerfile
-    assert "COPY shared ./shared" in dockerfile
+    assert "COPY src ./src" in dockerfile
+    assert "COPY templates ./templates" in dockerfile
     assert "uv sync --frozen --no-dev" in dockerfile
     assert 'CMD ["foundation-serve-recommender", "--host", "0.0.0.0", "--port", "8000"]' in dockerfile
 

@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from recommendation.prediction_adapter import RecommenderPredictionAdapter
-from recommendation.train import register_model_version, train_popularity_recommender
-from shared.model_contracts import PredictionPort, PredictionRequest
+from ml_production_ecosystem.recommendation.prediction_adapter import RecommenderPredictionAdapter
+from ml_production_ecosystem.recommendation.train import register_model_version, train_popularity_recommender
+from ml_production_ecosystem.shared.model_contracts import PredictionPort, PredictionRequest
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "recommendation"
 
@@ -44,7 +44,7 @@ def test_recommender_prediction_adapter_implements_generic_prediction_port(tmp_p
     assert len(response.predictions) == 2
     assert len(response.predictions[0]) == 2
     assert len(response.predictions[1]) == 1
-    assert response.metadata["adapter"] == "recommendation.prediction_adapter"
+    assert response.metadata["adapter"] == "ml_production_ecosystem.recommendation.prediction_adapter"
 
 def test_recommender_prediction_adapter_fails_without_active_model(tmp_path: Path) -> None:
     adapter = RecommenderPredictionAdapter(tmp_path / "missing-registry.json")

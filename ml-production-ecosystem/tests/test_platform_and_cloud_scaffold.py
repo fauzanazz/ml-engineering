@@ -16,7 +16,7 @@ def test_platform_stage_documents_provider_boundaries() -> None:
 
     assert "model-agnostic core workflows" in readme
     assert "Provider examples are adapters" in readme
-    assert "shared/lifecycle" in readme
+    assert "src/ml_production_ecosystem/shared/lifecycle" in readme
     assert "must not import AWS, GCP, Azure" in boundaries
     assert "LifecycleRun" in boundaries
     assert "local workflow still run without provider credentials" in boundaries

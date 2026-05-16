@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from scale_reliability.load_aggregate import aggregate_load_reports
+from ml_production_ecosystem.scale_reliability.load_aggregate import aggregate_load_reports
 
 
 def _load_report(path: Path, payload: dict[str, object]) -> Path:
@@ -132,7 +132,7 @@ def test_aggregate_load_reports_cli_writes_summary(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "scale_reliability.load_aggregate",
+            "ml_production_ecosystem.scale_reliability.load_aggregate",
             "--report",
             str(report),
             "--output-path",

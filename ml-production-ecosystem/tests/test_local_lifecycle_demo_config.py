@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from production_patterns.lifecycle_demo import run_lifecycle_demo
+from ml_production_ecosystem.production_patterns.lifecycle_demo import run_lifecycle_demo
 
 ROOT = Path(__file__).resolve().parents[1]
 

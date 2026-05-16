@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from shared.platform import PlatformPlanAdapter, ProviderAdapter
+from ml_production_ecosystem.shared.platform import PlatformPlanAdapter, ProviderAdapter
 
 ROOT = Path(__file__).resolve().parents[1]
 

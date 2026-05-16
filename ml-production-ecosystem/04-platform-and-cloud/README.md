@@ -8,9 +8,9 @@ This stage is adapter-first. Provider examples are adapters, reference plans, dr
 
 | Layer | Owns | Must Not Own |
 |---|---|---|
-| `shared/model_contracts` | Stable prediction, training, evaluation, and metadata contracts | Vendor SDK calls, project-specific recommender assumptions |
-| `shared/lifecycle` | Stable retraining, release, rollback, run, and report contracts | Scheduler, CI/CD, registry, or provider-specific behavior |
-| `shared/platform` | Provider-neutral resource, deployment execution, and secret references | Secret values, cloud SDK clients, Terraform implementation details |
+| `src/ml_production_ecosystem/shared/model_contracts` | Stable prediction, training, evaluation, and metadata contracts | Vendor SDK calls, project-specific recommender assumptions |
+| `src/ml_production_ecosystem/shared/lifecycle` | Stable retraining, release, rollback, run, and report contracts | Scheduler, CI/CD, registry, or provider-specific behavior |
+| `src/ml_production_ecosystem/shared/platform` | Provider-neutral resource, deployment execution, and secret references | Secret values, cloud SDK clients, Terraform implementation details |
 | `adapters/local` | Local filesystem, Compose, and env-var injection examples | AWS/GCP/Azure behavior |
 | `adapters/aws` | AWS-specific serving, storage, IAM, and secret wiring examples | Core model logic |
 | `adapters/gcp` | GCP-specific serving, storage, IAM, and secret wiring examples | Core model logic |
@@ -26,7 +26,7 @@ This stage is adapter-first. Provider examples are adapters, reference plans, dr
 
 ## Provider Rules
 
-- Core code depends on `shared/model_contracts`, `shared/lifecycle`, `shared/model_storage`, `shared/deployment`, `shared/monitoring`, `shared/observability`, and `shared/platform` contracts.
+- Core code depends on `src/ml_production_ecosystem/shared/model_contracts`, `src/ml_production_ecosystem/shared/lifecycle`, `src/ml_production_ecosystem/shared/model_storage`, `src/ml_production_ecosystem/shared/deployment`, `src/ml_production_ecosystem/shared/monitoring`, `src/ml_production_ecosystem/shared/observability`, and `src/ml_production_ecosystem/shared/platform` contracts.
 - Provider-specific imports stay inside `04-platform-and-cloud/adapters/*` or `04-platform-and-cloud/iac/*`.
 - Secret values never appear in code, docs, manifests, logs, or tests.
 - Code may store secret names, IAM policy references, env-var names, and injection targets.
@@ -43,9 +43,9 @@ This stage is adapter-first. Provider examples are adapters, reference plans, dr
 
 ## Deliverables
 
-- `shared/model_contracts` defines model input/output and lifecycle ports.
-- `shared/lifecycle` defines retraining, release, and rollback workflow ports.
-- `shared/platform` defines provider, resource, deployment execution, and secret references.
+- `src/ml_production_ecosystem/shared/model_contracts` defines model input/output and lifecycle ports.
+- `src/ml_production_ecosystem/shared/lifecycle` defines retraining, release, and rollback workflow ports.
+- `src/ml_production_ecosystem/shared/platform` defines provider, resource, deployment execution, and secret references.
 - `shared.platform.PlatformPlanAdapter` loads any `iac/*/platform-plan.yaml` into the same `InfrastructurePlan` and `DeploymentExecution` contracts.
 - `docs/provider-boundaries.md` defines allowed dependencies and adapter placement.
 - `docs/secret-management.md` defines secret-reference-only patterns.

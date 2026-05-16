@@ -4,17 +4,17 @@ import shutil
 
 import yaml
 
-from production_patterns.model_contract_manifest import build_model_contract_manifest
-from production_patterns.retraining import run_retraining
-from recommendation.train import get_active_model
+from ml_production_ecosystem.production_patterns.model_contract_manifest import build_model_contract_manifest
+from ml_production_ecosystem.production_patterns.retraining import run_retraining
+from ml_production_ecosystem.recommendation.train import get_active_model
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "configs" / "generic-classifier-command.yaml"
 
 def _portable_config(tmp_path: Path) -> Path:
     config = yaml.safe_load(CONFIG_PATH.read_text())
-    data_path = ROOT / "samples" / "generic_classifier" / "data.csv"
-    train_path = ROOT / "samples" / "generic_classifier" / "train.py"
+    data_path = ROOT / "examples" / "samples" / "generic_classifier" / "data.csv"
+    train_path = ROOT / "examples" / "samples" / "generic_classifier" / "train.py"
     artifact_dir = tmp_path / "artifacts"
     summary_path = tmp_path / "reports" / "generic-classifier-training-summary.json"
     version = "generic-classifier-test-v1"

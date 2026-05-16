@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from production_patterns.canary_decision import build_canary_decision
+from ml_production_ecosystem.production_patterns.canary_decision import build_canary_decision
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> Path:
@@ -59,7 +59,7 @@ def test_canary_decision_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.canary_decision",
+            "ml_production_ecosystem.production_patterns.canary_decision",
             "--deployment-demo",
             str(demo),
             "--drift-report",

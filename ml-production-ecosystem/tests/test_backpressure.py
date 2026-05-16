@@ -1,6 +1,6 @@
 import pytest
 
-from scale_reliability.backpressure import InFlightLimiter, BackpressureRejected
+from ml_production_ecosystem.scale_reliability.backpressure import InFlightLimiter, BackpressureRejected
 
 
 def test_limiter_allows_work_below_max_in_flight() -> None:

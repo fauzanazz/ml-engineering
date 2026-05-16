@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 import shutil
 
-from production_patterns.provider_portability import validate_provider_portability
+from ml_production_ecosystem.production_patterns.provider_portability import validate_provider_portability
 
 ROOT = Path(__file__).resolve().parents[1]
 

@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 
-TEMPLATE_ROOT = Path(__file__).resolve().parent / "templates"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+TEMPLATE_ROOT = PROJECT_ROOT / "templates" / "scaffold"
 SUPPORTED_PRESETS = ("kaggle", "served-model", "enterprise-pipeline")
+METADATA_FILE = "template.yaml"
 
 
 @dataclass(frozen=True)
@@ -70,6 +72,8 @@ def scaffold_project(request: ScaffoldRequest) -> ScaffoldResult:
 def _copy_template(template_dir: Path, target: Path, variables: dict[str, str]) -> list[Path]:
     written_paths: list[Path] = []
     for source_path in sorted(path for path in template_dir.rglob("*") if path.is_file()):
+        if source_path.name == METADATA_FILE:
+            continue
         relative_path = source_path.relative_to(template_dir)
         rendered_relative_path = Path(
             *(_render_text(part, variables) for part in relative_path.parts)

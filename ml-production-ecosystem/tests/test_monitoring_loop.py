@@ -1,4 +1,4 @@
-from production_patterns.monitoring_loop import evaluate_monitoring_summary
+from ml_production_ecosystem.production_patterns.monitoring_loop import evaluate_monitoring_summary
 
 
 class StubResponse:

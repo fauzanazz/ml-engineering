@@ -317,7 +317,7 @@ def list_experiment_runs(tracking_dir: Path) -> list[dict[str, object]]:
     return runs
 
 
-from shared.model_storage.registry import (
+from ml_production_ecosystem.shared.model_storage.registry import (
     get_active_model,
     get_model_version,
     list_model_versions,

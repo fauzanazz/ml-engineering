@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.offline_validation import build_offline_validation_report
+from ml_production_ecosystem.production_patterns.offline_validation import build_offline_validation_report
 
 
 def _write_config(tmp_path: Path, minimum: int) -> Path:

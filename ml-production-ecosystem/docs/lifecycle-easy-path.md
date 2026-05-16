@@ -32,9 +32,9 @@ Every step should be replaceable behind shared contracts:
 | Monitor continual learning | `ContinualLearningDecision`, `ContinualLearningPort` | continual-learning decision, scheduled retraining, and monitoring loop |
 | Graph interactive flow | `LifecycleGraph`, `LifecycleGraphPort` | Mermaid and local HTML artifact graph |
 
-Current contracts live in `shared/lifecycle/contracts.py`.
+Current contracts live in `src/ml_production_ecosystem/shared/lifecycle/contracts.py`.
 
-Serving adapters use `PredictionPort`, `PredictionRequest`, and `PredictionResponse` from `shared/model_contracts/contracts.py`. The local recommender has a bridge adapter at `01-foundation/recommendation/prediction_adapter.py`, so legacy model code can expose generic in/out contracts without changing API clients.
+Serving adapters use `PredictionPort`, `PredictionRequest`, and `PredictionResponse` from `src/ml_production_ecosystem/shared/model_contracts/contracts.py`. The local recommender has a bridge adapter at `src/ml_production_ecosystem/recommendation/prediction_adapter.py`, so legacy model code can expose generic in/out contracts without changing API clients.
 
 ## Local Commands Today
 
@@ -86,7 +86,7 @@ uv run production-retrain \
   --require-quality-gate
 ```
 
-This trains `samples/generic_classifier/train.py` through command adapter, validates classification schemas in `schemas/generic_classifier/`, writes local artifacts, and activates `tiny-threshold-classifier` without recommender-specific training code.
+This trains `examples/samples/generic_classifier/train.py` through command adapter, validates classification schemas in `schemas/generic_classifier/`, writes local artifacts, and activates `tiny-threshold-classifier` without recommender-specific training code.
 
 Write standalone offline validation report:
 

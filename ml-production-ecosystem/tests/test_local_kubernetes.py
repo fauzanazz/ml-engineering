@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from production_patterns.local_kubernetes import validate_local_kubernetes
+from ml_production_ecosystem.production_patterns.local_kubernetes import validate_local_kubernetes
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "04-platform-and-cloud" / "iac" / "local" / "kubernetes" / "foundation-api.yaml"
@@ -46,7 +46,7 @@ def test_local_kubernetes_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.local_kubernetes",
+            "ml_production_ecosystem.production_patterns.local_kubernetes",
             "--manifest-path",
             str(MANIFEST),
             "--output-path",

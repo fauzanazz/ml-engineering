@@ -2,7 +2,7 @@ from argparse import Namespace
 from pathlib import Path
 import json
 
-from production_patterns.orchestrator_cli import (
+from ml_production_ecosystem.production_patterns.orchestrator_cli import (
     build_parser,
     print_human_status,
     run_doctor,

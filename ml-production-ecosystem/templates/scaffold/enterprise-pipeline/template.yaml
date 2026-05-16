@@ -1,0 +1,18 @@
+name: enterprise-pipeline
+version: 1
+contract:
+  required_variables:
+    - project_name
+    - package_name
+    - preset
+  entrypoints:
+    test: uv run pytest
+  generated_paths:
+    - README.md
+    - pyproject.toml
+    - configs/project.yaml
+    - data/README.md
+    - docs/runbook.md
+    - tests/test_scaffold.py
+    - "{{package_name}}/pipeline.py"
+    - "{{package_name}}/quality_gate.py"

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from shared.model_contracts import ModelIOContract, ModelMetadata, PredictionRequest, PredictionResponse
+from ml_production_ecosystem.shared.model_contracts import ModelIOContract, ModelMetadata, PredictionRequest, PredictionResponse
 
 from .predict import recommend_top_k_from_registry
 from .train import get_active_model
@@ -57,5 +57,5 @@ class RecommenderPredictionAdapter:
             predictions=predictions,
             model=metadata,
             request_id=request.request_id,
-            metadata={"adapter": "recommendation.prediction_adapter"},
+            metadata={"adapter": "ml_production_ecosystem.recommendation.prediction_adapter"},
         )

@@ -4,7 +4,7 @@ This wrapper keeps the foundation implementation reusable while exposing the
 workflow from 02-production-patterns as the production-pattern layer.
 """
 
-from recommendation.batch import main as foundation_batch_main
+from ml_production_ecosystem.recommendation.batch import main as foundation_batch_main
 
 
 def main() -> None:

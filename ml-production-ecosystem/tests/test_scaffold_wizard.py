@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from production_patterns.orchestrator_cli import build_parser, run_new
-from production_patterns.scaffold import (
+from ml_production_ecosystem.production_patterns.orchestrator_cli import build_parser, run_new
+from ml_production_ecosystem.production_patterns.scaffold import (
     SUPPORTED_PRESETS,
     ScaffoldRequest,
     package_name_from_project,

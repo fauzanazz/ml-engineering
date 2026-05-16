@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 
-from production_patterns.local_secret_injections import validate_local_secret_injections
+from ml_production_ecosystem.production_patterns.local_secret_injections import validate_local_secret_injections
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -53,7 +53,7 @@ def test_local_secret_injections_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.local_secret_injections",
+            "ml_production_ecosystem.production_patterns.local_secret_injections",
             "--root",
             str(ROOT),
             "--output-path",

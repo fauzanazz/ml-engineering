@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from production_patterns.goal_readiness import build_goal_readiness_report
+from ml_production_ecosystem.production_patterns.goal_readiness import build_goal_readiness_report
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,7 +48,7 @@ def test_goal_readiness_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.goal_readiness",
+            "ml_production_ecosystem.production_patterns.goal_readiness",
             "--root",
             str(ROOT),
             "--output-path",

@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from production_patterns.provider_swap_matrix import build_provider_swap_matrix
+from ml_production_ecosystem.production_patterns.provider_swap_matrix import build_provider_swap_matrix
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,7 +34,7 @@ def test_provider_swap_matrix_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.provider_swap_matrix",
+            "ml_production_ecosystem.production_patterns.provider_swap_matrix",
             "--root",
             str(ROOT),
             "--output-path",

@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from scale_reliability.slo_burn_rate import build_slo_burn_rate_report
+from ml_production_ecosystem.scale_reliability.slo_burn_rate import build_slo_burn_rate_report
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> Path:
@@ -89,7 +89,7 @@ def test_slo_burn_rate_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "scale_reliability.slo_burn_rate",
+            "ml_production_ecosystem.scale_reliability.slo_burn_rate",
             "--load-report",
             str(load),
             "--output-path",

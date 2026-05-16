@@ -4,7 +4,7 @@ from time import sleep
 
 import pytest
 
-from scale_reliability.load_test import calculate_latency_summary, parse_load_test_args, run_load_test
+from ml_production_ecosystem.scale_reliability.load_test import calculate_latency_summary, parse_load_test_args, run_load_test
 
 
 def test_run_load_test_reports_successes_and_writes_json(tmp_path: Path) -> None:

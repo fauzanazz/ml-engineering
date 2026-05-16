@@ -6,9 +6,9 @@ import shutil
 
 import yaml
 
-from production_patterns.retraining import run_retraining
-from production_patterns.rollback import rollback_model
-from shared.model_storage.registry import get_active_model
+from ml_production_ecosystem.production_patterns.retraining import run_retraining
+from ml_production_ecosystem.production_patterns.rollback import rollback_model
+from ml_production_ecosystem.shared.model_storage.registry import get_active_model
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "configs" / "generic-classifier-command.yaml"
@@ -16,8 +16,8 @@ CONFIG_PATH = ROOT / "configs" / "generic-classifier-command.yaml"
 
 def _portable_config(tmp_path: Path, version: str) -> Path:
     config = yaml.safe_load(CONFIG_PATH.read_text())
-    data_path = ROOT / "samples" / "generic_classifier" / "data.csv"
-    train_path = ROOT / "samples" / "generic_classifier" / "train.py"
+    data_path = ROOT / "examples" / "samples" / "generic_classifier" / "data.csv"
+    train_path = ROOT / "examples" / "samples" / "generic_classifier" / "train.py"
     artifact_dir = tmp_path / "artifacts"
     summary_path = tmp_path / "reports" / f"summary-{version}.json"
 

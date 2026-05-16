@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 
-from production_patterns.policy_references import validate_policy_references
+from ml_production_ecosystem.production_patterns.policy_references import validate_policy_references
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -50,7 +50,7 @@ def test_policy_references_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.policy_references",
+            "ml_production_ecosystem.production_patterns.policy_references",
             "--root",
             str(ROOT),
             "--output-path",

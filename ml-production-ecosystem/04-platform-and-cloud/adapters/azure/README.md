@@ -16,7 +16,7 @@ Forbidden here:
 - model-specific business assumptions
 - committed secret values
 
-Adapter implementations must expose shared ports from `shared/model_contracts`, `shared/deployment`, `shared/model_storage`, `shared/monitoring`, `shared/observability`, or `shared/platform`.
+Adapter implementations must expose shared ports from `src/ml_production_ecosystem/shared/model_contracts`, `src/ml_production_ecosystem/shared/deployment`, `src/ml_production_ecosystem/shared/model_storage`, `src/ml_production_ecosystem/shared/monitoring`, `src/ml_production_ecosystem/shared/observability`, or `src/ml_production_ecosystem/shared/platform`.
 
 ## Current Adapter
 

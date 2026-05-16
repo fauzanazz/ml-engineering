@@ -1,5 +1,5 @@
-from shared.deployment import DeploymentResult
-from shared.lifecycle import (
+from ml_production_ecosystem.shared.deployment import DeploymentResult
+from ml_production_ecosystem.shared.lifecycle import (
     ContinualLearningDecision,
     DatasetRef,
     DeploymentDemoResult,
@@ -10,16 +10,16 @@ from shared.lifecycle import (
     ReleaseDecision,
     RollbackPlan,
 )
-from shared.model_contracts import (
+from ml_production_ecosystem.shared.model_contracts import (
     ModelIOContract,
     ModelMetadata,
     PredictionRequest,
     PredictionResponse,
 )
-from shared.model_storage import ModelArtifact
-from shared.monitoring import MonitoringResult
-from shared.observability import MetricPoint
-from shared.platform import CloudResourceRef, DeploymentAction, DeploymentExecution, InfrastructurePlan, SecretRef
+from ml_production_ecosystem.shared.model_storage import ModelArtifact
+from ml_production_ecosystem.shared.monitoring import MonitoringResult
+from ml_production_ecosystem.shared.observability import MetricPoint
+from ml_production_ecosystem.shared.platform import CloudResourceRef, DeploymentAction, DeploymentExecution, InfrastructurePlan, SecretRef
 
 
 def test_shared_contracts_are_importable() -> None:

@@ -12,9 +12,9 @@ training:
   type: command
   command:
     - python
-    - samples/generic_classifier/train.py
+    - examples/samples/generic_classifier/train.py
     - --data-path
-    - samples/generic_classifier/data.csv
+    - examples/samples/generic_classifier/data.csv
     - --artifact-dir
     - 01-foundation/artifacts
     - --summary-path

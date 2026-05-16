@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from scale_reliability.cost_estimate import build_cost_estimate
+from ml_production_ecosystem.scale_reliability.cost_estimate import build_cost_estimate
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> Path:
@@ -69,7 +69,7 @@ def test_cost_estimate_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "scale_reliability.cost_estimate",
+            "ml_production_ecosystem.scale_reliability.cost_estimate",
             "--autoscaling-report",
             str(autoscaling),
             "--output-path",

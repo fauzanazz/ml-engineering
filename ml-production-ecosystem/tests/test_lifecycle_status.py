@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.lifecycle_status import build_lifecycle_status
+from ml_production_ecosystem.production_patterns.lifecycle_status import build_lifecycle_status
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload))

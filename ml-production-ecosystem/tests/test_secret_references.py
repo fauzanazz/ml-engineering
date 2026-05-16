@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.secret_references import validate_secret_references
+from ml_production_ecosystem.production_patterns.secret_references import validate_secret_references
 
 def test_validate_secret_references_passes_reference_only_configs(tmp_path: Path) -> None:
     plan_path = tmp_path / "04-platform-and-cloud" / "iac" / "local" / "platform-plan.yaml"

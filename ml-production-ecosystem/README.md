@@ -67,12 +67,14 @@ project/
 
 | Area | Folder | Purpose |
 |---|---|---|
-| Foundation | `01-foundation/` | local recommender workflow, model artifacts, registry, serving, metrics |
-| Production Patterns | `02-production-patterns/` | lifecycle wrappers, scaffold wizard, batch/retrain/monitor/rollback patterns |
-| Scale And Reliability | `03-scale-and-reliability/` | load, retry, backpressure, caching, SLO, cost, readiness simulations |
+| Runtime Package | `src/ml_production_ecosystem/` | importable Python code for recommendation, production patterns, reliability, reasoning, and shared contracts |
+| Scaffold Templates | `templates/scaffold/` | template-first project assets with `template.yaml` metadata contracts per preset |
+| Examples | `examples/samples/` | runnable sample data and command-trained example models, separate from packaged runtime code |
+| Foundation | `01-foundation/` | local artifacts, registry, serving data, and docs for foundation workflow |
+| Production Patterns | `02-production-patterns/` | lifecycle docs, reports, deployment files, and pattern documentation |
+| Scale And Reliability | `03-scale-and-reliability/` | docs for load, retry, backpressure, caching, SLO, cost, readiness simulations |
 | Platform And Cloud | `04-platform-and-cloud/` | provider-neutral boundaries, adapter/IaC scope, secret references |
-| Reasoning Post-Training | `05-reasoning-post-training/` | local reasoning SFT/RL-style smoke workflow and provider adapter boundary |
-| Shared Contracts | `shared/` | model, lifecycle, storage, observability, monitoring, deployment, platform ports |
+| Reasoning Post-Training | `05-reasoning-post-training/` | local reasoning SFT/RL-style data, docs, artifacts, and provider adapter boundary |
 
 ## Design Rules
 
@@ -94,7 +96,7 @@ uv run pytest
 Expected test result:
 
 ```text
-278 passed
+276 passed, 3 integration tests require local Redpanda/Postgres services
 ```
 
 ## Docs

@@ -4,7 +4,7 @@ from pathlib import Path
 import argparse
 import json
 
-from shared.platform import PlatformPlanAdapter
+from ml_production_ecosystem.shared.platform import PlatformPlanAdapter
 
 DEFAULT_ROOT = Path(".")
 DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/provider-portability.json")

@@ -3,8 +3,8 @@ import json
 
 from fastapi.testclient import TestClient
 
-from recommendation.api import create_app
-from recommendation.train import register_model_version, train_popularity_recommender
+from ml_production_ecosystem.recommendation.api import create_app
+from ml_production_ecosystem.recommendation.train import register_model_version, train_popularity_recommender
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "recommendation"
 

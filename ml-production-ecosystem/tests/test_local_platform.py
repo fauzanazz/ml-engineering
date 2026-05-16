@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from production_patterns.local_platform import apply_local_platform
+from ml_production_ecosystem.production_patterns.local_platform import apply_local_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,7 +41,7 @@ def test_apply_local_platform_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.local_platform",
+            "ml_production_ecosystem.production_patterns.local_platform",
             "--project-root",
             str(tmp_path),
             "--output-path",

@@ -7,8 +7,8 @@ import subprocess
 
 import yaml
 
-from shared.model_storage.registry import register_model_version, set_active_model
-from recommendation.train import train_recommender_from_config
+from ml_production_ecosystem.shared.model_storage.registry import register_model_version, set_active_model
+from ml_production_ecosystem.recommendation.train import train_recommender_from_config
 from .quality_gate import evaluate_quality_gate
 
 DEFAULT_MODEL_NAME = "movielens-popularity"

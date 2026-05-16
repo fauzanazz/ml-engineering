@@ -20,7 +20,8 @@ DOCTOR_REQUIRED_PATHS = (
     DEFAULT_CONFIG_PATH,
     Path("01-foundation"),
     Path("02-production-patterns"),
-    Path("shared"),
+    Path("src/ml_production_ecosystem"),
+    Path("templates/scaffold"),
 )
 
 CommandHandler = Callable[[argparse.Namespace], int]

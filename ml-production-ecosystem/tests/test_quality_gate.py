@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.quality_gate import evaluate_quality_gate
+from ml_production_ecosystem.production_patterns.quality_gate import evaluate_quality_gate
 
 
 def test_evaluate_quality_gate_passes_metric_minimums(tmp_path: Path) -> None:

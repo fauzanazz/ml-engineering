@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from shared.platform import PlatformPlanAdapter
+from ml_production_ecosystem.shared.platform import PlatformPlanAdapter
 
 DEFAULT_ROOT = Path(".")
 DEFAULT_OUTPUT_PATH = Path("02-production-patterns/reports/provider-swap-matrix.json")

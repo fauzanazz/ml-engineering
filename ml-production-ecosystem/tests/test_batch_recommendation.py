@@ -3,8 +3,8 @@ import json
 import subprocess
 import sys
 
-from recommendation.batch import calculate_batch_performance, run_batch_recommendations
-from recommendation.train import register_model_version, train_popularity_recommender
+from ml_production_ecosystem.recommendation.batch import calculate_batch_performance, run_batch_recommendations
+from ml_production_ecosystem.recommendation.train import register_model_version, train_popularity_recommender
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "recommendation"
 
@@ -166,7 +166,7 @@ def test_batch_recommendation_cli_prints_summary(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "recommendation.batch",
+            "ml_production_ecosystem.recommendation.batch",
             "--registry-path",
             str(registry_path),
             "--input-path",

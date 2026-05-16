@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.approval import build_approval_decision
+from ml_production_ecosystem.production_patterns.approval import build_approval_decision
 
 
 def _write_validation_report(tmp_path: Path, status: str) -> Path:

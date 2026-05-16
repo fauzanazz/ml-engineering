@@ -1,10 +1,10 @@
-from recommendation.rt_demo import run_demo
-from recommendation.rt_transport import (
+from ml_production_ecosystem.recommendation.rt_demo import run_demo
+from ml_production_ecosystem.recommendation.rt_transport import (
     RecommendationRequestEvent,
     consume_events,
     produce_events,
 )
-from recommendation.warehouse import (
+from ml_production_ecosystem.recommendation.warehouse import (
     RecommendationRequestRow,
     insert_recommendation_result,
     read_recommendation_results,

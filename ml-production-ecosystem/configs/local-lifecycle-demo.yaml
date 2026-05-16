@@ -6,8 +6,8 @@ dataset:
   name: sample-recommendation
   version: sample-v1
   schema_uri: schemas/recommendation/input.json
-  ratings_path: samples/recommendation/ratings.csv
-  movies_path: samples/recommendation/movies.csv
+  ratings_path: examples/samples/recommendation/ratings.csv
+  movies_path: examples/samples/recommendation/movies.csv
 
 model:
   type: popularity

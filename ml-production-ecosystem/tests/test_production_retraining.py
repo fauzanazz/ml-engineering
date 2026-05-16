@@ -3,8 +3,8 @@ import json
 import subprocess
 import sys
 
-from production_patterns.retraining import run_retraining
-from recommendation.train import get_active_model
+from ml_production_ecosystem.production_patterns.retraining import run_retraining
+from ml_production_ecosystem.recommendation.train import get_active_model
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "recommendation"
 
@@ -214,7 +214,7 @@ def test_production_retrain_cli_prints_summary(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.retraining",
+            "ml_production_ecosystem.production_patterns.retraining",
             "--config",
             str(config_path),
             "--set-active",

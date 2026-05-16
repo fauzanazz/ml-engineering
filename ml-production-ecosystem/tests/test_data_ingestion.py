@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.data_ingestion import build_dataset_manifest
+from ml_production_ecosystem.production_patterns.data_ingestion import build_dataset_manifest
 
 
 def test_build_dataset_manifest_accepts_existing_sources(tmp_path: Path) -> None:

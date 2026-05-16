@@ -6,7 +6,7 @@ import tomllib
 
 import yaml
 
-from production_patterns.release_summary import build_release_summary
+from ml_production_ecosystem.production_patterns.release_summary import build_release_summary
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -129,13 +129,13 @@ def test_release_summary_cli_prints_json_and_script_is_registered(tmp_path: Path
     output_path = tmp_path / "release-summary.json"
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
-    assert pyproject["project"]["scripts"]["production-release-summary"] == "production_patterns.release_summary:main"
+    assert pyproject["project"]["scripts"]["production-release-summary"] == "ml_production_ecosystem.production_patterns.release_summary:main"
 
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "production_patterns.release_summary",
+            "ml_production_ecosystem.production_patterns.release_summary",
             "--retraining-report",
             str(paths["retraining_report"]),
             "--deployment-manifest",

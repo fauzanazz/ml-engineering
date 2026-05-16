@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from scale_reliability.burn_rate_alert import build_burn_rate_alert
+from ml_production_ecosystem.scale_reliability.burn_rate_alert import build_burn_rate_alert
 
 
 def _slo_report(path: Path, rates: dict[str, float | str]) -> Path:
@@ -73,7 +73,7 @@ def test_burn_rate_alert_cli_writes_report(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "scale_reliability.burn_rate_alert",
+            "ml_production_ecosystem.scale_reliability.burn_rate_alert",
             "--short-window-report",
             str(short),
             "--long-window-report",

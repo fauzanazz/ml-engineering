@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from production_patterns.lifecycle_graph import build_lifecycle_graph, mermaid_text
+from ml_production_ecosystem.production_patterns.lifecycle_graph import build_lifecycle_graph, mermaid_text
 
 
 def test_mermaid_text_contains_full_lifecycle_flow() -> None:

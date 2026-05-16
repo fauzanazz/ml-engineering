@@ -3,7 +3,7 @@ import json
 import subprocess
 import sys
 
-from production_patterns.monitoring_loop import run_monitoring_loop
+from ml_production_ecosystem.production_patterns.monitoring_loop import run_monitoring_loop
 
 
 def test_run_monitoring_loop_records_passed_and_failed_checks(tmp_path: Path) -> None:
@@ -45,7 +45,7 @@ def test_production_monitoring_loop_cli_prints_summary(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.monitoring_loop",
+            "ml_production_ecosystem.production_patterns.monitoring_loop",
             "--metrics-path",
             str(metrics_path),
             "--output-path",

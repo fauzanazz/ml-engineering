@@ -5,7 +5,7 @@ import json
 import subprocess
 import sys
 
-from production_patterns.continual_summary import summarize_continual_history
+from ml_production_ecosystem.production_patterns.continual_summary import summarize_continual_history
 
 
 def _write_history(history_path: Path, entries: list[dict]) -> None:
@@ -82,7 +82,7 @@ def test_summary_cli_writes_output(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "production_patterns.continual_summary",
+            "ml_production_ecosystem.production_patterns.continual_summary",
             "--history-path",
             str(history),
             "--output-path",

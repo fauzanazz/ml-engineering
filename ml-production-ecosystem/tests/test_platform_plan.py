@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from production_patterns.platform_plan import validate_platform_plan
+from ml_production_ecosystem.production_patterns.platform_plan import validate_platform_plan
 
 ROOT = Path(__file__).resolve().parents[1]
 
