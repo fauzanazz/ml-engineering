@@ -55,6 +55,14 @@ banking templates
 | 9 | 2026-05-15 | 9Router Edge TTS & Generation Scaling | Tambah provider 9Router untuk Edge TTS via HTTP dan `--samples-per-template` untuk scale canonical generation melewati 12 template. |
 | 10 | 2026-05-16 | Whisper Baseline & Banking Post-processing | Jalankan MLX Whisper large-v3 baseline di Apple Silicon dan turunkan entity error rate pilot ke 0% lewat post-processing domain banking. |
 | 11 | 2026-05-16 | Augmented Whisper Evaluation | Evaluasi MLX Whisper large-v3 pada 450 clean+augmented rows dan konfirmasi post-processing mempertahankan entity error rate 0%. |
+| 12 | 2026-05-16 | BabelSpeech Real-data Grounding | Tambah converter BabelSpeech ke manifest project, jalankan sample MLX Whisper baseline, dan rancang training mix real+synthetic. |
+| 13 | 2026-05-16 | Combined Training Manifest | Buat manifest training gabungan 70/20/10 dari BabelSpeech train, synthetic banking clean, dan synthetic banking augmented. |
+| 14 | 2026-05-16 | Whisper Tiny Combined Fine-tune Smoke | Jalankan fine-tune smoke 10-step pada manifest gabungan memakai `openai/whisper-tiny` di MPS. |
+| 15 | 2026-05-16 | MLX Whisper Large-v3 Combined Fine-tune Smoke | Tambah training loop MLX-native dan jalankan decoder-only 1-step pada `mlx-community/whisper-large-v3-mlx`. |
+| 16 | 2026-05-16 | MLX Whisper Large-v3 Scale-up Experiments | Scale-up decoder-only SGD ke 10/50/200 steps; stabil tetapi belum ada gain WER pada held-out smoke slices. |
+| 17 | 2026-05-16 | Muon Optimizer Probe | Coba Muon dan hybrid Muon+SGD; keduanya tidak stabil pada decoder-only Whisper large-v3 setup saat ini. |
+| 18 | 2026-05-16 | Guarded Optimizer Experiments | Tambah partial unfreeze, warmup, dan gradient clipping; Muon/AdamW tetap NaN, guarded SGD stabil di LR lebih tinggi. |
+| 19 | 2026-05-16 | Whisper-style AdamW Schedule Probe | Coba AdamW mengikuti pola paper Whisper: warmup, linear decay, β2 0.98, ε 1e-6, WD 0.1, dan clip 1.0. |
 
 Detail tiap step:
 
@@ -69,6 +77,14 @@ Detail tiap step:
 - [Step 9: 9Router Edge TTS & Generation Scaling](docs/features/step-9-9router-edge-tts-scaling.md)
 - [Step 10: Whisper Baseline & Banking Post-processing](docs/features/step-10-whisper-baseline-postprocessing.md)
 - [Step 11: Augmented Whisper Evaluation](docs/features/step-11-augmented-whisper-evaluation.md)
+- [Step 12: BabelSpeech Real-data Grounding](docs/features/step-12-babelspeech-real-data-grounding.md)
+- [Step 13: Combined Training Manifest](docs/features/step-13-combined-training-manifest.md)
+- [Step 14: Whisper Tiny Combined Fine-tune Smoke](docs/features/step-14-whisper-tiny-combined-finetune.md)
+- [Step 15: MLX Whisper Large-v3 Combined Fine-tune Smoke](docs/features/step-15-mlx-large-v3-combined-finetune.md)
+- [Step 16: MLX Whisper Large-v3 Scale-up Experiments](docs/features/step-16-mlx-large-v3-scaleup-experiments.md)
+- [Step 17: Muon Optimizer Probe](docs/features/step-17-muon-optimizer-probe.md)
+- [Step 18: Guarded Optimizer Experiments](docs/features/step-18-guarded-optimizer-experiments.md)
+- [Step 19: Whisper-style AdamW Schedule Probe](docs/features/step-19-whisper-style-adamw-schedule.md)
 
 ## Current Plan
 

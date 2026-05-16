@@ -9,4 +9,7 @@ __pycache__/
 *.pyc
 
 data/synthetic/
+data/real/
+data/training/
 artifacts/
+models/

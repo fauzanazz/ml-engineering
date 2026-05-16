@@ -5,14 +5,23 @@ description = "Indonesian banking ASR synthetic dataset and training pipeline."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "accelerate>=0.30",
     "edge-tts>=7.2.8",
+    "jiwer>=3.0",
     "mlx-whisper>=0.4.3",
     "pyyaml>=6.0.3",
+    "soundfile>=0.12",
+    "transformers>=4.41",
 ]
 
 [project.scripts]
 banking-asr-generate-text = "indonesian_banking_asr.synthetic.cli:main"
 banking-asr-evaluate = "indonesian_banking_asr.evaluation.cli:main"
+banking-asr-transcribe-whisper = "indonesian_banking_asr.evaluation.whisper:main"
+banking-asr-convert-babelspeech = "indonesian_banking_asr.real_data.babelspeech:main"
+banking-asr-build-combined-training = "indonesian_banking_asr.training.combined:main"
+banking-asr-finetune-whisper = "indonesian_banking_asr.training.whisper_finetune:main"
+banking-asr-finetune-mlx-whisper = "indonesian_banking_asr.training.mlx_whisper_finetune:main"
 
 [dependency-groups]
 dev = [
