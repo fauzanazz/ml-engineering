@@ -63,6 +63,8 @@ banking templates
 | 17 | 2026-05-16 | Muon Optimizer Probe | Coba Muon dan hybrid Muon+SGD; keduanya tidak stabil pada decoder-only Whisper large-v3 setup saat ini. |
 | 18 | 2026-05-16 | Guarded Optimizer Experiments | Tambah partial unfreeze, warmup, dan gradient clipping; Muon/AdamW tetap NaN, guarded SGD stabil di LR lebih tinggi. |
 | 19 | 2026-05-16 | Whisper-style AdamW Schedule Probe | Coba AdamW mengikuti pola paper Whisper: warmup, linear decay, β2 0.98, ε 1e-6, WD 0.1, dan clip 1.0. |
+| 20 | 2026-05-16 | Guarded SGD Scale-up Evaluation | Scale guarded SGD ke 200 steps dan evaluasi non-train real+synthetic; training stabil tetapi output ASR identik dengan baseline. |
+| 21 | 2026-05-16 | 10h 80/20 Data Procurement | Procure kandidat dataset 10.1 jam: 8.0 jam BabelSpeech non-banking dan 2.1 jam synthetic banking dry-run Edge TTS. |
 
 Detail tiap step:
 
@@ -85,6 +87,8 @@ Detail tiap step:
 - [Step 17: Muon Optimizer Probe](docs/features/step-17-muon-optimizer-probe.md)
 - [Step 18: Guarded Optimizer Experiments](docs/features/step-18-guarded-optimizer-experiments.md)
 - [Step 19: Whisper-style AdamW Schedule Probe](docs/features/step-19-whisper-style-adamw-schedule.md)
+- [Step 20: Guarded SGD Scale-up Evaluation](docs/features/step-20-guarded-sgd-scaleup-evaluation.md)
+- [Step 21: 10h 80/20 Data Procurement](docs/features/step-21-10h-80-20-data-procurement.md)
 
 ## Current Plan
 
