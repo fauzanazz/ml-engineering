@@ -65,6 +65,7 @@ banking templates
 | 19 | 2026-05-16 | Whisper-style AdamW Schedule Probe | Coba AdamW mengikuti pola paper Whisper: warmup, linear decay, β2 0.98, ε 1e-6, WD 0.1, dan clip 1.0. |
 | 20 | 2026-05-16 | Guarded SGD Scale-up Evaluation | Scale guarded SGD ke 200 steps dan evaluasi non-train real+synthetic; training stabil tetapi output ASR identik dengan baseline. |
 | 21 | 2026-05-16 | 10h 80/20 Data Procurement | Procure kandidat dataset 10.1 jam: 8.0 jam BabelSpeech non-banking dan 2.1 jam synthetic banking dry-run Edge TTS. |
+| 22 | 2026-05-16 | 10h Baseline Evaluation | Jalankan MLX Whisper large-v3 baseline pada validation/test kandidat 10h; WER 12-13%, entity error rate banking 14-17%. |
 
 Detail tiap step:
 
@@ -89,6 +90,7 @@ Detail tiap step:
 - [Step 19: Whisper-style AdamW Schedule Probe](docs/features/step-19-whisper-style-adamw-schedule.md)
 - [Step 20: Guarded SGD Scale-up Evaluation](docs/features/step-20-guarded-sgd-scaleup-evaluation.md)
 - [Step 21: 10h 80/20 Data Procurement](docs/features/step-21-10h-80-20-data-procurement.md)
+- [Step 22: 10h Baseline Evaluation](docs/features/step-22-10h-baseline-evaluation.md)
 
 ## Current Plan
 
