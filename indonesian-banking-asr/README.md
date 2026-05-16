@@ -54,6 +54,7 @@ banking templates
 | 8 | 2026-05-15 | Edge TTS, Gemini TTS & Resumable TTS | Tambah real TTS providers dengan Edge TTS sebagai jalur utama, Gemini TTS untuk smoke test, WAV conversion, dan TTS resume/delay. |
 | 9 | 2026-05-15 | 9Router Edge TTS & Generation Scaling | Tambah provider 9Router untuk Edge TTS via HTTP dan `--samples-per-template` untuk scale canonical generation melewati 12 template. |
 | 10 | 2026-05-16 | Whisper Baseline & Banking Post-processing | Jalankan MLX Whisper large-v3 baseline di Apple Silicon dan turunkan entity error rate pilot ke 0% lewat post-processing domain banking. |
+| 11 | 2026-05-16 | Augmented Whisper Evaluation | Evaluasi MLX Whisper large-v3 pada 450 clean+augmented rows dan konfirmasi post-processing mempertahankan entity error rate 0%. |
 
 Detail tiap step:
 
@@ -67,6 +68,7 @@ Detail tiap step:
 - [Step 8: Edge TTS, Gemini TTS & Resumable TTS](docs/features/step-8-edge-gemini-tts-resume.md)
 - [Step 9: 9Router Edge TTS & Generation Scaling](docs/features/step-9-9router-edge-tts-scaling.md)
 - [Step 10: Whisper Baseline & Banking Post-processing](docs/features/step-10-whisper-baseline-postprocessing.md)
+- [Step 11: Augmented Whisper Evaluation](docs/features/step-11-augmented-whisper-evaluation.md)
 
 ## Current Plan
 
