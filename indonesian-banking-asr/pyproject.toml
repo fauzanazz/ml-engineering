@@ -18,6 +18,7 @@ dependencies = [
 banking-asr-generate-text = "indonesian_banking_asr.synthetic.cli:main"
 banking-asr-evaluate = "indonesian_banking_asr.evaluation.cli:main"
 banking-asr-transcribe-whisper = "indonesian_banking_asr.evaluation.whisper:main"
+banking-asr-postprocess-predictions = "indonesian_banking_asr.evaluation.postprocess_cli:main"
 banking-asr-convert-babelspeech = "indonesian_banking_asr.real_data.babelspeech:main"
 banking-asr-build-combined-training = "indonesian_banking_asr.training.combined:main"
 banking-asr-finetune-whisper = "indonesian_banking_asr.training.whisper_finetune:main"

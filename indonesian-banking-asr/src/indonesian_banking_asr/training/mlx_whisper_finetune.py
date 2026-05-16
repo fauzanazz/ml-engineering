@@ -37,13 +37,15 @@ def fine_tune_mlx_whisper(
     adam_beta1: float = 0.9,
     adam_beta2: float = 0.999,
     adam_eps: float = 1e-8,
+    lora_rank: int = 8,
+    lora_alpha: float = 16.0,
 ) -> dict:
     training_rows = rows[:limit]
     if not training_rows:
         raise ValueError("training manifest is empty")
 
     model = load_model(model_name, dtype=mx.float32)
-    _set_train_scope(model, train_scope)
+    lora_summary = _set_train_scope(model, train_scope, lora_rank=lora_rank, lora_alpha=lora_alpha)
     tokenizer = get_tokenizer(model.is_multilingual, num_languages=model.num_languages, language=language, task=task)
     optimizer = _build_optimizer(
         optimizer_name,
@@ -75,6 +77,7 @@ def fine_tune_mlx_whisper(
             if completed_steps >= max_steps:
                 break
 
+    _merge_lora_modules(model)
     _save_mlx_checkpoint(model, model_name, output_dir)
     return {
         "model_name": model_name,
@@ -92,6 +95,7 @@ def fine_tune_mlx_whisper(
         "adam_eps": adam_eps,
         "optimizer": optimizer_name,
         "train_scope": train_scope,
+        **lora_summary,
         "first_loss": losses[0],
         "last_loss": losses[-1],
     }
@@ -108,7 +112,7 @@ def main() -> None:
     parser.add_argument("--max-steps", type=int, default=1)
     parser.add_argument("--learning-rate", type=float, default=1e-6)
     parser.add_argument("--limit", type=int)
-    parser.add_argument("--train-scope", choices=("decoder", "decoder_last_4", "decoder_last_8", "full"), default="decoder")
+    parser.add_argument("--train-scope", choices=("decoder", "decoder_last_4", "decoder_last_8", "decoder_last_4_lora", "decoder_last_8_lora", "full"), default="decoder")
     parser.add_argument("--optimizer", choices=("adamw", "sgd", "muon", "muon_sgd"), default="adamw")
     parser.add_argument("--warmup-steps", type=int, default=0)
     parser.add_argument("--max-grad-norm", type=float)
@@ -117,6 +121,8 @@ def main() -> None:
     parser.add_argument("--adam-beta1", type=float, default=0.9)
     parser.add_argument("--adam-beta2", type=float, default=0.999)
     parser.add_argument("--adam-eps", type=float, default=1e-8)
+    parser.add_argument("--lora-rank", type=int, default=8)
+    parser.add_argument("--lora-alpha", type=float, default=16.0)
     args = parser.parse_args()
 
     summary = fine_tune_mlx_whisper(
@@ -137,6 +143,8 @@ def main() -> None:
         adam_beta1=args.adam_beta1,
         adam_beta2=args.adam_beta2,
         adam_eps=args.adam_eps,
+        lora_rank=args.lora_rank,
+        lora_alpha=args.lora_alpha,
     )
     write_jsonl(args.summary_path, [summary])
 
@@ -155,21 +163,68 @@ def _build_training_example(row: dict, n_mels: int, tokenizer) -> tuple[mx.array
     return mx.expand_dims(mel, 0), mx.array([tokens[:-1]]), mx.array([tokens[1:]])
 
 
-def _set_train_scope(model, train_scope: str) -> None:
+class LoRALinear(nn.Module):
+    def __init__(self, base: nn.Linear, *, rank: int, alpha: float) -> None:
+        super().__init__()
+        if rank <= 0:
+            raise ValueError("LoRA rank must be positive")
+        output_dims, input_dims = base.weight.shape
+        self.base = base
+        self.lora_a = nn.Linear(input_dims, rank, bias=False)
+        self.lora_b = nn.Linear(rank, output_dims, bias=False)
+        self.scale = alpha / rank
+        self.lora_a.weight = mx.random.normal(self.lora_a.weight.shape) * 0.01
+        self.lora_b.weight = mx.zeros(self.lora_b.weight.shape)
+        self.base.freeze(recurse=True)
+
+    def __call__(self, inputs: mx.array) -> mx.array:
+        return self.base(inputs) + self.lora_b(self.lora_a(inputs)) * self.scale
+
+
+def _set_train_scope(model, train_scope: str, *, lora_rank: int = 8, lora_alpha: float = 16.0) -> dict:
     if train_scope == "decoder":
         model.freeze(recurse=True)
         model.decoder.unfreeze(recurse=True)
-        return
+        return {}
     if train_scope == "decoder_last_4":
         _unfreeze_last_decoder_blocks(model, 4)
-        return
+        return {}
     if train_scope == "decoder_last_8":
         _unfreeze_last_decoder_blocks(model, 8)
-        return
+        return {}
+    if train_scope == "decoder_last_4_lora":
+        return _apply_decoder_lora(model, 4, rank=lora_rank, alpha=lora_alpha)
+    if train_scope == "decoder_last_8_lora":
+        return _apply_decoder_lora(model, 8, rank=lora_rank, alpha=lora_alpha)
     if train_scope == "full":
         model.unfreeze(recurse=True)
-        return
+        return {}
     raise ValueError(f"unsupported train scope: {train_scope}")
+
+
+def _apply_decoder_lora(model, block_count: int, *, rank: int, alpha: float) -> dict:
+    model.freeze(recurse=True)
+    replaced_modules = 0
+    for block in model.decoder.blocks[-block_count:]:
+        for attention in (block.attn, block.cross_attn):
+            attention.query = LoRALinear(attention.query, rank=rank, alpha=alpha)
+            attention.value = LoRALinear(attention.value, rank=rank, alpha=alpha)
+            replaced_modules += 2
+    return {"lora_rank": rank, "lora_alpha": alpha, "lora_modules": replaced_modules}
+
+
+def _merge_lora_modules(model) -> None:
+    for block in model.decoder.blocks:
+        for attention in (block.attn, block.cross_attn):
+            attention.query = _merge_lora_linear(attention.query)
+            attention.value = _merge_lora_linear(attention.value)
+
+
+def _merge_lora_linear(layer):
+    if not isinstance(layer, LoRALinear):
+        return layer
+    layer.base.weight = layer.base.weight + (layer.lora_b.weight @ layer.lora_a.weight) * layer.scale
+    return layer.base
 
 
 def _unfreeze_last_decoder_blocks(model, block_count: int) -> None:

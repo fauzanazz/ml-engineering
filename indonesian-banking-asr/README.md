@@ -66,6 +66,8 @@ banking templates
 | 20 | 2026-05-16 | Guarded SGD Scale-up Evaluation | Scale guarded SGD ke 200 steps dan evaluasi non-train real+synthetic; training stabil tetapi output ASR identik dengan baseline. |
 | 21 | 2026-05-16 | 10h 80/20 Data Procurement | Procure kandidat dataset 10.1 jam: 8.0 jam BabelSpeech non-banking dan 2.1 jam synthetic banking dry-run Edge TTS. |
 | 22 | 2026-05-16 | 10h Baseline Evaluation | Jalankan MLX Whisper large-v3 baseline pada validation/test kandidat 10h; WER 12-13%, entity error rate banking 14-17%. |
+| 23 | 2026-05-16 | Entity-aware Post-processing on 10h Baseline | Tambah CLI post-processing prediksi dan turunkan entity error rate banking ke 1.44% validation / 3.33% test. |
+| 24 | 2026-05-16 | MLX Whisper LoRA Smoke | Tambah train scope LoRA query/value decoder last blocks, merge checkpoint, dan jalankan 10-step smoke yang stabil. |
 
 Detail tiap step:
 
@@ -91,6 +93,8 @@ Detail tiap step:
 - [Step 20: Guarded SGD Scale-up Evaluation](docs/features/step-20-guarded-sgd-scaleup-evaluation.md)
 - [Step 21: 10h 80/20 Data Procurement](docs/features/step-21-10h-80-20-data-procurement.md)
 - [Step 22: 10h Baseline Evaluation](docs/features/step-22-10h-baseline-evaluation.md)
+- [Step 23: Entity-aware Post-processing on 10h Baseline](docs/features/step-23-entity-aware-postprocessing-10h.md)
+- [Step 24: MLX Whisper LoRA Smoke](docs/features/step-24-mlx-whisper-lora-smoke.md)
 
 ## Current Plan
 
