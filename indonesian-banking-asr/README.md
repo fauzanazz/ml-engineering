@@ -53,6 +53,7 @@ banking templates
 | 7 | 2026-05-15 | Audio Manifest, QA & Dataset Assembly | Tambah TTS audio manifest, audio QA, augmentation, merge clean+augmented manifests, dataset QA, dan dataset summary. |
 | 8 | 2026-05-15 | Edge TTS, Gemini TTS & Resumable TTS | Tambah real TTS providers dengan Edge TTS sebagai jalur utama, Gemini TTS untuk smoke test, WAV conversion, dan TTS resume/delay. |
 | 9 | 2026-05-15 | 9Router Edge TTS & Generation Scaling | Tambah provider 9Router untuk Edge TTS via HTTP dan `--samples-per-template` untuk scale canonical generation melewati 12 template. |
+| 10 | 2026-05-16 | Whisper Baseline & Banking Post-processing | Jalankan MLX Whisper large-v3 baseline di Apple Silicon dan turunkan entity error rate pilot ke 0% lewat post-processing domain banking. |
 
 Detail tiap step:
 
@@ -65,6 +66,7 @@ Detail tiap step:
 - [Step 7: Audio Manifest, QA & Dataset Assembly](docs/features/step-7-audio-manifest-qa-dataset-assembly.md)
 - [Step 8: Edge TTS, Gemini TTS & Resumable TTS](docs/features/step-8-edge-gemini-tts-resume.md)
 - [Step 9: 9Router Edge TTS & Generation Scaling](docs/features/step-9-9router-edge-tts-scaling.md)
+- [Step 10: Whisper Baseline & Banking Post-processing](docs/features/step-10-whisper-baseline-postprocessing.md)
 
 ## Current Plan
 
@@ -80,7 +82,9 @@ template bank utterance
   -> generate TTS audio with Edge TTS / 9Router Edge TTS
   -> audio QA
   -> apply call-noise augmentation profiles
-  -> train/evaluate Whisper-small LoRA
+  -> evaluate MLX Whisper large-v3 baseline
+  -> post-process banking entities
+  -> evaluate augmented audio and future fine-tuning target
 ```
 
 Important leakage rules:

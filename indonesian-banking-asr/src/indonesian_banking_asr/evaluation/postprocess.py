@@ -26,12 +26,13 @@ def postprocess_transcript(transcript: str) -> str:
     processed = _collapse_hyphenated_digits(processed)
     processed = _collapse_grouped_digits(processed)
     processed = _collapse_spaced_digits(processed)
+    processed = _normalize_rupiah_amounts(processed)
     processed = _replace_lexicon(processed)
     return processed
 
 
 def _collapse_hyphenated_digits(text: str) -> str:
-    pattern = re.compile(r"(?<!\d)(?:\d+-){2,}\d+(?!\d)")
+    pattern = re.compile(r"(?<!\d)(?:\d+-)+\d+(?!\d)")
     return pattern.sub(lambda match: match.group(0).replace("-", ""), text)
 
 

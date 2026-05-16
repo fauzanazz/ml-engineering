@@ -5,6 +5,7 @@ def test_postprocess_transcript_collapses_spaced_and_hyphenated_digits():
     assert postprocess_transcript("nomor 0 4 3 3 2 1 8 1 9 6") == "nomor 0433218196"
     assert postprocess_transcript("nomor 0433-218-196") == "nomor 0433218196"
     assert postprocess_transcript("nomor 0 433 218 196") == "nomor 0433218196"
+    assert postprocess_transcript("nomor 2751-79790869-nya") == "nomor 275179790869-nya"
     assert postprocess_transcript("akhirannya 9.027") == "akhirannya 9027"
 
 
@@ -17,4 +18,5 @@ def test_postprocess_transcript_corrects_banking_lexicon():
 def test_postprocess_transcript_normalizes_rupiah_amounts():
     assert postprocess_transcript("sebesar 17.110.000 rupiah") == "sebesar Rp17.110.000"
     assert postprocess_transcript("sebesar RP36010000") == "sebesar Rp36.010.000"
+    assert postprocess_transcript("sebesar RP36-010-000") == "sebesar Rp36.010.000"
     assert postprocess_transcript("sebesar Rp 17.110.000") == "sebesar Rp17.110.000"
