@@ -16,6 +16,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.classifier_backend, "yolo")
         self.assertEqual(args.mediapipe_model, "assets/pose_landmarker_lite.task")
         self.assertEqual(args.hand_model, "assets/hand_landmarker.task")
+        self.assertEqual(args.hand_track_input, "auto")
         self.assertEqual(args.preview_key, "p")
         self.assertEqual(args.segmentation_input, "masked-crop")
         self.assertEqual(args.left_sticker, "assets/cat.gif")
@@ -54,6 +55,8 @@ class CliTest(unittest.TestCase):
                 "assets/pose_landmarker_lite.task",
                 "--hand-model",
                 "assets/hand_landmarker.task",
+                "--hand-track-input",
+                "full",
                 "--preview-key",
                 "k",
                 "--segmentation-input",
@@ -91,6 +94,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.classifier_backend, "mediapipe")
         self.assertEqual(args.mediapipe_model, "assets/pose_landmarker_lite.task")
         self.assertEqual(args.hand_model, "assets/hand_landmarker.task")
+        self.assertEqual(args.hand_track_input, "full")
         self.assertEqual(args.preview_key, "k")
         self.assertEqual(args.segmentation_input, "crop")
         self.assertEqual(args.left_sticker, "assets/cat.gif")

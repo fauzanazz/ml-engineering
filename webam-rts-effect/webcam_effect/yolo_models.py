@@ -59,6 +59,12 @@ class YoloPersonSegmenter:
         self.model = YOLO(self.model_path)
 
     def crop(self, frame, segmentation_input: str = "masked-crop"):
+        segment = self.segment(frame, segmentation_input=segmentation_input)
+        if segment is None:
+            return None
+        return segment.crop
+
+    def segment(self, frame, segmentation_input: str = "masked-crop"):
         result = self._best_person_result(frame)
         if result is None:
             return None
@@ -66,11 +72,11 @@ class YoloPersonSegmenter:
         box, mask = result
         frame_crop = crop_box(frame, box)
         if frame_crop is None or segmentation_input == "crop":
-            return frame_crop
+            return PersonSegment(box=box, crop=frame_crop)
         if segmentation_input != "masked-crop":
             raise ValueError(f"unknown segmentation input: {segmentation_input}")
 
-        return apply_mask_to_crop(frame, frame_crop, box, mask)
+        return PersonSegment(box=box, crop=apply_mask_to_crop(frame, frame_crop, box, mask))
 
     def _best_person_result(self, frame):
         results = self.model.predict(frame, device=self.device, conf=self.confidence, verbose=False)
@@ -113,6 +119,12 @@ def apply_mask_to_crop(frame, frame_crop, box: BoundingBox, mask):
 
     alpha = (resized_mask[y1:y2, x1:x2] >= 0.5).astype(frame_crop.dtype)[:, :, None]
     return frame_crop * alpha
+
+
+@dataclass(frozen=True)
+class PersonSegment:
+    box: BoundingBox
+    crop: object
 
 
 @dataclass

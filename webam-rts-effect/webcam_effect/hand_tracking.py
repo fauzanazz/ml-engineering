@@ -85,6 +85,20 @@ class MediaPipeHandTracker:
         )
         return HandTrackFrame(hands=hands)
 
+    def track_in_box(self, frame, box: BoundingBox) -> HandTrackFrame:
+        from webcam_effect.tracking import crop_box
+
+        clipped_box = clip_box(box, frame_width=frame.shape[1], frame_height=frame.shape[0])
+        crop = crop_box(frame, clipped_box)
+        if crop is None:
+            return HandTrackFrame(hands=())
+        return remap_hand_track_frame(
+            self.track(crop),
+            box=clipped_box,
+            frame_width=frame.shape[1],
+            frame_height=frame.shape[0],
+        )
+
     def close(self) -> None:
         self._landmarker.close()
 
@@ -158,6 +172,47 @@ def fingertip_spread(hand: TrackedHand) -> float:
     xs = [landmark.x for landmark in fingertips]
     ys = [landmark.y for landmark in fingertips]
     return ((max(xs) - min(xs)) ** 2 + (max(ys) - min(ys)) ** 2) ** 0.5
+
+
+def remap_hand_track_frame(hands: HandTrackFrame, box: BoundingBox, frame_width: int, frame_height: int) -> HandTrackFrame:
+    return HandTrackFrame(
+        hands=tuple(remap_tracked_hand(hand, box, frame_width=frame_width, frame_height=frame_height) for hand in hands.hands)
+    )
+
+
+def remap_tracked_hand(hand: TrackedHand, box: BoundingBox, frame_width: int, frame_height: int) -> TrackedHand:
+    crop_width = max(1, box.x2 - box.x1)
+    crop_height = max(1, box.y2 - box.y1)
+    landmarks = tuple(
+        HandLandmark(
+            x=(box.x1 + landmark.x * crop_width) / frame_width,
+            y=(box.y1 + landmark.y * crop_height) / frame_height,
+            z=landmark.z,
+        )
+        for landmark in hand.landmarks
+    )
+    return TrackedHand(
+        label=hand.label,
+        confidence=hand.confidence,
+        landmarks=landmarks,
+        box=BoundingBox(
+            x1=box.x1 + hand.box.x1,
+            y1=box.y1 + hand.box.y1,
+            x2=box.x1 + hand.box.x2,
+            y2=box.y1 + hand.box.y2,
+            confidence=hand.box.confidence,
+        ),
+    )
+
+
+def clip_box(box: BoundingBox, frame_width: int, frame_height: int) -> BoundingBox:
+    return BoundingBox(
+        x1=max(0, min(frame_width, box.x1)),
+        y1=max(0, min(frame_height, box.y1)),
+        x2=max(0, min(frame_width, box.x2)),
+        y2=max(0, min(frame_height, box.y2)),
+        confidence=box.confidence,
+    )
 
 
 def handedness_label(category) -> str:

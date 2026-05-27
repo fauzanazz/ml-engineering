@@ -1,4 +1,4 @@
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 import time
 
@@ -17,6 +17,42 @@ from webcam_effect.mediapipe_models import MediaPipeKicauWindowClassifier, Media
 from webcam_effect.outputs import create_video_output
 from webcam_effect.state import PoseStateMachine
 from webcam_effect.yolo_models import YoloFrameClassifier, YoloPersonDetector, YoloPersonSegmenter
+
+HAND_TRACK_INPUTS = ("auto", "bbox", "full")
+
+
+@dataclass
+class BenchmarkTimer:
+    frame_count: int = 0
+    analysis_seconds: float = 0.0
+    hand_seconds: float = 0.0
+    output_seconds: float = 0.0
+    bbox_hand_frames: int = 0
+    full_hand_frames: int = 0
+    skipped_hand_frames: int = 0
+
+    def add_analysis(self, seconds: float) -> None:
+        self.analysis_seconds += seconds
+
+    def add_hand(self, seconds: float, mode: str) -> None:
+        self.hand_seconds += seconds
+        if mode == "bbox":
+            self.bbox_hand_frames += 1
+        elif mode == "full":
+            self.full_hand_frames += 1
+        else:
+            self.skipped_hand_frames += 1
+
+    def add_output(self, seconds: float) -> None:
+        self.output_seconds += seconds
+
+    def report(self, elapsed_seconds: float) -> list[str]:
+        frames = max(1, self.frame_count)
+        return [
+            f"processed {self.frame_count} frames in {elapsed_seconds:.2f}s ({self.frame_count / max(elapsed_seconds, 1e-9):.1f} fps)",
+            f"avg analysis={self.analysis_seconds / frames * 1000:.2f}ms hand={self.hand_seconds / frames * 1000:.2f}ms output={self.output_seconds / frames * 1000:.2f}ms",
+            f"hand frames bbox={self.bbox_hand_frames} full={self.full_hand_frames} skipped={self.skipped_hand_frames}",
+        ]
 
 
 def run_live_effect(
@@ -42,11 +78,15 @@ def run_live_effect(
     async_analysis: bool = True,
     benchmark_frames: int = 0,
     components: ComponentSettings | None = None,
+    hand_track_input: str = "auto",
 ) -> None:
     import cv2
 
     components = components or ComponentSettings()
+    if hand_track_input not in HAND_TRACK_INPUTS:
+        raise ValueError(f"unknown hand track input: {hand_track_input}")
     print(f"components={format_components(components) or 'none'}")
+    print(f"hand_track_input={hand_track_input}")
     capture = CameraSource(camera).open()
     segmenter = create_segmenter(segmenter_backend, detector_path, device, data, mediapipe_model) if components.segment else None
     classifier = create_classifier(classifier_backend, classifier_path, device, data, mediapipe_model) if components.classify else None
@@ -83,7 +123,7 @@ def run_live_effect(
         left_y=effect_definition.left_y,
         layers=effect_definition.layers,
     )
-    audio = audio_for_effect_definition(effect_definition, fallback_audio=effect_audio)
+    audio = audio_for_effect_definition(effect_definition, fallback_audio=effect_audio, override_audio=audio_path or None)
     output_sink = create_video_output(video_output, ffmpeg_video_command)
     preview_active = False
     preview_key_code = preview_key_to_code(preview_key)
@@ -97,6 +137,7 @@ def run_live_effect(
     analysis = AnalysisResult(predictions=[], active=False, crop_visible=False, crop=None)
     hand_tracker = None
     hand_tracker_failed = False
+    benchmark_timer = BenchmarkTimer()
 
     try:
         while True:
@@ -116,6 +157,7 @@ def run_live_effect(
             missed_frame_count = 0
             frame_count += 1
 
+            analysis_started_at = time.perf_counter()
             if not needs_analysis(components):
                 analysis = AnalysisResult(predictions=[], active=False, crop_visible=False, crop=None)
             elif async_analyzer is None:
@@ -123,6 +165,7 @@ def run_live_effect(
             else:
                 async_analyzer.submit(frame)
                 analysis = async_analyzer.result()
+            benchmark_timer.add_analysis(time.perf_counter() - analysis_started_at)
 
             selected_definition = select_effect_for_analysis(effect_library, analysis, fallback_id=effect_library.selected_id)
 
@@ -139,7 +182,9 @@ def run_live_effect(
                     left_y=effect_definition.left_y,
                     layers=effect_definition.layers,
                 )
-                audio = audio_for_effect_definition(effect_definition, fallback_audio=effect_audio)
+                audio = audio_for_effect_definition(effect_definition, fallback_audio=effect_audio, override_audio=audio_path or None)
+                if effect_was_active:
+                    audio.start()
 
             effect_active = analysis.active or preview_active
             if effect_active and not effect_was_active:
@@ -156,10 +201,20 @@ def run_live_effect(
                     try:
                         if hand_tracker is None:
                             hand_tracker = MediaPipeHandTracker(model_path=hand_model)
-                        hands = hand_tracker.track(frame)
+                        hand_started_at = time.perf_counter()
+                        hands, hand_track_mode = track_hands_for_analysis(
+                            hand_tracker,
+                            frame,
+                            analysis,
+                            components,
+                            hand_track_input=hand_track_input,
+                        )
+                        benchmark_timer.add_hand(time.perf_counter() - hand_started_at, hand_track_mode)
                     except FileNotFoundError as exc:
                         print(exc)
                         hand_tracker_failed = True
+                else:
+                    benchmark_timer.add_hand(0.0, "skipped")
                 output = draw_debug_overlay(
                     output,
                     DebugInfo(
@@ -174,7 +229,10 @@ def run_live_effect(
                         hands=hands,
                     ),
                 )
+            output_started_at = time.perf_counter()
             output_sink.write(output)
+            benchmark_timer.add_output(time.perf_counter() - output_started_at)
+            benchmark_timer.frame_count += 1
             key = cv2.waitKey(1) & 0xFF
             if key == ord("q"):
                 break
@@ -189,7 +247,8 @@ def run_live_effect(
     finally:
         if benchmark_frames:
             elapsed = max(time.monotonic() - benchmark_start_time, 1e-9)
-            print(f"processed {frame_count} frames in {elapsed:.2f}s ({frame_count / elapsed:.1f} fps)")
+            for line in benchmark_timer.report(elapsed):
+                print(line)
         if async_analyzer is not None:
             async_analyzer.close()
         if hand_tracker is not None:
@@ -213,6 +272,22 @@ def needs_analysis(components: ComponentSettings) -> bool:
     return components.segment or components.classify
 
 
+def track_hands_for_analysis(
+    hand_tracker: MediaPipeHandTracker,
+    frame,
+    analysis: AnalysisResult,
+    components: ComponentSettings,
+    hand_track_input: str = "auto",
+):
+    if hand_track_input == "full":
+        return hand_tracker.track(frame), "full"
+    if hand_track_input in {"auto", "bbox"} and components.segment and analysis.box is not None:
+        return hand_tracker.track_in_box(frame, analysis.box), "bbox"
+    if hand_track_input == "bbox":
+        return None, "skipped"
+    return hand_tracker.track(frame), "full"
+
+
 def preview_key_to_code(preview_key: str) -> int:
     if len(preview_key) != 1:
         raise ValueError("preview key must be one character")
@@ -233,12 +308,15 @@ def select_effect_for_analysis(library, analysis: AnalysisResult, fallback_id: s
     return library.effects[fallback_id]
 
 
-def audio_for_effect_definition(effect_definition, fallback_audio: str) -> MultiTrackAudio:
-    track_configs = [
-        AudioTrackConfig(Path(track.path), volume=track.volume, loop=track.loop, muted=track.muted)
-        for track in effect_definition.audio_tracks
-        if track.path
-    ] or [AudioTrackConfig(Path(fallback_audio), volume=effect_definition.audio_volume, loop=effect_definition.audio_loop)]
+def audio_for_effect_definition(effect_definition, fallback_audio: str, override_audio: str | None = None) -> MultiTrackAudio:
+    if override_audio:
+        track_configs = [AudioTrackConfig(Path(override_audio), volume=effect_definition.audio_volume, loop=effect_definition.audio_loop)]
+    else:
+        track_configs = [
+            AudioTrackConfig(Path(track.path), volume=track.volume, loop=track.loop, muted=track.muted)
+            for track in effect_definition.audio_tracks
+            if track.path
+        ] or [AudioTrackConfig(Path(fallback_audio), volume=effect_definition.audio_volume, loop=effect_definition.audio_loop)]
     return MultiTrackAudio(track_configs)
 
 

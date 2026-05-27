@@ -8,8 +8,14 @@ from webcam_effect.analyzer import AnalysisResult, AsyncLatestAnalyzer, EffectAn
 from webcam_effect.components import ComponentSettings
 from webcam_effect.frame_window import FrameWindow
 from webcam_effect.state import PosePrediction, PoseStateMachine
+from webcam_effect.tracking import BoundingBox
 
 class StaticSegmenter:
+    box = BoundingBox(1, 1, 3, 3, 0.9)
+
+    def segment(self, frame):
+        return type("Segment", (), {"box": self.box})()
+
     def crop(self, frame, segmentation_input: str):
         return frame
 
@@ -18,6 +24,9 @@ class LabelClassifier:
         return [PosePrediction(label="kicau", confidence=0.9) for _ in frames]
 
 class FailingSegmenter:
+    def segment(self, frame):
+        raise AssertionError("segmenter should not run")
+
     def crop(self, frame, segmentation_input: str):
         raise AssertionError("segmenter should not run")
 
@@ -48,6 +57,7 @@ class EffectAnalyzerTest(unittest.TestCase):
 
         self.assertTrue(result.active)
         self.assertTrue(result.crop_visible)
+        self.assertEqual(result.box, StaticSegmenter.box)
         self.assertEqual(result.predictions, [PosePrediction(label="kicau", confidence=0.9), PosePrediction(label="kicau", confidence=0.9)])
 
     def test_analyze_uses_full_frame_when_segment_disabled(self):

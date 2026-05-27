@@ -4,7 +4,7 @@ import threading
 from webcam_effect.components import ComponentSettings
 from webcam_effect.frame_window import FrameWindow
 from webcam_effect.state import PosePrediction, PoseStateMachine
-from webcam_effect.tracking import best_person_box, crop_box
+from webcam_effect.tracking import BoundingBox, best_person_box, crop_box
 from webcam_effect.yolo_models import YoloPersonDetector
 
 @dataclass(frozen=True)
@@ -13,6 +13,12 @@ class AnalysisResult:
     active: bool
     crop_visible: bool
     crop: object | None = None
+    box: BoundingBox | None = None
+
+@dataclass(frozen=True)
+class SegmentedUser:
+    crop: object
+    box: BoundingBox
 
 class EffectAnalyzer:
     def __init__(
@@ -33,9 +39,13 @@ class EffectAnalyzer:
 
     def analyze(self, frame, segmentation_input: str) -> AnalysisResult:
         crop = None
+        box = None
         classifier_input = frame
         if self.components.segment:
-            crop = crop_user(frame, self.segmenter_backend, self.segmenter, segmentation_input)
+            segmented_user = segment_user(frame, self.segmenter_backend, self.segmenter, segmentation_input)
+            if segmented_user is not None:
+                crop = segmented_user.crop
+                box = segmented_user.box
             classifier_input = crop
 
         if self.components.classify and classifier_input is not None:
@@ -54,6 +64,7 @@ class EffectAnalyzer:
             active=active,
             crop_visible=crop is not None,
             crop=crop,
+            box=box,
         )
 
 class AsyncLatestAnalyzer:
@@ -98,17 +109,40 @@ class AsyncLatestAnalyzer:
             with self._condition:
                 self._result = result
 
-def crop_user(frame, backend: str, segmenter, segmentation_input: str):
+def segment_user(frame, backend: str, segmenter, segmentation_input: str) -> SegmentedUser | None:
     if backend == "yolo":
-        return _crop_best_person(frame, segmenter)
+        return _segment_best_person(frame, segmenter)
     if backend == "yolo-seg":
-        return segmenter.crop(frame, segmentation_input=segmentation_input)
+        result = segmenter.segment(frame, segmentation_input=segmentation_input)
+        if result is None:
+            return None
+        return SegmentedUser(crop=result.crop, box=result.box)
     if backend == "mediapipe":
-        return segmenter.crop(frame, segmentation_input=segmentation_input)
+        result = segmenter.segment(frame)
+        if result is None:
+            return None
+        if segmentation_input == "crop":
+            crop = crop_box(frame, result.box)
+        elif segmentation_input == "masked-crop":
+            crop = segmenter.crop(frame, segmentation_input=segmentation_input)
+        else:
+            raise ValueError(f"unknown segmentation input: {segmentation_input}")
+        if crop is None:
+            return None
+        return SegmentedUser(crop=crop, box=result.box)
     raise ValueError(f"unknown segmenter backend: {backend}")
 
-def _crop_best_person(frame, detector: YoloPersonDetector):
+def crop_user(frame, backend: str, segmenter, segmentation_input: str):
+    result = segment_user(frame, backend, segmenter, segmentation_input)
+    if result is None:
+        return None
+    return result.crop
+
+def _segment_best_person(frame, detector: YoloPersonDetector) -> SegmentedUser | None:
     box = best_person_box(detector.detect(frame))
     if box is None:
         return None
-    return crop_box(frame, box)
+    crop = crop_box(frame, box)
+    if crop is None:
+        return None
+    return SegmentedUser(crop=crop, box=box)

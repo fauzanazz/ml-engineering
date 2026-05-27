@@ -31,6 +31,17 @@ MediaPipe segmentation needs a Pose Landmarker `.task` model file at `assets/pos
 
 Hand tracking primitives live in `webcam_effect.hand_tracking`. The module wraps MediaPipe Hands, returns normalized landmarks plus pixel-space bounding boxes, and exposes small pure helpers for hand-center motion and fingertip spread so gesture logic can be tested without camera access.
 
+When `segment` and `hand_track` are both enabled, hand tracking runs on the segmented user's bounding box and remaps landmarks back onto the full preview frame. If segmentation is disabled or no user box is visible, hand tracking falls back to the full frame.
+
+Force a specific hand-tracking input while benchmarking:
+
+```bash
+uv run python main.py run --debug --no-components-tui --components segment,hand_track --hand-track-input bbox --video-output none --benchmark-frames 300
+uv run python main.py run --debug --no-components-tui --components segment,hand_track --hand-track-input full --video-output none --benchmark-frames 300
+```
+
+Benchmark output includes total FPS, average analysis/hand/output milliseconds, and how many frames used bbox, full-frame, or skipped hand tracking.
+
 Use YOLO bbox-only crop instead of segmentation mask:
 
 ```bash

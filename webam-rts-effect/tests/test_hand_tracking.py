@@ -7,6 +7,7 @@ from webcam_effect.hand_tracking import (
     MediaPipeHandTracker,
     TrackedHand,
     fingertip_spread,
+    remap_hand_track_frame,
     hand_box,
     hand_center,
     hand_flapped,
@@ -81,6 +82,26 @@ class HandTrackingTest(unittest.TestCase):
         hand = TrackedHand("right", 0.9, tuple(landmarks), BoundingBox(0, 0, 1, 1, 0.9))
 
         self.assertAlmostEqual(fingertip_spread(hand), 0.5)
+
+    def test_remap_hand_track_frame_moves_crop_landmarks_to_full_frame(self):
+        crop_hand = TrackedHand(
+            "right",
+            0.9,
+            (HandLandmark(0.5, 0.5),),
+            BoundingBox(10, 20, 30, 40, 0.9),
+        )
+        hands = HandTrackFrame(hands=(crop_hand,))
+
+        remapped = remap_hand_track_frame(
+            hands,
+            box=BoundingBox(100, 50, 300, 250, 0.8),
+            frame_width=400,
+            frame_height=300,
+        )
+
+        hand = remapped.hands[0]
+        self.assertEqual(hand.landmarks[0], HandLandmark(0.5, 0.5))
+        self.assertEqual(hand.box, BoundingBox(110, 70, 130, 90, 0.9))
 
 
 def hand_with_center(label: str, y: float) -> TrackedHand:

@@ -19,6 +19,7 @@ DEFAULT_LABEL = "kicau"
 DEFAULT_CLASSIFIER_BACKEND = "yolo"
 DEFAULT_COMPONENTS = format_components(ComponentSettings())
 DEFAULT_HAND_MODEL = "assets/hand_landmarker.task"
+DEFAULT_HAND_TRACK_INPUT = "auto"
 DEFAULT_MEDIAPIPE_MODEL = "assets/pose_landmarker_lite.task"
 DEFAULT_PREVIEW_KEY = "p"
 DEFAULT_SEGMENTATION_INPUT = "masked-crop"
@@ -30,6 +31,7 @@ CLASSIFIER_BACKENDS = ("yolo", "mediapipe")
 SEGMENTER_BACKENDS = ("yolo", "yolo-seg", "mediapipe")
 SEGMENTATION_INPUTS = ("crop", "masked-crop")
 VIDEO_OUTPUTS = ("preview", "ffmpeg", "none")
+HAND_TRACK_INPUTS = ("auto", "bbox", "full")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -45,6 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--classifier-backend", choices=CLASSIFIER_BACKENDS, default=DEFAULT_CLASSIFIER_BACKEND)
     run_parser.add_argument("--mediapipe-model", default=DEFAULT_MEDIAPIPE_MODEL)
     run_parser.add_argument("--hand-model", default=DEFAULT_HAND_MODEL)
+    run_parser.add_argument("--hand-track-input", choices=HAND_TRACK_INPUTS, default=DEFAULT_HAND_TRACK_INPUT)
     run_parser.add_argument("--preview-key", default=DEFAULT_PREVIEW_KEY)
     run_parser.add_argument("--segmentation-input", choices=SEGMENTATION_INPUTS, default=DEFAULT_SEGMENTATION_INPUT)
     run_parser.add_argument("--left-sticker", default=DEFAULT_LEFT_STICKER)
@@ -143,6 +146,7 @@ def main(argv: list[str] | None = None) -> None:
             async_analysis=not args.sync_analysis,
             benchmark_frames=args.benchmark_frames,
             components=components,
+            hand_track_input=args.hand_track_input,
         )
         return
 

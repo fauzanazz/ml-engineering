@@ -227,7 +227,7 @@ def effect_from_dict(data: dict) -> EffectDefinition:
         normalized["left_sticker"] = None
     normalized["audio_tracks"] = normalize_audio_tracks(normalized.get("audio_tracks"), normalized.get("audio"))
     if not normalized.get("selected_audio"):
-        normalized["selected_audio"] = normalized.get("audio") or (normalized["audio_tracks"][0] if normalized["audio_tracks"] else "")
+        normalized["selected_audio"] = normalized.get("audio") or (normalized["audio_tracks"][0].path if normalized["audio_tracks"] else "")
     if not normalized.get("audio"):
         normalized["audio"] = normalized.get("selected_audio", "")
     if normalized.get("selected_audio") and isinstance(normalized["selected_audio"], AudioTrack):

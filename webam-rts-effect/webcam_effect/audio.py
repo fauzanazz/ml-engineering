@@ -146,6 +146,7 @@ class MultiTrackAudio:
 
     def close(self) -> None:
         for player in self.players:
+            player.stop()
             close = getattr(player, "close", None)
             if close is not None:
                 close()
