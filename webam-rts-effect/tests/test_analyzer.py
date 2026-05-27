@@ -35,14 +35,15 @@ class EffectAnalyzerTest(unittest.TestCase):
             segmenter=StaticSegmenter(),
             classifier=LabelClassifier(),
             state=PoseStateMachine(),
-            frame_window=FrameWindow(size=1),
+            frame_window=FrameWindow(size=2),
         )
 
+        analyzer.analyze(np.zeros((2, 2, 3), dtype=np.uint8), "masked-crop")
         result = analyzer.analyze(np.zeros((2, 2, 3), dtype=np.uint8), "masked-crop")
 
         self.assertTrue(result.active)
         self.assertTrue(result.crop_visible)
-        self.assertEqual(result.predictions, [PosePrediction(label="kicau", confidence=0.9)])
+        self.assertEqual(result.predictions, [PosePrediction(label="kicau", confidence=0.9), PosePrediction(label="kicau", confidence=0.9)])
 
 class AsyncLatestAnalyzerTest(unittest.TestCase):
     def test_keeps_latest_frame_when_worker_is_busy(self):

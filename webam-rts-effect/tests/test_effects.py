@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from webcam_effect.effects import AnimatedSticker, StickerEffect, load_sticker_frames, overlay_image, remove_green_screen
+from webcam_effect.effects import AnimatedSticker, AudioTrack, StickerEffect, StickerLayer, effect_from_dict, layer_runtime_transform, load_sticker_frames, overlay_image, remove_green_screen
 
 
 class EffectsTest(unittest.TestCase):
@@ -86,6 +86,42 @@ class EffectsTest(unittest.TestCase):
         frame = np.zeros((240, 320, 3), dtype=np.uint8)
 
         output = effect.apply(frame)
+
+        self.assertEqual(output.shape, frame.shape)
+        self.assertGreater(int(output.sum()), 0)
+
+    def test_legacy_stickers_migrate_to_layers(self):
+        definition = effect_from_dict({"right_sticker": "assets/nick.gif", "left_sticker": "assets/cat.gif", "scale": 0.3})
+
+        self.assertEqual([layer.asset_path for layer in definition.layers], ["assets/nick.gif", "assets/cat.gif"])
+        self.assertTrue(definition.layers[1].chroma_key_green)
+        self.assertEqual(definition.layers[0].scale, 0.3)
+
+    def test_legacy_audio_tracks_migrate_to_track_objects(self):
+        definition = effect_from_dict({"audio_tracks": ["assets/a.mp3"], "selected_audio": "assets/a.mp3"})
+
+        self.assertEqual(definition.audio_tracks, ("assets/a.mp3",))
+        self.assertIsInstance(definition.audio_tracks[0], AudioTrack)
+        self.assertEqual(definition.audio_tracks[0].volume, 1.0)
+
+    def test_layer_runtime_transform_is_deterministic(self):
+        layer = StickerLayer(x=0.5, y=0.2, enter_animation="slide", loop_animation="bob", animation_speed=1.0)
+
+        first = layer_runtime_transform(layer, 0.25)
+        second = layer_runtime_transform(layer, 0.25)
+
+        self.assertEqual(first, second)
+        self.assertLess(first["x"], 0.5)
+
+    def test_sticker_effect_renders_ordered_layers(self):
+        layers = (
+            StickerLayer(id="one", asset_path="assets/nick.gif", x=0.1, y=0.1, scale=0.15),
+            StickerLayer(id="two", asset_path="assets/cat.gif", x=0.35, y=0.1, scale=0.15, chroma_key_green=True),
+        )
+        effect = StickerEffect(right_sticker_path=Path("assets/nick.gif"), layers=layers)
+        frame = np.zeros((240, 320, 3), dtype=np.uint8)
+
+        output = effect.apply(frame, elapsed_active_time=0.2)
 
         self.assertEqual(output.shape, frame.shape)
         self.assertGreater(int(output.sum()), 0)

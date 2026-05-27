@@ -1,0 +1,18 @@
+[project]
+name = "webam-rts-effect"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "mediapipe>=0.10.35",
+    "onnx>=1.21.0",
+    "onnxruntime>=1.26.0",
+    "onnxslim>=0.1.94",
+    "opencv-python>=4.13.0.92",
+    "sounddevice>=0.5.3",
+    "ultralytics>=8.4.54",
+]
+
+[project.scripts]
+"main.py" = "webcam_effect.cli:main"

@@ -9,10 +9,10 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(args.command, "run")
         self.assertEqual(args.camera, "0")
-        self.assertEqual(args.detector, "yolo26n.pt")
-        self.assertEqual(args.classifier, "yolo26n.pt")
+        self.assertEqual(args.detector, "yolo26n-seg.pt")
+        self.assertEqual(args.classifier, "runs/classify/kicau_yolo26s_masked_aug/weights/best.pt")
         self.assertEqual(args.data, "coco8.yaml")
-        self.assertEqual(args.segmenter, "mediapipe")
+        self.assertEqual(args.segmenter, "yolo-seg")
         self.assertEqual(args.classifier_backend, "yolo")
         self.assertEqual(args.mediapipe_model, "assets/pose_landmarker_lite.task")
         self.assertEqual(args.preview_key, "p")
@@ -25,8 +25,12 @@ class CliTest(unittest.TestCase):
         self.assertFalse(args.sync_analysis)
         self.assertEqual(args.benchmark_frames, 0)
         self.assertIsNone(args.runtime_config)
-        self.assertIsNone(args.effect_config)
-        self.assertEqual(args.video_output, "preview")
+        self.assertEqual(args.effect_config, "assets/effect.json")
+        self.assertEqual(args.video_output, "ffmpeg")
+        self.assertEqual(
+            args.ffmpeg_video_command,
+            "ffmpeg -f rawvideo -pix_fmt bgr24 -s {width}x{height} -i - -f avfoundation 'OBS Virtual Camera'",
+        )
 
     def test_parses_run_command(self):
         args = build_parser().parse_args(
@@ -92,6 +96,15 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.video_output, "ffmpeg")
         self.assertEqual(args.ffmpeg_video_command, "ffmpeg -f rawvideo -")
 
+    def test_parses_yolo_seg_segmenter(self):
+        args = build_parser().parse_args(
+            ["run", "--segmenter", "yolo-seg", "--detector", "yolo26n-seg.pt", "--segmentation-input", "masked-crop"]
+        )
+
+        self.assertEqual(args.segmenter, "yolo-seg")
+        self.assertEqual(args.detector, "yolo26n-seg.pt")
+        self.assertEqual(args.segmentation_input, "masked-crop")
+
     def test_parses_dataset_command(self):
         args = build_parser().parse_args(["dataset", "--camera", "0", "--label", "none"])
 
@@ -111,23 +124,54 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(args.command, "classify")
         self.assertEqual(args.classify_command, "train")
-        self.assertEqual(args.model, "yolo26n-cls.pt")
+        self.assertEqual(args.model, "yolo26s-cls.pt")
         self.assertEqual(args.data, "datasets/kicau_mania/frames")
+        self.assertEqual(args.prepared_data, "datasets/kicau_mania/classifier_frames/yolo_masked_crop_dedup")
+        self.assertEqual(args.segmenter, "yolo-seg")
+        self.assertEqual(args.detector, "yolo26n-seg.pt")
+        self.assertEqual(args.mediapipe_model, "assets/pose_landmarker_lite.task")
+        self.assertEqual(args.segmentation_input, "masked-crop")
         self.assertEqual(args.epochs, 80)
         self.assertEqual(args.imgsz, 224)
         self.assertEqual(args.batch, 16)
         self.assertEqual(args.device, "mps")
         self.assertEqual(args.project, "runs/classify")
-        self.assertEqual(args.name, "kicau_aug")
+        self.assertEqual(args.name, "kicau_yolo26s_masked_aug")
 
     def test_classify_train_command_accepts_overrides(self):
         args = build_parser().parse_args(
-            ["classify", "train", "--epochs", "10", "--device", "cpu", "--name", "smoke"]
+            [
+                "classify",
+                "train",
+                "--epochs",
+                "10",
+                "--device",
+                "cpu",
+                "--name",
+                "smoke",
+                "--segmenter",
+                "mediapipe",
+                "--detector",
+                "other.pt",
+            ]
         )
 
         self.assertEqual(args.epochs, 10)
         self.assertEqual(args.device, "cpu")
         self.assertEqual(args.name, "smoke")
+        self.assertEqual(args.segmenter, "mediapipe")
+        self.assertEqual(args.detector, "other.pt")
+
+    def test_train_command_is_short_alias(self):
+        args = build_parser().parse_args(["train"])
+
+        self.assertEqual(args.command, "train")
+        self.assertEqual(args.model, "yolo26s-cls.pt")
+        self.assertEqual(args.data, "datasets/kicau_mania/frames")
+        self.assertEqual(args.prepared_data, "datasets/kicau_mania/classifier_frames/yolo_masked_crop_dedup")
+        self.assertEqual(args.segmenter, "yolo-seg")
+        self.assertEqual(args.detector, "yolo26n-seg.pt")
+        self.assertEqual(args.segmentation_input, "masked-crop")
 
     def test_editor_command_has_defaults(self):
         args = build_parser().parse_args(["editor"])

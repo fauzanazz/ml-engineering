@@ -1,0 +1,66 @@
+{
+  "selected_id": "kicau-mania",
+  "effects": {
+    "kicau-mania": {
+      "name": "kicau mania",
+      "right_sticker": "assets/nick.gif",
+      "left_sticker": "assets/cat.gif",
+      "audio": "assets/Kicau Mania Cutted.mp3",
+      "audio_tracks": [
+        {
+          "id": "track-1",
+          "name": "Kicau Mania Cutted",
+          "path": "assets/Kicau Mania Cutted.mp3",
+          "volume": 1.0,
+          "loop": true,
+          "muted": false
+        }
+      ],
+      "selected_audio": "assets/Kicau Mania Cutted.mp3",
+      "audio_volume": 1,
+      "audio_loop": true,
+      "scale": 0.44,
+      "right_x": 0.8352921195652174,
+      "right_y": 0.21206974637681159,
+      "left_x": 0.15666610054347826,
+      "left_y": 0.2580314009661836,
+      "layers": [
+        {
+          "id": "right",
+          "name": "Gif 1",
+          "asset_path": "assets/nick.gif",
+          "x": 0.8352921195652174,
+          "y": 0.21206974637681159,
+          "scale": 0.44,
+          "rotation": 0.0,
+          "opacity": 1.0,
+          "hidden": false,
+          "chroma_key_green": false,
+          "chroma_tolerance": 80,
+          "enter_animation": "none",
+          "loop_animation": "none",
+          "animation_speed": 1.0
+        },
+        {
+          "id": "left",
+          "name": "Gif 2",
+          "asset_path": "assets/cat.gif",
+          "x": 0.15666610054347826,
+          "y": 0.2580314009661836,
+          "scale": 0.25,
+          "rotation": 0.0,
+          "opacity": 1.0,
+          "hidden": false,
+          "chroma_key_green": true,
+          "chroma_tolerance": 80,
+          "enter_animation": "none",
+          "loop_animation": "none",
+          "animation_speed": 1.0
+        }
+      ],
+      "trigger_labels": [],
+      "activate_threshold": 0.8,
+      "deactivate_threshold": 0.3
+    }
+  }
+}

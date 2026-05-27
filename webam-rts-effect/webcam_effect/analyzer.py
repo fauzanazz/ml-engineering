@@ -11,6 +11,7 @@ class AnalysisResult:
     predictions: list[PosePrediction]
     active: bool
     crop_visible: bool
+    crop: object | None = None
 
 class EffectAnalyzer:
     def __init__(self, segmenter_backend: str, segmenter, classifier, state: PoseStateMachine, frame_window: FrameWindow):
@@ -27,12 +28,18 @@ class EffectAnalyzer:
 
         predictions = []
         if self.frame_window.ready:
-            predictions = self.classifier.predict_window(self.frame_window.frames())
+            frames = self.frame_window.frames()
+            predictions = self.classifier.predict_window(frames)
             active = self.state.update(predictions)
         else:
             active = self.state.active
 
-        return AnalysisResult(predictions=predictions, active=active, crop_visible=crop is not None)
+        return AnalysisResult(
+            predictions=predictions,
+            active=active,
+            crop_visible=crop is not None,
+            crop=crop,
+        )
 
 class AsyncLatestAnalyzer:
     def __init__(self, analyzer: EffectAnalyzer, segmentation_input: str):
@@ -79,6 +86,8 @@ class AsyncLatestAnalyzer:
 def crop_user(frame, backend: str, segmenter, segmentation_input: str):
     if backend == "yolo":
         return _crop_best_person(frame, segmenter)
+    if backend == "yolo-seg":
+        return segmenter.crop(frame, segmentation_input=segmentation_input)
     if backend == "mediapipe":
         return segmenter.crop(frame, segmentation_input=segmentation_input)
     raise ValueError(f"unknown segmenter backend: {backend}")
