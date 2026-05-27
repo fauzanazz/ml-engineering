@@ -15,6 +15,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.segmenter, "yolo-seg")
         self.assertEqual(args.classifier_backend, "yolo")
         self.assertEqual(args.mediapipe_model, "assets/pose_landmarker_lite.task")
+        self.assertEqual(args.hand_model, "assets/hand_landmarker.task")
         self.assertEqual(args.preview_key, "p")
         self.assertEqual(args.segmentation_input, "masked-crop")
         self.assertEqual(args.left_sticker, "assets/cat.gif")
@@ -22,6 +23,10 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.audio, "assets/Kicau Mania Cutted.mp3")
         self.assertEqual(args.device, "mps")
         self.assertFalse(args.debug)
+        self.assertEqual(args.components.segment, True)
+        self.assertEqual(args.components.classify, True)
+        self.assertEqual(args.components.hand_track, True)
+        self.assertIsNone(args.components_tui)
         self.assertFalse(args.sync_analysis)
         self.assertEqual(args.benchmark_frames, 0)
         self.assertIsNone(args.runtime_config)
@@ -47,6 +52,8 @@ class CliTest(unittest.TestCase):
                 "mediapipe",
                 "--mediapipe-model",
                 "assets/pose_landmarker_lite.task",
+                "--hand-model",
+                "assets/hand_landmarker.task",
                 "--preview-key",
                 "k",
                 "--segmentation-input",
@@ -60,6 +67,9 @@ class CliTest(unittest.TestCase):
                 "--device",
                 "mps",
                 "--debug",
+                "--components",
+                "segment,hand_track",
+                "--components-tui",
                 "--sync-analysis",
                 "--benchmark-frames",
                 "120",
@@ -80,12 +90,17 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.segmenter, "mediapipe")
         self.assertEqual(args.classifier_backend, "mediapipe")
         self.assertEqual(args.mediapipe_model, "assets/pose_landmarker_lite.task")
+        self.assertEqual(args.hand_model, "assets/hand_landmarker.task")
         self.assertEqual(args.preview_key, "k")
         self.assertEqual(args.segmentation_input, "crop")
         self.assertEqual(args.left_sticker, "assets/cat.gif")
         self.assertEqual(args.audio, "assets/Kicau Mania Cutted.mp3")
         self.assertEqual(args.device, "mps")
         self.assertTrue(args.debug)
+        self.assertTrue(args.components.segment)
+        self.assertFalse(args.components.classify)
+        self.assertTrue(args.components.hand_track)
+        self.assertTrue(args.components_tui)
         self.assertTrue(args.sync_analysis)
         self.assertEqual(args.benchmark_frames, 120)
         self.assertEqual(args.runtime_config, "runtime.json")
@@ -101,6 +116,11 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.segmenter, "yolo-seg")
         self.assertEqual(args.detector, "yolo26n-seg.pt")
         self.assertEqual(args.segmentation_input, "masked-crop")
+
+    def test_components_tui_can_be_disabled(self):
+        args = build_parser().parse_args(["run", "--no-components-tui"])
+
+        self.assertFalse(args.components_tui)
 
     def test_parses_dataset_command(self):
         args = build_parser().parse_args(["dataset", "--camera", "0", "--label", "none"])

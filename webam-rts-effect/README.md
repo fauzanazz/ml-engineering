@@ -27,7 +27,9 @@ uv run python main.py run \
   --mediapipe-model assets/pose_landmarker_lite.task
 ```
 
-MediaPipe segmentation needs a Pose Landmarker `.task` model file at `assets/pose_landmarker_lite.task`, or pass `--mediapipe-model` with another `.task` file.
+MediaPipe segmentation needs a Pose Landmarker `.task` model file at `assets/pose_landmarker_lite.task`, or pass `--mediapipe-model` with another `.task` file. Debug hand skeletons need a Hand Landmarker `.task` model at `assets/hand_landmarker.task`, or pass `--hand-model`.
+
+Hand tracking primitives live in `webcam_effect.hand_tracking`. The module wraps MediaPipe Hands, returns normalized landmarks plus pixel-space bounding boxes, and exposes small pure helpers for hand-center motion and fingertip spread so gesture logic can be tested without camera access.
 
 Use YOLO bbox-only crop instead of segmentation mask:
 
@@ -63,7 +65,9 @@ uv run python main.py run --video-output none
 
 Development controls:
 
-- `--debug`: show classifier label, confidence score, active state, model backends, and FPS overlay.
+- `--debug`: show classifier label, confidence score, active state, model backends, hand skeletons, and FPS overlay.
+- Components TUI opens by default in an interactive terminal before webcam starts. Toggle `segment`, `classify`, and `hand_track` with Space, then Enter to run.
+- `--no-components-tui`: skip the selector. Use with `--components segment,classify,hand_track` for scripted runs. Example: `--no-components-tui --components classify,hand_track` runs classification on full frames without segmentation.
 - `--sync-analysis`: run MediaPipe and YOLO on the preview thread for latency/FPS comparison.
 - `--benchmark-frames N`: stop after `N` frames and print average FPS.
 - `d`: toggle debug overlay while running.

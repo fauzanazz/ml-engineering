@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import threading
 
+from webcam_effect.components import ComponentSettings
 from webcam_effect.frame_window import FrameWindow
 from webcam_effect.state import PosePrediction, PoseStateMachine
 from webcam_effect.tracking import best_person_box, crop_box
@@ -14,25 +15,39 @@ class AnalysisResult:
     crop: object | None = None
 
 class EffectAnalyzer:
-    def __init__(self, segmenter_backend: str, segmenter, classifier, state: PoseStateMachine, frame_window: FrameWindow):
+    def __init__(
+        self,
+        segmenter_backend: str,
+        segmenter,
+        classifier,
+        state: PoseStateMachine,
+        frame_window: FrameWindow,
+        components: ComponentSettings | None = None,
+    ):
         self.segmenter_backend = segmenter_backend
         self.segmenter = segmenter
         self.classifier = classifier
         self.state = state
         self.frame_window = frame_window
+        self.components = components or ComponentSettings()
 
     def analyze(self, frame, segmentation_input: str) -> AnalysisResult:
-        crop = crop_user(frame, self.segmenter_backend, self.segmenter, segmentation_input)
-        if crop is not None:
-            self.frame_window.append(crop)
+        crop = None
+        classifier_input = frame
+        if self.components.segment:
+            crop = crop_user(frame, self.segmenter_backend, self.segmenter, segmentation_input)
+            classifier_input = crop
+
+        if self.components.classify and classifier_input is not None:
+            self.frame_window.append(classifier_input)
 
         predictions = []
-        if self.frame_window.ready:
+        if self.components.classify and self.frame_window.ready:
             frames = self.frame_window.frames()
             predictions = self.classifier.predict_window(frames)
             active = self.state.update(predictions)
         else:
-            active = self.state.active
+            active = self.state.active if self.components.classify else False
 
         return AnalysisResult(
             predictions=predictions,

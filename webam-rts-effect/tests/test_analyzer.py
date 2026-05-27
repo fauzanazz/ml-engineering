@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 
 from webcam_effect.analyzer import AnalysisResult, AsyncLatestAnalyzer, EffectAnalyzer
+from webcam_effect.components import ComponentSettings
 from webcam_effect.frame_window import FrameWindow
 from webcam_effect.state import PosePrediction, PoseStateMachine
 
@@ -15,6 +16,10 @@ class StaticSegmenter:
 class LabelClassifier:
     def predict_window(self, frames: list) -> list[PosePrediction]:
         return [PosePrediction(label="kicau", confidence=0.9) for _ in frames]
+
+class FailingSegmenter:
+    def crop(self, frame, segmentation_input: str):
+        raise AssertionError("segmenter should not run")
 
 class BlockingAnalyzer:
     def __init__(self):
@@ -44,6 +49,38 @@ class EffectAnalyzerTest(unittest.TestCase):
         self.assertTrue(result.active)
         self.assertTrue(result.crop_visible)
         self.assertEqual(result.predictions, [PosePrediction(label="kicau", confidence=0.9), PosePrediction(label="kicau", confidence=0.9)])
+
+    def test_analyze_uses_full_frame_when_segment_disabled(self):
+        analyzer = EffectAnalyzer(
+            segmenter_backend="mediapipe",
+            segmenter=FailingSegmenter(),
+            classifier=LabelClassifier(),
+            state=PoseStateMachine(),
+            frame_window=FrameWindow(size=1),
+            components=ComponentSettings(segment=False, classify=True, hand_track=True),
+        )
+
+        result = analyzer.analyze(np.zeros((2, 2, 3), dtype=np.uint8), "masked-crop")
+
+        self.assertTrue(result.active)
+        self.assertFalse(result.crop_visible)
+
+    def test_analyze_disables_active_state_when_classify_disabled(self):
+        state = PoseStateMachine(active=True)
+        analyzer = EffectAnalyzer(
+            segmenter_backend="mediapipe",
+            segmenter=StaticSegmenter(),
+            classifier=LabelClassifier(),
+            state=state,
+            frame_window=FrameWindow(size=1),
+            components=ComponentSettings(segment=True, classify=False, hand_track=True),
+        )
+
+        result = analyzer.analyze(np.zeros((2, 2, 3), dtype=np.uint8), "masked-crop")
+
+        self.assertFalse(result.active)
+        self.assertEqual(result.predictions, [])
+        self.assertTrue(result.crop_visible)
 
 class AsyncLatestAnalyzerTest(unittest.TestCase):
     def test_keeps_latest_frame_when_worker_is_busy(self):

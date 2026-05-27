@@ -7,10 +7,12 @@ from webcam_effect.audio import AudioTrackConfig, MultiTrackAudio
 from webcam_effect.assets import resolve_asset_path
 from webcam_effect.camera import CameraSource
 from webcam_effect.classification import TemporalKicauClassifier
+from webcam_effect.components import ComponentSettings, format_components
 from webcam_effect.config import apply_runtime_config, load_runtime_config, update_runtime_config
 from webcam_effect.debug_overlay import DebugInfo, draw_debug_overlay
 from webcam_effect.effects import StickerEffect, load_effect_definition, load_effect_library
 from webcam_effect.frame_window import FrameWindow
+from webcam_effect.hand_tracking import MediaPipeHandTracker
 from webcam_effect.mediapipe_models import MediaPipeKicauWindowClassifier, MediaPipeUserSegmenter
 from webcam_effect.outputs import create_video_output
 from webcam_effect.state import PoseStateMachine
@@ -25,6 +27,7 @@ def run_live_effect(
     segmenter_backend: str,
     classifier_backend: str,
     mediapipe_model: str,
+    hand_model: str,
     preview_key: str,
     segmentation_input: str,
     left_sticker_path: str,
@@ -38,12 +41,15 @@ def run_live_effect(
     ffmpeg_video_command: str = "",
     async_analysis: bool = True,
     benchmark_frames: int = 0,
+    components: ComponentSettings | None = None,
 ) -> None:
     import cv2
 
+    components = components or ComponentSettings()
+    print(f"components={format_components(components) or 'none'}")
     capture = CameraSource(camera).open()
-    segmenter = create_segmenter(segmenter_backend, detector_path, device, data, mediapipe_model)
-    classifier = create_classifier(classifier_backend, classifier_path, device, data, mediapipe_model)
+    segmenter = create_segmenter(segmenter_backend, detector_path, device, data, mediapipe_model) if components.segment else None
+    classifier = create_classifier(classifier_backend, classifier_path, device, data, mediapipe_model) if components.classify else None
     state = PoseStateMachine()
     frame_window = FrameWindow(size=3)
     runtime_config_file = Path(runtime_config_path) if runtime_config_path else None
@@ -57,8 +63,9 @@ def run_live_effect(
         classifier=classifier,
         state=state,
         frame_window=frame_window,
+        components=components,
     )
-    async_analyzer = AsyncLatestAnalyzer(analyzer, segmentation_input) if async_analysis else None
+    async_analyzer = AsyncLatestAnalyzer(analyzer, segmentation_input) if async_analysis and needs_analysis(components) else None
     effect_config_file = Path(effect_config_path) if effect_config_path else None
     effect_library = load_effect_library(effect_config_file)
     effect_definition = effect_library.effects[effect_library.selected_id]
@@ -88,6 +95,8 @@ def run_live_effect(
     missed_frame_count = 0
     fps = 0.0
     analysis = AnalysisResult(predictions=[], active=False, crop_visible=False, crop=None)
+    hand_tracker = None
+    hand_tracker_failed = False
 
     try:
         while True:
@@ -107,7 +116,9 @@ def run_live_effect(
             missed_frame_count = 0
             frame_count += 1
 
-            if async_analyzer is None:
+            if not needs_analysis(components):
+                analysis = AnalysisResult(predictions=[], active=False, crop_visible=False, crop=None)
+            elif async_analyzer is None:
                 analysis = analyzer.analyze(frame, segmentation_input)
             else:
                 async_analyzer.submit(frame)
@@ -140,6 +151,15 @@ def run_live_effect(
             effect.set_scale(runtime_config.sticker_scale)
             output = effect.apply(frame, elapsed_active_time=now - active_started_at) if effect_active else frame
             if runtime_config.debug:
+                hands = None
+                if components.hand_track and not hand_tracker_failed:
+                    try:
+                        if hand_tracker is None:
+                            hand_tracker = MediaPipeHandTracker(model_path=hand_model)
+                        hands = hand_tracker.track(frame)
+                    except FileNotFoundError as exc:
+                        print(exc)
+                        hand_tracker_failed = True
                 output = draw_debug_overlay(
                     output,
                     DebugInfo(
@@ -151,6 +171,7 @@ def run_live_effect(
                         effect_active=effect_active,
                         crop_visible=analysis.crop_visible,
                         segmented_crop=analysis.crop,
+                        hands=hands,
                     ),
                 )
             output_sink.write(output)
@@ -171,6 +192,8 @@ def run_live_effect(
             print(f"processed {frame_count} frames in {elapsed:.2f}s ({frame_count / elapsed:.1f} fps)")
         if async_analyzer is not None:
             async_analyzer.close()
+        if hand_tracker is not None:
+            hand_tracker.close()
         audio.close()
         output_sink.close()
         capture.release()
@@ -185,6 +208,9 @@ def create_segmenter(backend: str, detector_path: str, device: str, data: str, m
     if backend == "mediapipe":
         return MediaPipeUserSegmenter(model_path=mediapipe_model)
     raise ValueError(f"unknown segmenter backend: {backend}")
+
+def needs_analysis(components: ComponentSettings) -> bool:
+    return components.segment or components.classify
 
 
 def preview_key_to_code(preview_key: str) -> int:

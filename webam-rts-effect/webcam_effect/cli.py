@@ -1,5 +1,7 @@
 import argparse
+import sys
 
+from webcam_effect.components import ComponentSettings, format_components, parse_components, select_components_tui
 from webcam_effect.dataset_creator import DATASET_LABELS
 from webcam_effect.training import CLASSIFIER_TRAIN_DEFAULTS
 
@@ -15,6 +17,8 @@ DEFAULT_EFFECT_CONFIG = "assets/effect.json"
 DEFAULT_LEFT_STICKER = "assets/cat.gif"
 DEFAULT_LABEL = "kicau"
 DEFAULT_CLASSIFIER_BACKEND = "yolo"
+DEFAULT_COMPONENTS = format_components(ComponentSettings())
+DEFAULT_HAND_MODEL = "assets/hand_landmarker.task"
 DEFAULT_MEDIAPIPE_MODEL = "assets/pose_landmarker_lite.task"
 DEFAULT_PREVIEW_KEY = "p"
 DEFAULT_SEGMENTATION_INPUT = "masked-crop"
@@ -40,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--segmenter", choices=SEGMENTER_BACKENDS, default=DEFAULT_SEGMENTER_BACKEND)
     run_parser.add_argument("--classifier-backend", choices=CLASSIFIER_BACKENDS, default=DEFAULT_CLASSIFIER_BACKEND)
     run_parser.add_argument("--mediapipe-model", default=DEFAULT_MEDIAPIPE_MODEL)
+    run_parser.add_argument("--hand-model", default=DEFAULT_HAND_MODEL)
     run_parser.add_argument("--preview-key", default=DEFAULT_PREVIEW_KEY)
     run_parser.add_argument("--segmentation-input", choices=SEGMENTATION_INPUTS, default=DEFAULT_SEGMENTATION_INPUT)
     run_parser.add_argument("--left-sticker", default=DEFAULT_LEFT_STICKER)
@@ -47,6 +52,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--audio", default=DEFAULT_EFFECT_AUDIO)
     run_parser.add_argument("--device", default=DEFAULT_DEVICE)
     run_parser.add_argument("--debug", action="store_true")
+    run_parser.add_argument("--components", type=component_settings, default=ComponentSettings())
+    run_parser.add_argument("--components-tui", action="store_true", default=None)
+    run_parser.add_argument("--no-components-tui", action="store_false", dest="components_tui")
     run_parser.add_argument("--sync-analysis", action="store_true")
     run_parser.add_argument("--benchmark-frames", type=int, default=0)
     run_parser.add_argument("--runtime-config")
@@ -110,6 +118,8 @@ def main(argv: list[str] | None = None) -> None:
         sticker = "" if args.effect_config and args.sticker == DEFAULT_STICKER else args.sticker
         left_sticker = "" if args.effect_config and args.left_sticker == DEFAULT_LEFT_STICKER else args.left_sticker
         audio = "" if args.effect_config and args.audio == DEFAULT_EFFECT_AUDIO else args.audio
+        use_components_tui = args.components_tui if args.components_tui is not None else sys.stdin.isatty()
+        components = select_components_tui(args.components) if use_components_tui else args.components
         run_live_effect(
             camera=args.camera,
             detector_path=args.detector,
@@ -118,6 +128,7 @@ def main(argv: list[str] | None = None) -> None:
             segmenter_backend=args.segmenter,
             classifier_backend=args.classifier_backend,
             mediapipe_model=args.mediapipe_model,
+            hand_model=args.hand_model,
             preview_key=args.preview_key,
             segmentation_input=args.segmentation_input,
             left_sticker_path=left_sticker,
@@ -131,6 +142,7 @@ def main(argv: list[str] | None = None) -> None:
             ffmpeg_video_command=args.ffmpeg_video_command,
             async_analysis=not args.sync_analysis,
             benchmark_frames=args.benchmark_frames,
+            components=components,
         )
         return
 
@@ -163,6 +175,12 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     raise ValueError(f"unknown command: {args.command}")
+
+def component_settings(value: str) -> ComponentSettings:
+    try:
+        return parse_components(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 def train_overrides(args: argparse.Namespace) -> dict:
     return {
