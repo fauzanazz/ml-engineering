@@ -47,15 +47,21 @@ class FfmpegVideoOutput:
             height, width = frame.shape[:2]
             command = self.command.format(width=width, height=height)
             self.process = subprocess.Popen(shlex.split(command), stdin=subprocess.PIPE)
+        if self.process.poll() is not None:
+            raise RuntimeError(f"ffmpeg video output exited with code {self.process.returncode}: {self.command}")
         if self.process.stdin is not None:
-            self.process.stdin.write(frame.tobytes())
+            try:
+                self.process.stdin.write(frame.tobytes())
+            except BrokenPipeError as exc:
+                raise RuntimeError(f"ffmpeg video output pipe closed: {self.command}") from exc
 
     def close(self) -> None:
         if self.process is None:
             return
         if self.process.stdin is not None:
             self.process.stdin.close()
-        self.process.terminate()
+        if self.process.poll() is None:
+            self.process.terminate()
 
 
 def create_video_output(kind: str, ffmpeg_command: str = "") -> VideoOutput:

@@ -4,13 +4,13 @@ Local Python POC for a webcam-triggered `kicau mania` effect.
 
 ## Run Effect
 
-Default run uses `assets/effect.json`, YOLO segmentation for user masking, YOLO for kicau classification, and `ffmpeg` output to `OBS Virtual Camera`.
+Default run uses `assets/effect.json`, YOLO segmentation for user masking, YOLO for kicau classification, and a local preview window.
 
 ```bash
 uv run python main.py run
 ```
 
-Defaults: `--camera 0`, 1280x720 capture, `--effect-config assets/effect.json`, `--segmenter yolo-seg`, `--classifier-backend yolo`, `--mediapipe-model assets/pose_landmarker_lite.task`, `--detector yolo26n-seg.pt`, `--classifier runs/classify/kicau_yolo26s_masked_aug/weights/best.pt`, `--data coco8.yaml`, `--segmentation-input masked-crop`, `--video-output ffmpeg`, `--ffmpeg-video-command "ffmpeg -f rawvideo -pix_fmt bgr24 -s {width}x{height} -i - -f avfoundation 'OBS Virtual Camera'"`, `--device mps`. ML analysis runs asynchronously by default so webcam preview is not blocked by segmentation or classification inference.
+Defaults: `--camera 0`, 1280x720 capture, `--effect-config assets/effect.json`, `--segmenter yolo-seg`, `--classifier-backend yolo`, `--mediapipe-model assets/pose_landmarker_lite.task`, `--detector yolo26n-seg.pt`, `--classifier runs/classify/kicau_yolo26s_masked_aug/weights/best.pt`, `--data coco8.yaml`, `--segmentation-input masked-crop`, `--video-output preview`, `--device mps`. ML analysis runs asynchronously by default so webcam preview is not blocked by segmentation or classification inference.
 
 Use another trained kicau classifier when available:
 
@@ -49,7 +49,7 @@ Effect mode animates both GIFs: `--sticker` renders on the right and `--left-sti
 
 Press `p` to toggle preview effect without pose detection. Press `q` to quit.
 
-Turn virtual camera output off and use a local preview window:
+Use a local preview window explicitly:
 
 ```bash
 uv run python main.py run --video-output preview
@@ -141,12 +141,12 @@ npm run build
 
 ## Virtual Outputs
 
-The app can select preview, no preview, or an `ffmpeg` raw-video pipe. Use `ffmpeg` with a virtual camera device/plugin that your OS and meeting app can consume.
+The app can select preview, no preview, or an `ffmpeg` raw-video pipe. Use an `ffmpeg` command that writes to a real sink supported by your platform. macOS Homebrew ffmpeg does not expose `OBS Virtual Camera` as an `avfoundation` output sink.
 
 ```bash
 uv run python main.py run \
   --video-output ffmpeg \
-  --ffmpeg-video-command "ffmpeg -f rawvideo -pix_fmt bgr24 -s {width}x{height} -i - -f avfoundation 'OBS Virtual Camera'"
+  --ffmpeg-video-command "ffmpeg -y -f rawvideo -pix_fmt bgr24 -s {width}x{height} -r 25 -i - output.mp4"
 ```
 
 For Google Meet, select the virtual camera or virtual audio device exposed by OBS, BlackHole, v4l2loopback, or equivalent platform tooling.

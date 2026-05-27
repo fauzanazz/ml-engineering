@@ -26,11 +26,8 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.benchmark_frames, 0)
         self.assertIsNone(args.runtime_config)
         self.assertEqual(args.effect_config, "assets/effect.json")
-        self.assertEqual(args.video_output, "ffmpeg")
-        self.assertEqual(
-            args.ffmpeg_video_command,
-            "ffmpeg -f rawvideo -pix_fmt bgr24 -s {width}x{height} -i - -f avfoundation 'OBS Virtual Camera'",
-        )
+        self.assertEqual(args.video_output, "preview")
+        self.assertEqual(args.ffmpeg_video_command, "")
 
     def test_parses_run_command(self):
         args = build_parser().parse_args(
