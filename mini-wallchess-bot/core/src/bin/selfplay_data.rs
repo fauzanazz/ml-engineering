@@ -18,8 +18,8 @@ use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 
 use wallchess_core::{
-    action_index, distance_to_goal, encode, legal_moves, mirror_move, Cell, HeuristicPolicy, Mcts,
-    MctsConfig, Move, Orientation, PolicyValue, Side, State, Wall,
+    action_index, distance_to_goal, encode, legal_moves, mirror_move, parse_state_key,
+    HeuristicPolicy, Mcts, MctsConfig, Move, PolicyValue, Side, State,
 };
 
 /// One training sample, missing only the outcome until the game ends.
@@ -80,9 +80,13 @@ fn main() {
             std::process::exit(2);
         }
         None => {
-            eprintln!("self-play policy: heuristic bootstrap");
+            let prior_depth = env_parse("HEURISTIC_DEPTH", 1);
+            let value_scale = env_parse("HEURISTIC_VALUE_SCALE", 400.0);
+            eprintln!(
+                "self-play policy: heuristic bootstrap depth={prior_depth} value_scale={value_scale}"
+            );
             play_games(
-                &HeuristicPolicy::default(),
+                &HeuristicPolicy::new(prior_depth, value_scale),
                 games,
                 cfg,
                 &opening_states,
@@ -91,6 +95,13 @@ fn main() {
             );
         }
     }
+}
+
+fn env_parse<T: std::str::FromStr>(name: &str, default: T) -> T {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(default)
 }
 
 fn play_games<P: PolicyValue>(
@@ -232,91 +243,6 @@ fn extract_key(line: &str) -> Option<&str> {
     Some(&rest[..end])
 }
 
-fn parse_state_key(key: &str) -> Option<State> {
-    let mut parts = key.split('|');
-    let turn = match parts.next()? {
-        "s" => Side::South,
-        "n" => Side::North,
-        _ => return None,
-    };
-    let south = parse_cell(parts.next()?)?;
-    let north = parse_cell(parts.next()?)?;
-    let walls_left = parse_walls_left(parts.next()?)?;
-    let walls = parts.next().unwrap_or("");
-    let mut state = State {
-        pawns: [south, north],
-        h_walls: 0,
-        v_walls: 0,
-        walls_left,
-        turn,
-        winner: None,
-    };
-    for wall in walls.split(',').filter(|w| !w.is_empty()) {
-        add_wall(&mut state, parse_wall(wall)?);
-    }
-    state.winner = if state.pawn(Side::South).r == Side::South.goal_row() {
-        Some(Side::South)
-    } else if state.pawn(Side::North).r == Side::North.goal_row() {
-        Some(Side::North)
-    } else {
-        None
-    };
-    Some(state)
-}
-
-fn parse_cell(raw: &str) -> Option<Cell> {
-    let bytes = raw.as_bytes();
-    if bytes.len() != 2 {
-        return None;
-    }
-    let r = digit(bytes[0])?;
-    let c = digit(bytes[1])?;
-    Some(Cell::new(r, c))
-}
-
-fn parse_walls_left(raw: &str) -> Option<[u8; 2]> {
-    match raw.len() {
-        2 => Some([digit(raw.as_bytes()[0])?, digit(raw.as_bytes()[1])?]),
-        3 if raw.starts_with("10") => Some([10, digit(raw.as_bytes()[2])?]),
-        3 if raw.ends_with("10") => Some([digit(raw.as_bytes()[0])?, 10]),
-        4 if raw == "1010" => Some([10, 10]),
-        _ => None,
-    }
-}
-
-fn parse_wall(raw: &str) -> Option<Wall> {
-    let bytes = raw.as_bytes();
-    if bytes.len() != 3 {
-        return None;
-    }
-    let o = match bytes[0] {
-        b'h' => Orientation::H,
-        b'v' => Orientation::V,
-        _ => return None,
-    };
-    Some(Wall {
-        r: digit(bytes[1])?,
-        c: digit(bytes[2])?,
-        o,
-    })
-}
-
-fn digit(byte: u8) -> Option<u8> {
-    if byte.is_ascii_digit() {
-        Some(byte - b'0')
-    } else {
-        None
-    }
-}
-
-fn add_wall(state: &mut State, wall: Wall) {
-    let bit = 1u64 << (((wall.r - 1) * 8 + (wall.c - 1)) as u64);
-    match wall.o {
-        Orientation::H => state.h_walls |= bit,
-        Orientation::V => state.v_walls |= bit,
-    }
-}
-
 /// Decide a capped (no natural winner) game by race progress: whoever is fewer
 /// BFS steps from their goal wins. Equal distance stays a true draw.
 fn race_winner(state: &State) -> Option<Side> {
@@ -359,6 +285,7 @@ fn write_record(w: &mut impl Write, z: f32, features: &[f32], policy: &[(usize, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wallchess_core::Cell;
 
     #[test]
     fn parses_initial_state_key() {

@@ -61,6 +61,7 @@ struct MatchStats {
     plies: u32,
     net_tactic_hits: u32,
     net_book_hits: u32,
+    net_guard_hits: u32,
     net_timing: Timing,
     heuristic_timing: Timing,
 }
@@ -97,6 +98,7 @@ fn main() {
     let heuristic = Heuristic::default();
     let mut rng = Rng(0x51f1_7e5d_9a11_2026);
     let mut stats = MatchStats::default();
+    let log_moves = std::env::var("NET_ARENA_LOG").is_ok();
 
     for game in 0..games {
         let net_side = if game % 2 == 0 {
@@ -115,15 +117,20 @@ fn main() {
                 Player::Heuristic
             };
             let start = Instant::now();
-            let mv = match player {
-                Player::Net => choose_net(&net, endgame_book.as_ref(), &state, sims)
-                    .inspect(|(_, source)| match source {
-                        MoveSource::Tactic => stats.net_tactic_hits += 1,
-                        MoveSource::Book => stats.net_book_hits += 1,
-                        MoveSource::Search => {}
-                    })
-                    .map(|(mv, _)| mv),
-                Player::Heuristic => choose_heuristic(&heuristic, &state, heuristic_depth),
+            let (mv, source) = match player {
+                Player::Net => match choose_net(&net, endgame_book.as_ref(), &state, sims) {
+                    Some((mv, source)) => {
+                        match source {
+                            MoveSource::Tactic => stats.net_tactic_hits += 1,
+                            MoveSource::Book => stats.net_book_hits += 1,
+                            MoveSource::Guard => stats.net_guard_hits += 1,
+                            MoveSource::Search => {}
+                        }
+                        (Some(mv), Some(source))
+                    }
+                    None => (None, None),
+                },
+                Player::Heuristic => (choose_heuristic(&heuristic, &state, heuristic_depth), None),
             };
             let elapsed = start.elapsed();
             match player {
@@ -133,6 +140,12 @@ fn main() {
             let Some(mv) = mv else {
                 break;
             };
+            if log_moves {
+                eprintln!(
+                    "game={game} ply={plies} turn={:?} player={player:?} source={source:?} move={mv:?}",
+                    state.turn
+                );
+            }
             state = state.apply(mv);
             plies += 1;
         }
@@ -161,12 +174,13 @@ fn main() {
         f64::from(stats.plies) / f64::from(games.max(1)),
     );
     println!(
-        "TIMING net avg={:.2}ms max={:.2}ms moves={} tactic_hits={} book_hits={}  heuristic avg={:.2}ms max={:.2}ms moves={}",
+        "TIMING net avg={:.2}ms max={:.2}ms moves={} tactic_hits={} book_hits={} guard_hits={}  heuristic avg={:.2}ms max={:.2}ms moves={}",
         stats.net_timing.avg_ms(),
         stats.net_timing.max_ms(),
         stats.net_timing.moves,
         stats.net_tactic_hits,
         stats.net_book_hits,
+        stats.net_guard_hits,
         stats.heuristic_timing.avg_ms(),
         stats.heuristic_timing.max_ms(),
         stats.heuristic_timing.moves,
@@ -181,6 +195,7 @@ fn parse_arg<T: std::str::FromStr>(arg: Option<String>, default: T) -> T {
 enum MoveSource {
     Tactic,
     Book,
+    Guard,
     Search,
 }
 
@@ -204,10 +219,57 @@ fn choose_net(
             ..MctsConfig::default()
         },
     );
-    mcts.run(state)
-        .into_iter()
+    choose_guarded_mcts_move(state, &mcts.run(state))
+}
+
+fn choose_guarded_mcts_move(state: &State, visits: &[(Move, u32)]) -> Option<(Move, MoveSource)> {
+    let best = visits
+        .iter()
         .max_by_key(|(_, visits)| *visits)
-        .map(|(mv, _)| (mv, MoveSource::Search))
+        .map(|(mv, _)| *mv)?;
+    if is_productive(state, best) {
+        return Some((best, MoveSource::Search));
+    }
+
+    let guarded = visits
+        .iter()
+        .filter(|(mv, visits)| *visits > 0 && is_productive(state, *mv))
+        .max_by_key(|(_, visits)| *visits)
+        .map(|(mv, _)| *mv)
+        .or_else(|| best_productive_move(state));
+
+    match guarded {
+        Some(mv) if mv != best => Some((mv, MoveSource::Guard)),
+        _ => Some((best, MoveSource::Search)),
+    }
+}
+
+fn best_productive_move(state: &State) -> Option<Move> {
+    legal_moves(state)
+        .into_iter()
+        .filter(|mv| is_productive(state, *mv))
+        .max_by_key(|mv| race_score(&state.apply(*mv), state.turn))
+}
+
+fn is_productive(state: &State, mv: Move) -> bool {
+    let side = state.turn;
+    let before_me = side_distance(state, side);
+    let before_opp = side_distance(state, side.other());
+    let child = state.apply(mv);
+    if child.winner == Some(side) {
+        return true;
+    }
+    let after_me = side_distance(&child, side);
+    let after_opp = side_distance(&child, side.other());
+    after_me < before_me || after_opp > before_opp
+}
+
+fn race_score(state: &State, side: Side) -> i32 {
+    side_distance(state, side.other()) as i32 - side_distance(state, side) as i32
+}
+
+fn side_distance(state: &State, side: Side) -> u16 {
+    distance_to_goal(state, state.pawn(side), side.goal_row()).unwrap_or(u16::MAX)
 }
 
 fn choose_heuristic(heuristic: &Heuristic, state: &State, depth: u8) -> Option<Move> {

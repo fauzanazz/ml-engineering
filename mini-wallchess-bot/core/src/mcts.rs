@@ -223,10 +223,16 @@ pub struct HeuristicPolicy {
 
 impl Default for HeuristicPolicy {
     fn default() -> Self {
+        Self::new(1, 400.0)
+    }
+}
+
+impl HeuristicPolicy {
+    pub fn new(prior_depth: u8, value_scale: f32) -> Self {
         HeuristicPolicy {
             h: Heuristic::default(),
-            prior_depth: 1,
-            value_scale: 400.0,
+            prior_depth,
+            value_scale,
         }
     }
 }

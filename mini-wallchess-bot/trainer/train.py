@@ -27,7 +27,7 @@ def policy_loss(logits, target):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default="selfplay.jsonl")
+    ap.add_argument("--data", nargs="+", default=["selfplay.jsonl"])
     ap.add_argument("--out", default="wallnet.safetensors")
     ap.add_argument("--epochs", type=int, default=20)
     ap.add_argument("--batch", type=int, default=256)

@@ -204,6 +204,95 @@ pub fn state_key(state: &State) -> String {
     )
 }
 
+/// Parse a [`state_key`] string back into a [`State`].
+///
+/// The key format is shared with the web UI and generated graph files, so graph
+/// consumers should use this instead of carrying their own partial parser.
+pub fn parse_state_key(key: &str) -> Option<State> {
+    let mut parts = key.split('|');
+    let turn = match parts.next()? {
+        "s" => Side::South,
+        "n" => Side::North,
+        _ => return None,
+    };
+    let south = parse_cell(parts.next()?)?;
+    let north = parse_cell(parts.next()?)?;
+    let walls_left = parse_walls_left(parts.next()?)?;
+    let walls = parts.next().unwrap_or("");
+    let mut state = State {
+        pawns: [south, north],
+        h_walls: 0,
+        v_walls: 0,
+        walls_left,
+        turn,
+        winner: None,
+    };
+    for wall in walls.split(',').filter(|w| !w.is_empty()) {
+        add_wall_bits(&mut state, parse_wall(wall)?);
+    }
+    state.winner = if state.pawn(Side::South).r == Side::South.goal_row() {
+        Some(Side::South)
+    } else if state.pawn(Side::North).r == Side::North.goal_row() {
+        Some(Side::North)
+    } else {
+        None
+    };
+    Some(state)
+}
+
+fn parse_cell(raw: &str) -> Option<Cell> {
+    let bytes = raw.as_bytes();
+    if bytes.len() != 2 {
+        return None;
+    }
+    let r = digit(bytes[0])?;
+    let c = digit(bytes[1])?;
+    Some(Cell::new(r, c))
+}
+
+fn parse_walls_left(raw: &str) -> Option<[u8; 2]> {
+    match raw.len() {
+        2 => Some([digit(raw.as_bytes()[0])?, digit(raw.as_bytes()[1])?]),
+        3 if raw.starts_with("10") => Some([10, digit(raw.as_bytes()[2])?]),
+        3 if raw.ends_with("10") => Some([digit(raw.as_bytes()[0])?, 10]),
+        4 if raw == "1010" => Some([10, 10]),
+        _ => None,
+    }
+}
+
+fn parse_wall(raw: &str) -> Option<Wall> {
+    let bytes = raw.as_bytes();
+    if bytes.len() != 3 {
+        return None;
+    }
+    let o = match bytes[0] {
+        b'h' => Orientation::H,
+        b'v' => Orientation::V,
+        _ => return None,
+    };
+    Some(Wall {
+        r: digit(bytes[1])?,
+        c: digit(bytes[2])?,
+        o,
+    })
+}
+
+fn digit(byte: u8) -> Option<u8> {
+    if byte.is_ascii_digit() {
+        Some(byte - b'0')
+    } else {
+        None
+    }
+}
+
+fn add_wall_bits(state: &mut State, wall: Wall) {
+    let bit = 1u64 << (((wall.r - 1) * 8 + (wall.c - 1)) as u64);
+    match wall.o {
+        Orientation::H => state.h_walls |= bit,
+        Orientation::V => state.v_walls |= bit,
+    }
+}
+
 /// One node in a precomputed state graph.
 pub struct GraphNode {
     pub key: String,
@@ -394,6 +483,25 @@ mod tests {
         // walls_left 10/10, no walls).
         let s = State::initial();
         assert_eq!(state_key(&s), "s|15|95|1010|");
+    }
+
+    #[test]
+    fn parse_state_key_reads_initial_state() {
+        let state = parse_state_key("s|15|95|1010|").expect("parse initial");
+        assert_eq!(state.turn, Side::South);
+        assert_eq!(state.pawn(Side::South), Cell::new(1, 5));
+        assert_eq!(state.pawn(Side::North), Cell::new(9, 5));
+        assert_eq!(state.walls_left, [10, 10]);
+        assert_eq!(state.winner, None);
+    }
+
+    #[test]
+    fn parse_state_key_reads_walls_and_counts() {
+        let state = parse_state_key("n|15|95|910|h11,v22").expect("parse walls");
+        assert_eq!(state.turn, Side::North);
+        assert_eq!(state.walls_left, [9, 10]);
+        assert!(state.has_h_wall(1, 1));
+        assert!(state.has_v_wall(2, 2));
     }
 
     #[test]
