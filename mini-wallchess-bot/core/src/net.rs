@@ -5,16 +5,15 @@
 //! Gated behind the `net` feature so the default engine and the wasm graph build
 //! stay free of the candle dependency. Enable with `--features net`.
 
-use candle_core::{DType, Device, Tensor};
-use candle_nn::{Linear, Module, VarBuilder};
+use std::collections::HashMap;
+
+use candle_core::{bail, safetensors, Device, Tensor};
+use candle_nn::{Linear, Module};
 
 use crate::action::{action_index, index_to_move, ACTION_COUNT};
 use crate::features::{encode, mirror_move, FEATURE_LEN};
 use crate::mcts::PolicyValue;
 use crate::state::State;
-
-/// Hidden width — must equal `HIDDEN` in `trainer/model.py`.
-const HIDDEN: usize = 256;
 
 pub struct NetEvaluator {
     l1: Linear,
@@ -28,27 +27,37 @@ impl NetEvaluator {
     /// Load weights from a safetensors file produced by the trainer.
     pub fn load(path: &str) -> candle_core::Result<Self> {
         let device = Device::Cpu;
-        let vb =
-            unsafe { VarBuilder::from_mmaped_safetensors(&[path], DType::F32, &device)? };
-        Ok(NetEvaluator {
-            l1: candle_nn::linear(FEATURE_LEN, HIDDEN, vb.pp("l1"))?,
-            l2: candle_nn::linear(HIDDEN, HIDDEN, vb.pp("l2"))?,
-            policy: candle_nn::linear(HIDDEN, ACTION_COUNT, vb.pp("policy"))?,
-            value: candle_nn::linear(HIDDEN, 1, vb.pp("value"))?,
-            device,
-        })
+        let tensors = safetensors::load(path, &device)?;
+        Self::from_tensors(tensors, device)
     }
 
     /// Construct directly from already-loaded bytes (for wasm, where there is no
     /// filesystem — the browser fetches the safetensors and hands over the buffer).
     pub fn from_buffer(bytes: &[u8]) -> candle_core::Result<Self> {
         let device = Device::Cpu;
-        let vb = VarBuilder::from_slice_safetensors(bytes, DType::F32, &device)?;
+        let tensors = safetensors::load_buffer(bytes, &device)?;
+        Self::from_tensors(tensors, device)
+    }
+
+    fn from_tensors(
+        mut tensors: HashMap<String, Tensor>,
+        device: Device,
+    ) -> candle_core::Result<Self> {
+        let hidden = hidden_width(&tensors)?;
+        check_weight(&tensors, "l1.weight", &[hidden, FEATURE_LEN])?;
+        check_bias(&tensors, "l1.bias", hidden)?;
+        check_weight(&tensors, "l2.weight", &[hidden, hidden])?;
+        check_bias(&tensors, "l2.bias", hidden)?;
+        check_weight(&tensors, "policy.weight", &[ACTION_COUNT, hidden])?;
+        check_bias(&tensors, "policy.bias", ACTION_COUNT)?;
+        check_weight(&tensors, "value.weight", &[1, hidden])?;
+        check_bias(&tensors, "value.bias", 1)?;
+
         Ok(NetEvaluator {
-            l1: candle_nn::linear(FEATURE_LEN, HIDDEN, vb.pp("l1"))?,
-            l2: candle_nn::linear(HIDDEN, HIDDEN, vb.pp("l2"))?,
-            policy: candle_nn::linear(HIDDEN, ACTION_COUNT, vb.pp("policy"))?,
-            value: candle_nn::linear(HIDDEN, 1, vb.pp("value"))?,
+            l1: take_linear(&mut tensors, "l1")?,
+            l2: take_linear(&mut tensors, "l2")?,
+            policy: take_linear(&mut tensors, "policy")?,
+            value: take_linear(&mut tensors, "value")?,
             device,
         })
     }
@@ -75,6 +84,52 @@ impl NetEvaluator {
         }
         Ok((value, priors))
     }
+}
+
+fn hidden_width(tensors: &HashMap<String, Tensor>) -> candle_core::Result<usize> {
+    let dims = tensor(tensors, "l1.weight")?.dims();
+    match dims {
+        [hidden, FEATURE_LEN] => Ok(*hidden),
+        other => bail!("l1.weight has invalid shape {other:?}; expected [hidden, {FEATURE_LEN}]"),
+    }
+}
+
+fn take_linear(tensors: &mut HashMap<String, Tensor>, prefix: &str) -> candle_core::Result<Linear> {
+    let weight = take_tensor(tensors, &format!("{prefix}.weight"))?;
+    let bias = take_tensor(tensors, &format!("{prefix}.bias"))?;
+    Ok(Linear::new(weight, Some(bias)))
+}
+
+fn take_tensor(tensors: &mut HashMap<String, Tensor>, name: &str) -> candle_core::Result<Tensor> {
+    tensors
+        .remove(name)
+        .ok_or_else(|| candle_core::Error::Msg(format!("missing tensor {name}")).bt())
+}
+
+fn tensor<'a>(tensors: &'a HashMap<String, Tensor>, name: &str) -> candle_core::Result<&'a Tensor> {
+    tensors
+        .get(name)
+        .ok_or_else(|| candle_core::Error::Msg(format!("missing tensor {name}")).bt())
+}
+
+fn check_weight(
+    tensors: &HashMap<String, Tensor>,
+    name: &str,
+    expected: &[usize],
+) -> candle_core::Result<()> {
+    let dims = tensor(tensors, name)?.dims();
+    if dims != expected {
+        bail!("{name} has invalid shape {dims:?}; expected {expected:?}");
+    }
+    Ok(())
+}
+
+fn check_bias(
+    tensors: &HashMap<String, Tensor>,
+    name: &str,
+    expected: usize,
+) -> candle_core::Result<()> {
+    check_weight(tensors, name, &[expected])
 }
 
 impl PolicyValue for NetEvaluator {

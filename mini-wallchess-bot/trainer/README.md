@@ -43,6 +43,8 @@ OPENING_GRAPH=../opening_graph.jsonl ./target/release/selfplay_data 200 200 ../s
 # 2. train (uv manages the env)
 cd ../trainer
 uv run train.py --data ../selfplay.jsonl --out ../wallnet.safetensors --epochs 20
+# smaller/faster candidate:
+uv run train.py --data ../selfplay.jsonl --out ../wallnet-h128.safetensors --epochs 20 --hidden 128
 
 # 3. sanity-check the net inside MCTS
 cd ../core
@@ -65,6 +67,9 @@ sensibly before spending compute on the next data round.
   states from `core/src/bin/opening_graph.rs` node records instead of uniform
   random opening plies. Use this to parallelize and rebalance hard opening
   branches.
+- `--hidden` controls the MLP width. The Rust `NetEvaluator` infers the width
+  from safetensors shapes, so candidates smaller than the default 256-hidden net
+  can be evaluated without a Rust/WASM architecture edit.
 - wasm wiring: `NetEvaluator::from_buffer` already takes raw safetensors bytes
   (no filesystem), so exposing a `wasm-bindgen` entry that accepts the fetched
   buffer + runs MCTS is the remaining browser integration step.

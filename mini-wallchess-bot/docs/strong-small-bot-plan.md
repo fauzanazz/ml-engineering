@@ -98,8 +98,9 @@ book hit.
 1. Expand endgame hints beyond no-wall states into low-wall decisive states.
 2. Use `OPENING_GRAPH` seeded self-play to generate balanced opening-branch data
    instead of relying only on uniform random plies.
-3. Add candidate model configs smaller/faster than the current 195k-param MLP
-   and measure policy/value loss against arena strength, not loss alone.
+3. Train smaller/faster `--hidden` candidates and measure policy/value loss
+   against arena strength, not loss alone. Rust now infers hidden width from
+   safetensors shapes, so these candidates can be evaluated directly.
 4. Integrate opening/endgame hints into net-MCTS selection.
 5. Run the full gate matrix and commit only candidates that improve measured
    strength without violating latency/size constraints.

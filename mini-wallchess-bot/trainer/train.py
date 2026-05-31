@@ -34,6 +34,7 @@ def main():
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--val-frac", type=float, default=0.1)
     ap.add_argument("--value-weight", type=float, default=1.0)
+    ap.add_argument("--hidden", type=int, default=256)
     args = ap.parse_args()
 
     ds = SelfPlayDataset(args.data)
@@ -45,7 +46,7 @@ def main():
     train_dl = DataLoader(train_ds, batch_size=args.batch, shuffle=True)
     val_dl = DataLoader(val_ds, batch_size=args.batch)
 
-    model = WallNet()
+    model = WallNet(hidden=args.hidden)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     for epoch in range(1, args.epochs + 1):
