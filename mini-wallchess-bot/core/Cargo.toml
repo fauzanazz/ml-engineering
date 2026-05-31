@@ -23,6 +23,15 @@ path = "src/bin/bestmove_net.rs"
 required-features = ["net"]
 
 [[bin]]
+name = "net_arena"
+path = "src/bin/net_arena.rs"
+required-features = ["net"]
+
+[[bin]]
+name = "opening_graph"
+path = "src/bin/opening_graph.rs"
+
+[[bin]]
 name = "selfplay"
 path = "src/bin/selfplay.rs"
 
