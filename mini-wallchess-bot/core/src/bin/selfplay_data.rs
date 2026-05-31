@@ -18,8 +18,8 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 
 use wallchess_core::{
-    action_index, encode, legal_moves, mirror_move, HeuristicPolicy, Mcts, MctsConfig, Move,
-    PolicyValue, Side, State,
+    action_index, distance_to_goal, encode, legal_moves, mirror_move, HeuristicPolicy, Mcts,
+    MctsConfig, Move, PolicyValue, Side, State,
 };
 
 /// One training sample, missing only the outcome until the game ends.
@@ -43,7 +43,9 @@ impl Rng {
     }
 }
 
-const MAX_PLIES: u32 = 200;
+const MAX_PLIES: u32 = 80; // cap games short and score the cap by race progress
+                           // (see `race_winner`), so stalling/wall-spam becomes a
+                           // loss, not a passive draw. Net learns wasted walls hurt.
 const TEMP_PLIES: u32 = 16; // sample proportionally this many plies, then argmax
 const OPENING_MIN: u32 = 2; // randomized opening: min unrecorded random plies
 const OPENING_MAX: u32 = 8; // ...max. Diversifies positions so games don't all
@@ -154,8 +156,10 @@ fn play_games<P: PolicyValue>(
             ply += 1;
         }
 
-        // Backfill outcome from each sample's own side-to-move POV.
-        let winner = state.winner;
+        // Backfill outcome from each sample's own side-to-move POV. A game that
+        // hit the ply cap with no natural winner is decided by race progress so
+        // passivity loses instead of drawing.
+        let winner = state.winner.or_else(|| race_winner(&state));
         for s in &samples {
             let z = match winner {
                 Some(win) if win == s.turn => 1.0f32,
@@ -180,6 +184,21 @@ fn play_games<P: PolicyValue>(
 
     w.flush().expect("flush");
     eprintln!("wrote {total_samples} samples to {out}");
+}
+
+/// Decide a capped (no natural winner) game by race progress: whoever is fewer
+/// BFS steps from their goal wins. Equal distance stays a true draw.
+fn race_winner(state: &State) -> Option<Side> {
+    let far = u16::MAX;
+    let d = |side: Side| {
+        distance_to_goal(state, state.pawn(side), side.goal_row()).unwrap_or(far)
+    };
+    let (ds, dn) = (d(Side::South), d(Side::North));
+    match ds.cmp(&dn) {
+        std::cmp::Ordering::Less => Some(Side::South),
+        std::cmp::Ordering::Greater => Some(Side::North),
+        std::cmp::Ordering::Equal => None,
+    }
 }
 
 fn sample_proportional(visits: &[(Move, u32)], total: u32, rng: &mut Rng) -> Move {

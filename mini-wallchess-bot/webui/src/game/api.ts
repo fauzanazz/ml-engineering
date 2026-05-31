@@ -42,12 +42,24 @@ function getNetBot(): Promise<NetBot> {
   return netBotReady
 }
 
+// Which engine picks the move. `undefined` keeps the legacy behavior: net when
+// `?net=1` is set, heuristic otherwise. Arena mode passes an explicit engine per
+// side so it can pit net vs heuristic regardless of the URL flag.
+export type BotEngine = 'heuristic' | 'net'
+
 // Bot move, same call shape as the old server function: `botMove({ data })`.
 // Validates the state at the boundary, then runs the Rust search in WASM,
 // falling back to the pure-TS engine if WASM is unavailable.
-export async function botMove({ data }: { data: unknown }): Promise<Move> {
+export async function botMove({
+  data,
+  engine,
+}: {
+  data: unknown
+  engine?: BotEngine
+}): Promise<Move> {
   const state = parseGameState(data)
-  if (netBotEnabled()) {
+  const useNet = engine === 'net' || (engine === undefined && netBotEnabled())
+  if (useNet) {
     try {
       const bot = await getNetBot()
       const { move } = bot.analyze(state, NET_SIMS)

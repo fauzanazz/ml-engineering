@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Bot, Users } from 'lucide-react'
+import { Bot, Swords, Users } from 'lucide-react'
 
 export const Route = createFileRoute('/play')({ component: Play })
 
@@ -15,6 +15,12 @@ const MODES = [
     icon: Users,
     title: 'vs Friend',
     body: 'Two players, one screen. Pass and play, turn by turn.',
+  },
+  {
+    mode: 'arena',
+    icon: Swords,
+    title: 'Arena',
+    body: 'Watch the trained net play the heuristic bot, move by move.',
   },
 ] as const
 

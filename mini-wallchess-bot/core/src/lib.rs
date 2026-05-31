@@ -21,7 +21,7 @@ pub use action::{action_index, index_to_move, ACTION_COUNT};
 pub use eval::{win_prob, Evaluator, Heuristic};
 pub use features::{encode, mirror_move, FEATURE_LEN};
 pub use mcts::{HeuristicPolicy, Mcts, MctsConfig, PolicyValue};
-pub use moves::{legal_moves, pawn_moves};
+pub use moves::{distance_to_goal, legal_moves, pawn_moves};
 pub use search::Search;
 pub use state::{Cell, Move, Orientation, Side, State, Wall};
 

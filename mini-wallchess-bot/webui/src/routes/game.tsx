@@ -13,29 +13,49 @@ import {
 import Board from '../components/Board'
 import HowToPlay from '../components/HowToPlay'
 import WinMeter from '../components/WinMeter'
-import { analyzePosition, botMove } from '../game/api'
+import { type BotEngine, analyzePosition, botMove } from '../game/api'
 import {
   type Cell,
   type GameState,
   type Orientation,
   type Side,
   type Wall,
+  GOAL_ROW,
   applyMove,
   canPlaceWall,
+  distanceToGoal,
   initialState,
   pawnMoves,
 } from '../game/engine'
 
-type Mode = 'bot' | 'friend'
+type Mode = 'bot' | 'friend' | 'arena'
 
 export const Route = createFileRoute('/game')({
   validateSearch: (search: Record<string, unknown>): { mode: Mode } => ({
-    mode: search.mode === 'friend' ? 'friend' : 'bot',
+    mode:
+      search.mode === 'friend'
+        ? 'friend'
+        : search.mode === 'arena'
+          ? 'arena'
+          : 'bot',
   }),
   component: Game,
 })
 
 const BOT_SIDE: Side = 'north'
+
+// Arena pits the trained net (south) against the heuristic (north) so you can
+// watch them play. Delay between auto-moves keeps it watchable.
+const ARENA_ENGINE: Record<Side, BotEngine> = { south: 'net', north: 'heuristic' }
+const ARENA_MOVE_DELAY_MS = 550
+// Stalling wall-wars never reach a goal; cap arena games and decide the cap by
+// race progress (closer pawn wins) so it always resolves instead of looping.
+const ARENA_PLY_CAP = 140
+function raceWinner(s: GameState): Side {
+  const ds = distanceToGoal(s.walls, s.pawns.south, GOAL_ROW.south)
+  const dn = distanceToGoal(s.walls, s.pawns.north, GOAL_ROW.north)
+  return ds <= dn ? 'south' : 'north'
+}
 
 function Game() {
   const { mode } = Route.useSearch()
@@ -49,6 +69,7 @@ function Game() {
   const [analyzing, setAnalyzing] = useState(false)
   const [movesMade, setMovesMade] = useState(0)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const plyRef = useRef(0)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -56,23 +77,38 @@ function Game() {
     return () => document.body.classList.remove('is-game')
   }, [])
 
-  const isHumanTurn = mode === 'friend' || state.turn !== BOT_SIDE
+  // Which sides move automatically: the bot in vs-bot, both in arena, none in friend.
+  const autoSides: Side[] =
+    mode === 'bot' ? [BOT_SIDE] : mode === 'arena' ? ['south', 'north'] : []
+  const isAutoTurn = !state.winner && autoSides.includes(state.turn)
+  const isHumanTurn = mode !== 'arena' && (mode === 'friend' || state.turn !== BOT_SIDE)
   const interactive = !state.winner && !thinking && isHumanTurn
   const wallsLeft = state.wallsLeft[state.turn]
 
-  // Bot turn (vs-bot only): ask the server function for a move, then apply it.
+  // Auto turn: ask the engine for a move, then apply it. In arena both sides are
+  // engines (net vs heuristic), paced by a short delay so it's watchable.
   useEffect(() => {
-    if (mode !== 'bot' || state.winner || state.turn !== BOT_SIDE) return
+    if (!isAutoTurn) return
+    // Arena: stop a never-ending wall-war and award the cap by race progress.
+    if (mode === 'arena' && plyRef.current >= ARENA_PLY_CAP) {
+      setState((s) => (s.winner ? s : { ...s, winner: raceWinner(s) }))
+      return
+    }
+    const turn = state.turn
     let cancelled = false
     setThinking(true)
     setBotError(null)
     ;(async () => {
       try {
-        const move = await botMove({ data: state })
+        if (mode === 'arena') {
+          await new Promise((r) => setTimeout(r, ARENA_MOVE_DELAY_MS))
+          if (cancelled) return
+        }
+        const engine = mode === 'arena' ? ARENA_ENGINE[turn] : undefined
+        const move = await botMove({ data: state, engine })
         if (!cancelled) {
-          setState((s) =>
-            s.turn === BOT_SIDE && !s.winner ? applyMove(s, move) : s,
-          )
+          setState((s) => (s.turn === turn && !s.winner ? applyMove(s, move) : s))
+          plyRef.current += 1
         }
       } catch (err) {
         console.error('bot move failed', err)
@@ -130,6 +166,7 @@ function Game() {
           if (interactive && actionMode === 'wall') setOrientation('v')
           break
         case 'r': case 'R':
+          plyRef.current = 0
           setState(initialState())
           setActionMode('move')
           setThinking(false)
@@ -179,6 +216,7 @@ function Game() {
   }
 
   function reset() {
+    plyRef.current = 0
     setState(initialState())
     setActionMode('move')
     setThinking(false)
@@ -194,12 +232,16 @@ function Game() {
   const sideLabel = (s: typeof state.turn) =>
     mode === 'bot'
       ? s === 'south' ? 'You' : 'Bot'
-      : s === 'south' ? 'Player 1' : 'Player 2'
+      : mode === 'arena'
+        ? s === 'south' ? 'Net' : 'Heuristic'
+        : s === 'south' ? 'Player 1' : 'Player 2'
+  const southIcon = mode === 'arena' ? Bot : Users
+  const northIcon = mode === 'friend' ? Users : Bot
 
   const status = state.winner
     ? `${sideLabel(state.winner)} wins!`
     : thinking
-      ? 'Bot thinking…'
+      ? mode === 'arena' ? `${sideLabel(state.turn)} thinking…` : 'Bot thinking…'
       : `${sideLabel(state.turn)} to move`
 
   return (
@@ -212,23 +254,23 @@ function Game() {
         <div className="hidden w-40 flex-shrink-0 flex-col gap-2 lg:flex">
           <PlayerCard
             side="north"
-            label={mode === 'bot' ? 'Bot' : 'Player 2'}
-            icon={mode === 'bot' ? Bot : Users}
+            label={sideLabel('north')}
+            icon={northIcon}
             walls={state.wallsLeft.north}
             active={state.turn === 'north' && !state.winner}
           />
           <div className="flex-1 min-h-0">
             <WinMeter
               south={southWin}
-              southLabel={mode === 'bot' ? 'You' : 'Player 1'}
-              northLabel={mode === 'bot' ? 'Bot' : 'Player 2'}
+              southLabel={sideLabel('south')}
+              northLabel={sideLabel('north')}
               loading={analyzing}
             />
           </div>
           <PlayerCard
             side="south"
-            label={mode === 'bot' ? 'You' : 'Player 1'}
-            icon={Users}
+            label={sideLabel('south')}
+            icon={southIcon}
             walls={state.wallsLeft.south}
             active={state.turn === 'south' && !state.winner}
           />
@@ -276,15 +318,15 @@ function Game() {
           <div className="flex flex-shrink-0 gap-2 lg:hidden">
             <PlayerCard
               side="north"
-              label={mode === 'bot' ? 'Bot' : 'Player 2'}
-              icon={mode === 'bot' ? Bot : Users}
+              label={sideLabel('north')}
+              icon={northIcon}
               walls={state.wallsLeft.north}
               active={state.turn === 'north' && !state.winner}
             />
             <PlayerCard
               side="south"
-              label={mode === 'bot' ? 'You' : 'Player 1'}
-              icon={Users}
+              label={sideLabel('south')}
+              icon={southIcon}
               walls={state.wallsLeft.south}
               active={state.turn === 'south' && !state.winner}
             />
@@ -377,9 +419,11 @@ function Game() {
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm">
           <div className="island-shell rise-in rounded-2xl p-6 text-center">
             <p className="display-title mb-3 text-2xl font-bold text-[var(--sea-ink)]">
-              {state.winner === 'south'
-                ? mode === 'bot' ? 'You win! 🎉' : 'Player 1 wins! 🎉'
-                : mode === 'bot' ? 'Bot wins.' : 'Player 2 wins! 🎉'}
+              {mode === 'arena'
+                ? `${sideLabel(state.winner)} wins! 🎉`
+                : state.winner === 'south'
+                  ? mode === 'bot' ? 'You win! 🎉' : 'Player 1 wins! 🎉'
+                  : mode === 'bot' ? 'Bot wins.' : 'Player 2 wins! 🎉'}
             </p>
             <button
               type="button"
