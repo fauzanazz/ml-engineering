@@ -7,8 +7,8 @@ use std::fs;
 use std::time::{Duration, Instant};
 
 use wallchess_core::{
-    distance_to_goal, eval::Heuristic, legal_moves, net::NetEvaluator, EndgameBook, Mcts,
-    MctsConfig, Move, Search, Side, State,
+    books::immediate_winning_move, distance_to_goal, eval::Heuristic, legal_moves,
+    net::NetEvaluator, EndgameBook, Mcts, MctsConfig, Move, Search, Side, State,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,6 +59,7 @@ struct MatchStats {
     natural: u32,
     race_scored: u32,
     plies: u32,
+    net_tactic_hits: u32,
     net_book_hits: u32,
     net_timing: Timing,
     heuristic_timing: Timing,
@@ -116,10 +117,10 @@ fn main() {
             let start = Instant::now();
             let mv = match player {
                 Player::Net => choose_net(&net, endgame_book.as_ref(), &state, sims)
-                    .inspect(|(_, source)| {
-                        if *source == MoveSource::Book {
-                            stats.net_book_hits += 1;
-                        }
+                    .inspect(|(_, source)| match source {
+                        MoveSource::Tactic => stats.net_tactic_hits += 1,
+                        MoveSource::Book => stats.net_book_hits += 1,
+                        MoveSource::Search => {}
                     })
                     .map(|(mv, _)| mv),
                 Player::Heuristic => choose_heuristic(&heuristic, &state, heuristic_depth),
@@ -160,10 +161,11 @@ fn main() {
         f64::from(stats.plies) / f64::from(games.max(1)),
     );
     println!(
-        "TIMING net avg={:.2}ms max={:.2}ms moves={} book_hits={}  heuristic avg={:.2}ms max={:.2}ms moves={}",
+        "TIMING net avg={:.2}ms max={:.2}ms moves={} tactic_hits={} book_hits={}  heuristic avg={:.2}ms max={:.2}ms moves={}",
         stats.net_timing.avg_ms(),
         stats.net_timing.max_ms(),
         stats.net_timing.moves,
+        stats.net_tactic_hits,
         stats.net_book_hits,
         stats.heuristic_timing.avg_ms(),
         stats.heuristic_timing.max_ms(),
@@ -177,6 +179,7 @@ fn parse_arg<T: std::str::FromStr>(arg: Option<String>, default: T) -> T {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum MoveSource {
+    Tactic,
     Book,
     Search,
 }
@@ -187,6 +190,9 @@ fn choose_net(
     state: &State,
     sims: u32,
 ) -> Option<(Move, MoveSource)> {
+    if let Some(mv) = immediate_winning_move(state) {
+        return Some((mv, MoveSource::Tactic));
+    }
     if let Some(mv) = endgame_book.and_then(|book| book.best_move(state)) {
         return Some((mv, MoveSource::Book));
     }

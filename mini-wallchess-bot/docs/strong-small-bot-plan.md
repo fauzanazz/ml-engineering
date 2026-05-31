@@ -89,7 +89,9 @@ before spending MCTS simulations.
 ENDGAME_BOOK=/path/to/endgame_hints.jsonl cargo run --release --features net --bin net_arena -- ../webui/public/wallnet.safetensors 20 200 2 140 0
 ```
 
-The arena reports `book_hits` in the net timing line.
+The arena reports `tactic_hits` and `book_hits` in the net timing line. The
+tactical path is an exact one-ply goal-row move and does not require a JSONL
+book hit.
 
 ## Next Engineering Steps
 
