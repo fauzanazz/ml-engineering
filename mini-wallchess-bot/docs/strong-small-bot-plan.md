@@ -85,9 +85,9 @@ before spending MCTS simulations.
 
 ## Next Engineering Steps
 
-1. Add compact readers for opening graph and endgame hints.
-2. Teach `selfplay_data` to seed games from opening graph nodes, not only random
-   plies, so training covers hard opening branches in parallel.
+1. Add a compact reader for endgame hints.
+2. Use `OPENING_GRAPH` seeded self-play to generate balanced opening-branch data
+   instead of relying only on uniform random plies.
 3. Add candidate model configs smaller/faster than the current 195k-param MLP
    and measure policy/value loss against arena strength, not loss alone.
 4. Integrate opening/endgame hints into net-MCTS selection.

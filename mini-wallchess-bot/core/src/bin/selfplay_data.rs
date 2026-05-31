@@ -14,12 +14,12 @@
 //! (+1 win, -1 loss, 0 draw) — the value-head target. `pi` is the visit-count
 //! distribution — the policy-head target.
 
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 
 use wallchess_core::{
-    action_index, distance_to_goal, encode, legal_moves, mirror_move, HeuristicPolicy, Mcts,
-    MctsConfig, Move, PolicyValue, Side, State,
+    action_index, distance_to_goal, encode, legal_moves, mirror_move, Cell, HeuristicPolicy, Mcts,
+    MctsConfig, Move, Orientation, PolicyValue, Side, State, Wall,
 };
 
 /// One training sample, missing only the outcome until the game ends.
@@ -63,6 +63,7 @@ fn main() {
         sims,
         ..MctsConfig::default()
     };
+    let opening_states = load_opening_states();
     let file = File::create(&out).expect("create output file");
     let mut w = BufWriter::new(file);
 
@@ -71,7 +72,7 @@ fn main() {
         Some(path) => {
             let net = wallchess_core::net::NetEvaluator::load(&path).expect("load net weights");
             eprintln!("self-play policy: net {path}");
-            play_games(&net, games, cfg, &mut w, &out);
+            play_games(&net, games, cfg, &opening_states, &mut w, &out);
         }
         #[cfg(not(feature = "net"))]
         Some(_) => {
@@ -80,7 +81,14 @@ fn main() {
         }
         None => {
             eprintln!("self-play policy: heuristic bootstrap");
-            play_games(&HeuristicPolicy::default(), games, cfg, &mut w, &out);
+            play_games(
+                &HeuristicPolicy::default(),
+                games,
+                cfg,
+                &opening_states,
+                &mut w,
+                &out,
+            );
         }
     }
 }
@@ -89,6 +97,7 @@ fn play_games<P: PolicyValue>(
     policy: &P,
     games: u32,
     cfg: MctsConfig,
+    opening_states: &[State],
     w: &mut BufWriter<File>,
     out: &str,
 ) {
@@ -103,24 +112,26 @@ fn play_games<P: PolicyValue>(
 
     for g in 0..games {
         let mut mcts = Mcts::new(policy, cfg);
-        let mut state = State::initial();
+        let mut state = pick_start_state(opening_states, &mut rng);
         let mut samples: Vec<Sample> = Vec::new();
         let mut ply = 0u32;
 
-        // Randomized opening: play k uniform-random legal plies (unrecorded).
-        let span = (OPENING_MAX - OPENING_MIN + 1) as u64;
-        let opening = OPENING_MIN + (rng.next() % span) as u32;
-        for _ in 0..opening {
-            if state.winner.is_some() {
-                break;
+        if opening_states.is_empty() {
+            // Randomized opening: play k uniform-random legal plies (unrecorded).
+            let span = (OPENING_MAX - OPENING_MIN + 1) as u64;
+            let opening = OPENING_MIN + (rng.next() % span) as u32;
+            for _ in 0..opening {
+                if state.winner.is_some() {
+                    break;
+                }
+                let moves = legal_moves(&state);
+                if moves.is_empty() {
+                    break;
+                }
+                let pick = (rng.next() % moves.len() as u64) as usize;
+                state = state.apply(moves[pick]);
+                ply += 1;
             }
-            let moves = legal_moves(&state);
-            if moves.is_empty() {
-                break;
-            }
-            let pick = (rng.next() % moves.len() as u64) as usize;
-            state = state.apply(moves[pick]);
-            ply += 1;
         }
 
         while state.winner.is_none() && ply < MAX_PLIES {
@@ -150,7 +161,11 @@ fn play_games<P: PolicyValue>(
             let chosen = if ply < TEMP_PLIES {
                 sample_proportional(&visits, total, &mut rng)
             } else {
-                visits.iter().max_by_key(|(_, n)| *n).map(|(m, _)| *m).unwrap()
+                visits
+                    .iter()
+                    .max_by_key(|(_, n)| *n)
+                    .map(|(m, _)| *m)
+                    .unwrap()
             };
             state = state.apply(chosen);
             ply += 1;
@@ -186,13 +201,127 @@ fn play_games<P: PolicyValue>(
     eprintln!("wrote {total_samples} samples to {out}");
 }
 
+fn pick_start_state(opening_states: &[State], rng: &mut Rng) -> State {
+    if opening_states.is_empty() {
+        return State::initial();
+    }
+    let pick = (rng.next() % opening_states.len() as u64) as usize;
+    opening_states[pick]
+}
+
+fn load_opening_states() -> Vec<State> {
+    let Ok(path) = std::env::var("OPENING_GRAPH") else {
+        return Vec::new();
+    };
+    let text = fs::read_to_string(&path).expect("read OPENING_GRAPH");
+    let states: Vec<State> = text
+        .lines()
+        .filter(|line| line.contains("\"type\":\"node\""))
+        .filter_map(extract_key)
+        .filter_map(parse_state_key)
+        .filter(|state| state.winner.is_none())
+        .collect();
+    eprintln!("loaded {} opening graph states from {path}", states.len());
+    states
+}
+
+fn extract_key(line: &str) -> Option<&str> {
+    let start = line.find("\"key\":\"")? + "\"key\":\"".len();
+    let rest = &line[start..];
+    let end = rest.find('"')?;
+    Some(&rest[..end])
+}
+
+fn parse_state_key(key: &str) -> Option<State> {
+    let mut parts = key.split('|');
+    let turn = match parts.next()? {
+        "s" => Side::South,
+        "n" => Side::North,
+        _ => return None,
+    };
+    let south = parse_cell(parts.next()?)?;
+    let north = parse_cell(parts.next()?)?;
+    let walls_left = parse_walls_left(parts.next()?)?;
+    let walls = parts.next().unwrap_or("");
+    let mut state = State {
+        pawns: [south, north],
+        h_walls: 0,
+        v_walls: 0,
+        walls_left,
+        turn,
+        winner: None,
+    };
+    for wall in walls.split(',').filter(|w| !w.is_empty()) {
+        add_wall(&mut state, parse_wall(wall)?);
+    }
+    state.winner = if state.pawn(Side::South).r == Side::South.goal_row() {
+        Some(Side::South)
+    } else if state.pawn(Side::North).r == Side::North.goal_row() {
+        Some(Side::North)
+    } else {
+        None
+    };
+    Some(state)
+}
+
+fn parse_cell(raw: &str) -> Option<Cell> {
+    let bytes = raw.as_bytes();
+    if bytes.len() != 2 {
+        return None;
+    }
+    let r = digit(bytes[0])?;
+    let c = digit(bytes[1])?;
+    Some(Cell::new(r, c))
+}
+
+fn parse_walls_left(raw: &str) -> Option<[u8; 2]> {
+    match raw.len() {
+        2 => Some([digit(raw.as_bytes()[0])?, digit(raw.as_bytes()[1])?]),
+        3 if raw.starts_with("10") => Some([10, digit(raw.as_bytes()[2])?]),
+        3 if raw.ends_with("10") => Some([digit(raw.as_bytes()[0])?, 10]),
+        4 if raw == "1010" => Some([10, 10]),
+        _ => None,
+    }
+}
+
+fn parse_wall(raw: &str) -> Option<Wall> {
+    let bytes = raw.as_bytes();
+    if bytes.len() != 3 {
+        return None;
+    }
+    let o = match bytes[0] {
+        b'h' => Orientation::H,
+        b'v' => Orientation::V,
+        _ => return None,
+    };
+    Some(Wall {
+        r: digit(bytes[1])?,
+        c: digit(bytes[2])?,
+        o,
+    })
+}
+
+fn digit(byte: u8) -> Option<u8> {
+    if byte.is_ascii_digit() {
+        Some(byte - b'0')
+    } else {
+        None
+    }
+}
+
+fn add_wall(state: &mut State, wall: Wall) {
+    let bit = 1u64 << (((wall.r - 1) * 8 + (wall.c - 1)) as u64);
+    match wall.o {
+        Orientation::H => state.h_walls |= bit,
+        Orientation::V => state.v_walls |= bit,
+    }
+}
+
 /// Decide a capped (no natural winner) game by race progress: whoever is fewer
 /// BFS steps from their goal wins. Equal distance stays a true draw.
 fn race_winner(state: &State) -> Option<Side> {
     let far = u16::MAX;
-    let d = |side: Side| {
-        distance_to_goal(state, state.pawn(side), side.goal_row()).unwrap_or(far)
-    };
+    let d = |side: Side| distance_to_goal(state, state.pawn(side), side.goal_row()).unwrap_or(far);
     let (ds, dn) = (d(Side::South), d(Side::North));
     match ds.cmp(&dn) {
         std::cmp::Ordering::Less => Some(Side::South),
@@ -225,4 +354,28 @@ fn write_record(w: &mut impl Write, z: f32, features: &[f32], policy: &[(usize, 
         pi.join(",")
     )
     .expect("write record");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_initial_state_key() {
+        let state = parse_state_key("s|15|95|1010|").expect("parse initial");
+        assert_eq!(state.turn, Side::South);
+        assert_eq!(state.pawn(Side::South), Cell::new(1, 5));
+        assert_eq!(state.pawn(Side::North), Cell::new(9, 5));
+        assert_eq!(state.walls_left, [10, 10]);
+        assert_eq!(state.winner, None);
+    }
+
+    #[test]
+    fn parses_walls_and_single_digit_wall_counts() {
+        let state = parse_state_key("n|15|95|910|h11,v22").expect("parse walls");
+        assert_eq!(state.turn, Side::North);
+        assert_eq!(state.walls_left, [9, 10]);
+        assert!(state.has_h_wall(1, 1));
+        assert!(state.has_v_wall(2, 2));
+    }
 }

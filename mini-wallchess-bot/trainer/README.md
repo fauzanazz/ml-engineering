@@ -37,6 +37,8 @@ cargo build --release --features net --bin bestmove_net
 ./target/release/selfplay_data 200 200 ../selfplay.jsonl
 #    iter ≥1 — drive self-play with the previous net:
 ./target/release/selfplay_data 200 200 ../selfplay.jsonl ../wallnet.safetensors
+#    optional — seed games from a precomputed opening graph:
+OPENING_GRAPH=../opening_graph.jsonl ./target/release/selfplay_data 200 200 ../selfplay.jsonl
 
 # 2. train (uv manages the env)
 cd ../trainer
@@ -59,6 +61,10 @@ sensibly before spending compute on the next data round.
   (games start drawing / both sides win) — that is the loop working.
 - `win_prob`'s `k` (display calibration in `core/src/eval.rs`) can be fit to the
   `z` outcomes here once enough games accumulate.
+- `OPENING_GRAPH=/path/to/opening_graph.jsonl` makes `selfplay_data` sample start
+  states from `core/src/bin/opening_graph.rs` node records instead of uniform
+  random opening plies. Use this to parallelize and rebalance hard opening
+  branches.
 - wasm wiring: `NetEvaluator::from_buffer` already takes raw safetensors bytes
   (no filesystem), so exposing a `wasm-bindgen` entry that accepts the fetched
   buffer + runs MCTS is the remaining browser integration step.
