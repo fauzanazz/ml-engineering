@@ -1,0 +1,9 @@
+{
+  "files": ["src/routes/__root.tsx"],
+  "insertBefore": "<Scripts />",
+  "commentSyntax": "jsx",
+  "framework": "tanstack-start",
+  "devCommand": "bun run dev",
+  "devPort": 3000,
+  "cspChecked": true
+}

@@ -1,0 +1,48 @@
+[package]
+name = "wallchess-core"
+version = "0.1.0"
+edition = "2021"
+description = "Wall Chess (Quoridor) engine + search core"
+
+[lib]
+name = "wallchess_core"
+path = "src/lib.rs"
+
+[features]
+# Trained-net inference via candle. Off by default so the engine + wasm graph
+# build without the heavy ML dependency.
+net = ["dep:candle-core", "dep:candle-nn"]
+
+[dependencies]
+candle-core = { version = "0.8", optional = true }
+candle-nn = { version = "0.8", optional = true }
+
+[[bin]]
+name = "bestmove_net"
+path = "src/bin/bestmove_net.rs"
+required-features = ["net"]
+
+[[bin]]
+name = "selfplay"
+path = "src/bin/selfplay.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[[bin]]
+name = "diag"
+path = "src/bin/diag.rs"
+
+[[bin]]
+name = "arena"
+path = "src/bin/arena.rs"
+
+[[bin]]
+name = "graphcount"
+path = "src/bin/graphcount.rs"
+
+[[bin]]
+name = "selfplay_data"
+path = "src/bin/selfplay_data.rs"

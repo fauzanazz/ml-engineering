@@ -1,0 +1,214 @@
+
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --navbar-h: 48px;
+  --sea-ink: #1a1510;
+  --sea-ink-soft: #5a524a;
+  --lagoon: #c4956a;
+  --lagoon-deep: #7a4f2c;
+  --palm: #5c3820;
+  --sand: #f5f0eb;
+  --foam: #fafaf8;
+  --surface: rgba(255, 255, 255, 0.80);
+  --surface-strong: rgba(255, 255, 255, 0.96);
+  --line: rgba(26, 21, 16, 0.10);
+  --kicker: rgba(92, 56, 32, 0.85);
+  --bg-base: #ffffff;
+  --header-bg: rgba(255, 255, 255, 0.92);
+  --chip-bg: rgba(255, 255, 255, 0.90);
+  --chip-line: rgba(26, 21, 16, 0.12);
+  --link-bg-hover: rgba(245, 240, 235, 0.80);
+  --btn-primary-bg: #1a1510;
+  --btn-primary-fg: #ffffff;
+  --accent-text: #7a4f2c;
+  --accent-border: rgba(122, 79, 44, 0.25);
+  --danger: #8b2424;
+  --board-light: #f5f0eb;
+  --board-dark: #d4c9be;
+  --board-frame: #1a1510;
+  --board-goal: rgba(196, 149, 106, 0.22);
+  --pawn-north: #c47d2f;
+  --overlay: rgba(26, 21, 16, 0.42);
+  --icon-bg: rgba(196, 149, 106, 0.10);
+  --icon-bg-hover: rgba(196, 149, 106, 0.18);
+  --selection: rgba(196, 149, 106, 0.24);
+  --shadow-chip: 0 2px 8px rgba(26, 21, 16, 0.06);
+  --shadow-btn: 0 8px 24px rgba(26, 21, 16, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body.is-game {
+  overflow: hidden;
+  height: 100dvh;
+}
+
+body.is-game footer {
+  display: none;
+}
+
+body {
+  margin: 0;
+  color: var(--sea-ink);
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--lagoon-deep);
+  text-decoration-color: rgba(122, 79, 44, 0.35);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--palm);
+}
+
+code {
+  font-size: 0.9em;
+  border: 1px solid var(--line);
+  background: var(--sand);
+  border-radius: 7px;
+  padding: 2px 7px;
+}
+
+pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.page-wrap {
+  width: min(1080px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.display-title {
+  font-family: "Fraunces", Georgia, serif;
+}
+
+.island-shell {
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  box-shadow:
+    0 2px 12px rgba(26, 21, 16, 0.06),
+    0 1px 3px rgba(26, 21, 16, 0.04);
+}
+
+.feature-card {
+  background: var(--surface-strong);
+  box-shadow: 0 1px 4px rgba(26, 21, 16, 0.05);
+}
+
+.feature-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(26, 21, 16, 0.22);
+}
+
+button,
+.island-shell,
+a {
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.island-kicker {
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.69rem;
+  color: var(--kicker);
+}
+
+.nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--sea-ink-soft);
+}
+
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -6px;
+  width: 100%;
+  height: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: var(--lagoon-deep);
+  transition: transform 170ms ease;
+}
+
+.nav-link:hover,
+.nav-link.is-active {
+  color: var(--sea-ink);
+}
+
+.nav-link:hover::after,
+.nav-link.is-active::after {
+  transform: scaleX(1);
+}
+
+@media (max-width: 640px) {
+  .nav-link::after {
+    bottom: -4px;
+  }
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  background: var(--header-bg);
+}
+
+.rise-in {
+  animation: rise-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,6 @@
+# getrandom 0.3 needs an explicit backend selection for wasm32-unknown-unknown.
+# This cfg routes it to the browser crypto API (the `wasm_js` feature on the
+# getrandom dep provides the implementation). Only relevant for the `net` build;
+# harmless for the default bundle, which pulls no getrandom.
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

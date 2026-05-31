@@ -1,0 +1,29 @@
+[package]
+name = "wallchess-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WASM bridge: browser bot powered by the Rust wallchess-core engine"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Trained-net bot via candle. Off by default so the standard graph/engine wasm
+# bundle stays small and dependency-light.
+net = ["wallchess-core/net", "dep:getrandom"]
+
+[dependencies]
+wallchess-core = { path = "../core" }
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+# candle's rng transitively needs a wasm getrandom backend; the `wasm_js` feature
+# plus the cfg in .cargo/config.toml wires it up. Only pulled with `net`.
+getrandom = { version = "0.3", features = ["wasm_js"], optional = true }
+
+# Optimize for speed, not size — the engine search is CPU-bound and runs in the
+# browser, so a slightly larger .wasm is worth the faster graph generation.
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

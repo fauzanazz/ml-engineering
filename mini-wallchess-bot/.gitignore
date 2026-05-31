@@ -1,0 +1,14 @@
+# Rust
+/core/target/
+/wasm/target/
+
+# Node / web
+node_modules/
+/webui/dist/
+/webui/.vite/
+
+# Self-play data / training scratch
+*.jsonl
+
+# OS
+.DS_Store

@@ -1,0 +1,16 @@
+{
+  "name": "wallchess-wasm",
+  "type": "module",
+  "description": "WASM bridge: browser bot powered by the Rust wallchess-core engine",
+  "version": "0.1.0",
+  "files": [
+    "wallchess_wasm_bg.wasm",
+    "wallchess_wasm.js",
+    "wallchess_wasm.d.ts"
+  ],
+  "main": "wallchess_wasm.js",
+  "types": "wallchess_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

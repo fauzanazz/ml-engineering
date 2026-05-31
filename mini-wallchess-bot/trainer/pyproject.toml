@@ -1,0 +1,14 @@
+[project]
+name = "wallchess-trainer"
+version = "0.1.0"
+description = "Value+policy net trainer for the Wall Chess MCTS self-play loop"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2",
+    "safetensors>=0.4",
+    "numpy>=1.26",
+    "packaging>=23",
+]
+
+[tool.uv]
+package = false

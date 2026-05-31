@@ -1,0 +1,209 @@
+//! Self-play data generator. Plays MCTS-vs-MCTS games and writes one JSONL
+//! record per move: `{"z": outcome, "f": [features], "pi": [[action, prob], ...]}`
+//! all in the side-to-move me-frame, ready for the Python trainer.
+//!
+//! Usage: selfplay_data [games] [sims] [out.jsonl] [weights.safetensors]
+//!   games    number of self-play games          (default 50)
+//!   sims     MCTS simulations per move           (default 160)
+//!   out      output path                         (default selfplay.jsonl)
+//!   weights  optional net (needs `--features net`); omit to use the heuristic
+//!            bootstrap. Passing the previous iteration's weights here is how the
+//!            self-play loop compounds: net -> data -> train -> better net.
+//!
+//! `z` is the final outcome from the recorded state's side-to-move POV
+//! (+1 win, -1 loss, 0 draw) — the value-head target. `pi` is the visit-count
+//! distribution — the policy-head target.
+
+use std::fs::File;
+use std::io::{BufWriter, Write};
+
+use wallchess_core::{
+    action_index, encode, legal_moves, mirror_move, HeuristicPolicy, Mcts, MctsConfig, Move,
+    PolicyValue, Side, State,
+};
+
+/// One training sample, missing only the outcome until the game ends.
+struct Sample {
+    features: Vec<f32>,
+    policy: Vec<(usize, f32)>, // (me-frame action index, probability)
+    turn: Side,
+}
+
+struct Rng(u64);
+impl Rng {
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+    fn unit(&mut self) -> f32 {
+        // 24 random bits -> [0,1)
+        (self.next() >> 40) as f32 / (1u64 << 24) as f32
+    }
+}
+
+const MAX_PLIES: u32 = 200;
+const TEMP_PLIES: u32 = 16; // sample proportionally this many plies, then argmax
+const OPENING_MIN: u32 = 2; // randomized opening: min unrecorded random plies
+const OPENING_MAX: u32 = 8; // ...max. Diversifies positions so games don't all
+                            // collapse to the same South rush -> value head sees
+                            // both sides win, learns the board not the turn bit.
+
+fn main() {
+    let mut a = std::env::args().skip(1);
+    let games: u32 = a.next().and_then(|s| s.parse().ok()).unwrap_or(50);
+    let sims: u32 = a.next().and_then(|s| s.parse().ok()).unwrap_or(160);
+    let out = a.next().unwrap_or_else(|| "selfplay.jsonl".to_string());
+    let weights = a.next();
+
+    let cfg = MctsConfig {
+        sims,
+        ..MctsConfig::default()
+    };
+    let file = File::create(&out).expect("create output file");
+    let mut w = BufWriter::new(file);
+
+    match weights {
+        #[cfg(feature = "net")]
+        Some(path) => {
+            let net = wallchess_core::net::NetEvaluator::load(&path).expect("load net weights");
+            eprintln!("self-play policy: net {path}");
+            play_games(&net, games, cfg, &mut w, &out);
+        }
+        #[cfg(not(feature = "net"))]
+        Some(_) => {
+            eprintln!("weights given but built without `--features net`; rebuild to use a net");
+            std::process::exit(2);
+        }
+        None => {
+            eprintln!("self-play policy: heuristic bootstrap");
+            play_games(&HeuristicPolicy::default(), games, cfg, &mut w, &out);
+        }
+    }
+}
+
+fn play_games<P: PolicyValue>(
+    policy: &P,
+    games: u32,
+    cfg: MctsConfig,
+    w: &mut BufWriter<File>,
+    out: &str,
+) {
+    // Per-shard seed via env so parallel processes don't replay identical games.
+    let seed = std::env::var("SELFPLAY_SEED")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|s| *s != 0) // xorshift is stuck at 0
+        .unwrap_or(0x1234_5678_9abc_def0);
+    let mut rng = Rng(seed);
+    let mut total_samples = 0u64;
+
+    for g in 0..games {
+        let mut mcts = Mcts::new(policy, cfg);
+        let mut state = State::initial();
+        let mut samples: Vec<Sample> = Vec::new();
+        let mut ply = 0u32;
+
+        // Randomized opening: play k uniform-random legal plies (unrecorded).
+        let span = (OPENING_MAX - OPENING_MIN + 1) as u64;
+        let opening = OPENING_MIN + (rng.next() % span) as u32;
+        for _ in 0..opening {
+            if state.winner.is_some() {
+                break;
+            }
+            let moves = legal_moves(&state);
+            if moves.is_empty() {
+                break;
+            }
+            let pick = (rng.next() % moves.len() as u64) as usize;
+            state = state.apply(moves[pick]);
+            ply += 1;
+        }
+
+        while state.winner.is_none() && ply < MAX_PLIES {
+            let visits = mcts.run(&state);
+            let total: u32 = visits.iter().map(|(_, n)| n).sum();
+            if total == 0 {
+                break;
+            }
+
+            // Policy target: visit counts -> probabilities, in the me-frame.
+            let policy_target: Vec<(usize, f32)> = visits
+                .iter()
+                .filter(|(_, n)| *n > 0)
+                .map(|(mv, n)| {
+                    let idx = action_index(mirror_move(state.turn, *mv));
+                    (idx, *n as f32 / total as f32)
+                })
+                .collect();
+            samples.push(Sample {
+                features: encode(&state),
+                policy: policy_target,
+                turn: state.turn,
+            });
+
+            // Move selection: proportional to visits early (exploration), then
+            // greedily pick the most-visited move.
+            let chosen = if ply < TEMP_PLIES {
+                sample_proportional(&visits, total, &mut rng)
+            } else {
+                visits.iter().max_by_key(|(_, n)| *n).map(|(m, _)| *m).unwrap()
+            };
+            state = state.apply(chosen);
+            ply += 1;
+        }
+
+        // Backfill outcome from each sample's own side-to-move POV.
+        let winner = state.winner;
+        for s in &samples {
+            let z = match winner {
+                Some(win) if win == s.turn => 1.0f32,
+                Some(_) => -1.0,
+                None => 0.0,
+            };
+            write_record(w, z, &s.features, &s.policy);
+            total_samples += 1;
+        }
+
+        let result = match winner {
+            Some(Side::South) => "S",
+            Some(Side::North) => "N",
+            None => "draw",
+        };
+        eprintln!(
+            "game {:>4}/{games}  plies {ply:>3}  result {result}  samples {}",
+            g + 1,
+            samples.len()
+        );
+    }
+
+    w.flush().expect("flush");
+    eprintln!("wrote {total_samples} samples to {out}");
+}
+
+fn sample_proportional(visits: &[(Move, u32)], total: u32, rng: &mut Rng) -> Move {
+    let mut target = rng.unit() * total as f32;
+    for (mv, n) in visits {
+        target -= *n as f32;
+        if target <= 0.0 {
+            return *mv;
+        }
+    }
+    visits.last().map(|(m, _)| *m).unwrap()
+}
+
+fn write_record(w: &mut impl Write, z: f32, features: &[f32], policy: &[(usize, f32)]) {
+    let f: Vec<String> = features.iter().map(|x| format!("{x:.4}")).collect();
+    let pi: Vec<String> = policy
+        .iter()
+        .map(|(i, p)| format!("[{i},{p:.5}]"))
+        .collect();
+    writeln!(
+        w,
+        "{{\"z\":{z:.1},\"f\":[{}],\"pi\":[{}]}}",
+        f.join(","),
+        pi.join(",")
+    )
+    .expect("write record");
+}
