@@ -31,6 +31,7 @@ cd core
 cargo build --release --bin selfplay_data                 # heuristic bootstrap
 cargo build --release --bin expert_data                   # fast alpha-beta traces
 cargo build --release --bin search_data                   # supervised search labels
+cargo build --release --bin counter_book                  # compact anti-heuristic book
 cargo build --release --features net --bin selfplay_data   # net-driven (iter ≥1)
 cargo build --release --features net --bin bestmove_net
 
@@ -49,6 +50,9 @@ OPENING_GRAPH=../opening_graph.jsonl ./target/release/expert_data 100 2 ../exper
 
 #    stronger local teacher labels over pruned candidate moves:
 OPENING_GRAPH=../opening_graph.jsonl ./target/release/search_data 1000 3 ../search-depth3.jsonl 0 350 70 8
+
+#    compact opening/counter book against the heuristic arena opponent:
+./target/release/counter_book ../webui/public/counter-book.jsonl 4 5 2 140
 
 # 2. train (uv manages the env)
 cd ../trainer
@@ -85,6 +89,9 @@ sensibly before spending compute on the next data round.
 - `search_data` emits supervised labels from a stronger search over a pruned
   candidate set. It is much cheaper than scoring every legal wall at depth 3+,
   but still should be sharded with `SEARCH_DATA_SEED` for larger runs.
+- `counter_book` stores side-to-move book actions as `state_key -> action_index`
+  JSONL. Runtime lookup happens before net MCTS, keeping the strong opening line
+  effectively free; `net_arena` reads the same format via `MOVE_BOOK=...`.
 - `train.py --data` accepts multiple JSONL files and concatenates them in memory,
   so shards can be mixed without creating temporary merged files.
 - `--hidden` controls the MLP width. The Rust `NetEvaluator` infers the width

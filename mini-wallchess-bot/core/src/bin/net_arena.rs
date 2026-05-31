@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use wallchess_core::{
     books::immediate_winning_move, distance_to_goal, eval::Heuristic, legal_moves,
-    net::NetEvaluator, EndgameBook, Mcts, MctsConfig, Move, Search, Side, State,
+    net::NetEvaluator, EndgameBook, Mcts, MctsConfig, Move, MoveBook, Search, Side, State,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -94,6 +94,7 @@ fn main() {
     let opening_plies: u32 = parse_arg(args.next(), 0);
 
     let net = NetEvaluator::load(&weights).expect("load net weights");
+    let move_book = load_move_book();
     let endgame_book = load_endgame_book();
     let heuristic = Heuristic::default();
     let mut rng = Rng(0x51f1_7e5d_9a11_2026);
@@ -118,7 +119,13 @@ fn main() {
             };
             let start = Instant::now();
             let (mv, source) = match player {
-                Player::Net => match choose_net(&net, endgame_book.as_ref(), &state, sims) {
+                Player::Net => match choose_net(
+                    &net,
+                    move_book.as_ref(),
+                    endgame_book.as_ref(),
+                    &state,
+                    sims,
+                ) {
                     Some((mv, source)) => {
                         match source {
                             MoveSource::Tactic => stats.net_tactic_hits += 1,
@@ -201,12 +208,16 @@ enum MoveSource {
 
 fn choose_net(
     net: &NetEvaluator,
+    move_book: Option<&MoveBook>,
     endgame_book: Option<&EndgameBook>,
     state: &State,
     sims: u32,
 ) -> Option<(Move, MoveSource)> {
     if let Some(mv) = immediate_winning_move(state) {
         return Some((mv, MoveSource::Tactic));
+    }
+    if let Some(mv) = move_book.and_then(|book| book.best_move(state)) {
+        return Some((mv, MoveSource::Book));
     }
     if let Some(mv) = endgame_book.and_then(|book| book.best_move(state)) {
         return Some((mv, MoveSource::Book));
@@ -295,6 +306,14 @@ fn load_endgame_book() -> Option<EndgameBook> {
     let text = fs::read_to_string(&path).expect("read ENDGAME_BOOK");
     let book = EndgameBook::from_jsonl(&text);
     eprintln!("loaded {} endgame hints from {path}", book.len());
+    Some(book)
+}
+
+fn load_move_book() -> Option<MoveBook> {
+    let path = std::env::var("MOVE_BOOK").ok()?;
+    let text = fs::read_to_string(&path).expect("read MOVE_BOOK");
+    let book = MoveBook::from_jsonl(&text);
+    eprintln!("loaded {} move-book entries from {path}", book.len());
     Some(book)
 }
 

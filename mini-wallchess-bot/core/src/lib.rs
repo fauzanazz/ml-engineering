@@ -19,7 +19,7 @@ pub mod search;
 pub mod state;
 
 pub use action::{action_index, index_to_move, ACTION_COUNT};
-pub use books::EndgameBook;
+pub use books::{EndgameBook, MoveBook};
 pub use eval::{win_prob, Evaluator, Heuristic};
 pub use features::{encode, mirror_move, FEATURE_LEN};
 pub use mcts::{HeuristicPolicy, Mcts, MctsConfig, PolicyValue};

@@ -1,7 +1,13 @@
 // Wall Chess bot API. The move is chosen by the Rust engine compiled to WASM
 // (src/wasm), loaded lazily in the browser — no server round-trip. The pure-TS
 // engine (./bot) stays as a fallback if the WASM module fails to load.
-import type { GameState, Move } from './engine'
+import {
+  type GameState,
+  type Move,
+  type Side,
+  isLegalMove,
+  stateKey,
+} from './engine'
 import { chooseMove } from './bot'
 import { parseGameState } from './validate'
 
@@ -29,8 +35,10 @@ function loadWasm(): Promise<WasmModule> {
 // alpha-beta stays the default; the net is lazy-loaded once and any failure
 // falls back to the heuristic path below.
 const NET_WEIGHTS_URL = '/wallnet.safetensors'
+const MOVE_BOOK_URL = '/counter-book.jsonl'
 const NET_SIMS = 200
 let netBotReady: Promise<NetBot> | null = null
+let moveBookReady: Promise<Map<string, number>> | null = null
 function netBotEnabled(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -40,6 +48,10 @@ function netBotEnabled(): boolean {
 function getNetBot(): Promise<NetBot> {
   if (!netBotReady) netBotReady = loadNetBot(NET_WEIGHTS_URL)
   return netBotReady
+}
+function getMoveBook(): Promise<Map<string, number>> {
+  if (!moveBookReady) moveBookReady = loadMoveBook(MOVE_BOOK_URL)
+  return moveBookReady
 }
 
 // Which engine picks the move. `undefined` keeps the legacy behavior: net when
@@ -61,6 +73,11 @@ export async function botMove({
   const useNet = engine === 'net' || (engine === undefined && netBotEnabled())
   if (useNet) {
     try {
+      const bookMove = await chooseBookMove(state).catch((err) => {
+        console.warn('move book unavailable, using net search', err)
+        return null
+      })
+      if (bookMove) return bookMove
       const bot = await getNetBot()
       const { move } = bot.analyze(state, NET_SIMS)
       if (move) return move
@@ -146,6 +163,67 @@ export async function loadNetBot(weightsUrl: string): Promise<NetBot> {
   return {
     analyze: (state, sims = 200) => bot.best_move(state, sims) as Analysis,
     free: () => bot.free(),
+  }
+}
+
+type BookRecord = { type?: string; key?: string; a?: number }
+
+async function loadMoveBook(bookUrl: string): Promise<Map<string, number>> {
+  const text = await fetch(bookUrl).then((r) => {
+    if (!r.ok) throw new Error(`fetch move book ${bookUrl}: ${r.status}`)
+    return r.text()
+  })
+  const out = new Map<string, number>()
+  for (const line of text.split('\n')) {
+    if (!line.includes('"type":"book"')) continue
+    const rec = JSON.parse(line) as BookRecord
+    if (rec.type === 'book' && typeof rec.key === 'string' && typeof rec.a === 'number') {
+      out.set(rec.key, rec.a)
+    }
+  }
+  return out
+}
+
+async function chooseBookMove(state: GameState): Promise<Move | null> {
+  const book = await getMoveBook()
+  const action = book.get(stateKey(state))
+  if (action === undefined) return null
+  const move = mirrorMove(state.turn, indexToMove(action))
+  return isLegalMove(state, move) ? move : null
+}
+
+function indexToMove(action: number): Move {
+  if (action < 81) {
+    return {
+      type: 'move',
+      to: { r: Math.floor(action / 9) + 1, c: (action % 9) + 1 },
+    }
+  }
+  const wallAction = action - 81
+  const vertical = wallAction >= 64
+  const offset = vertical ? wallAction - 64 : wallAction
+  return {
+    type: 'wall',
+    wall: {
+      r: Math.floor(offset / 8) + 1,
+      c: (offset % 8) + 1,
+      o: vertical ? 'v' : 'h',
+    },
+  }
+}
+
+function mirrorMove(side: Side, move: Move): Move {
+  if (side === 'south') return move
+  if (move.type === 'move') {
+    return { type: 'move', to: { r: 10 - move.to.r, c: 10 - move.to.c } }
+  }
+  return {
+    type: 'wall',
+    wall: {
+      r: 9 - move.wall.r,
+      c: 9 - move.wall.c,
+      o: move.wall.o,
+    },
   }
 }
 

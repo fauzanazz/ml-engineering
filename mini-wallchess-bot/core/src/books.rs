@@ -17,13 +17,18 @@ pub struct EndgameBook {
     actions: HashMap<String, usize>,
 }
 
+/// Generic move book keyed by [`state_key`].
+///
+/// Records use `{"type":"book","key":"...","a":123}` with action indices in
+/// the side-to-move me-frame.
+#[derive(Clone, Debug, Default)]
+pub struct MoveBook {
+    actions: HashMap<String, usize>,
+}
+
 impl EndgameBook {
     pub fn from_jsonl(text: &str) -> Self {
-        let actions = text
-            .lines()
-            .filter(|line| line.contains("\"type\":\"hint\""))
-            .filter_map(|line| Some((field_str(line, "key")?.to_string(), field_usize(line, "a")?)))
-            .collect();
+        let actions = read_actions(text, "hint");
         EndgameBook { actions }
     }
 
@@ -36,10 +41,42 @@ impl EndgameBook {
     }
 
     pub fn best_move(&self, state: &State) -> Option<Move> {
-        let action = *self.actions.get(&state_key(state))?;
-        let mv = mirror_move(state.turn, index_to_move(action));
-        is_legal(state, mv).then_some(mv)
+        action_to_move(&self.actions, state)
     }
+}
+
+impl MoveBook {
+    pub fn from_jsonl(text: &str) -> Self {
+        MoveBook {
+            actions: read_actions(text, "book"),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.actions.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.actions.is_empty()
+    }
+
+    pub fn best_move(&self, state: &State) -> Option<Move> {
+        action_to_move(&self.actions, state)
+    }
+}
+
+fn read_actions(text: &str, record_type: &str) -> HashMap<String, usize> {
+    let type_tag = format!("\"type\":\"{record_type}\"");
+    text.lines()
+        .filter(|line| line.contains(&type_tag))
+        .filter_map(|line| Some((field_str(line, "key")?.to_string(), field_usize(line, "a")?)))
+        .collect()
+}
+
+fn action_to_move(actions: &HashMap<String, usize>, state: &State) -> Option<Move> {
+    let action = *actions.get(&state_key(state))?;
+    let mv = mirror_move(state.turn, index_to_move(action));
+    is_legal(state, mv).then_some(mv)
 }
 
 /// Exact one-ply tactical endgame: if the side to move can step onto its goal
@@ -126,6 +163,20 @@ mod tests {
         assert_eq!(
             immediate_winning_move(&state),
             Some(Move::Pawn(Cell::new(9, 3)))
+        );
+    }
+
+    #[test]
+    fn reads_generic_move_book() {
+        let text = concat!(
+            "{\"type\":\"meta\",\"format\":\"wallchess-move-book-v1\"}\n",
+            "{\"type\":\"book\",\"key\":\"s|15|95|1010|\",\"a\":13,\"score\":50}\n",
+        );
+        let book = MoveBook::from_jsonl(text);
+        assert_eq!(book.len(), 1);
+        assert_eq!(
+            book.best_move(&State::initial()),
+            Some(Move::Pawn(Cell::new(2, 5)))
         );
     }
 }
