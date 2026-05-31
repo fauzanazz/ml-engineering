@@ -83,9 +83,17 @@ Next target: add a compact reader and expand beyond no-wall states into low-wall
 positions. The consumer should treat this as an exact or high-confidence override
 before spending MCTS simulations.
 
+`EndgameBook::from_jsonl` is the compact reader. `net_arena` can load it with:
+
+```bash
+ENDGAME_BOOK=/path/to/endgame_hints.jsonl cargo run --release --features net --bin net_arena -- ../webui/public/wallnet.safetensors 20 200 2 140 0
+```
+
+The arena reports `book_hits` in the net timing line.
+
 ## Next Engineering Steps
 
-1. Add a compact reader for endgame hints.
+1. Expand endgame hints beyond no-wall states into low-wall decisive states.
 2. Use `OPENING_GRAPH` seeded self-play to generate balanced opening-branch data
    instead of relying only on uniform random plies.
 3. Add candidate model configs smaller/faster than the current 195k-param MLP

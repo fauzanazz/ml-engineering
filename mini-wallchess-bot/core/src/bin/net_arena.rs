@@ -3,11 +3,12 @@
 //! Usage:
 //!   net_arena <weights.safetensors> [games] [sims] [heuristic_depth] [max_plies] [opening_plies]
 
+use std::fs;
 use std::time::{Duration, Instant};
 
 use wallchess_core::{
-    distance_to_goal, eval::Heuristic, legal_moves, net::NetEvaluator, Mcts, MctsConfig, Move,
-    Search, Side, State,
+    distance_to_goal, eval::Heuristic, legal_moves, net::NetEvaluator, EndgameBook, Mcts,
+    MctsConfig, Move, Search, Side, State,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,6 +59,7 @@ struct MatchStats {
     natural: u32,
     race_scored: u32,
     plies: u32,
+    net_book_hits: u32,
     net_timing: Timing,
     heuristic_timing: Timing,
 }
@@ -90,6 +92,7 @@ fn main() {
     let opening_plies: u32 = parse_arg(args.next(), 0);
 
     let net = NetEvaluator::load(&weights).expect("load net weights");
+    let endgame_book = load_endgame_book();
     let heuristic = Heuristic::default();
     let mut rng = Rng(0x51f1_7e5d_9a11_2026);
     let mut stats = MatchStats::default();
@@ -112,7 +115,13 @@ fn main() {
             };
             let start = Instant::now();
             let mv = match player {
-                Player::Net => choose_net(&net, &state, sims),
+                Player::Net => choose_net(&net, endgame_book.as_ref(), &state, sims)
+                    .inspect(|(_, source)| {
+                        if *source == MoveSource::Book {
+                            stats.net_book_hits += 1;
+                        }
+                    })
+                    .map(|(mv, _)| mv),
                 Player::Heuristic => choose_heuristic(&heuristic, &state, heuristic_depth),
             };
             let elapsed = start.elapsed();
@@ -151,10 +160,11 @@ fn main() {
         f64::from(stats.plies) / f64::from(games.max(1)),
     );
     println!(
-        "TIMING net avg={:.2}ms max={:.2}ms moves={}  heuristic avg={:.2}ms max={:.2}ms moves={}",
+        "TIMING net avg={:.2}ms max={:.2}ms moves={} book_hits={}  heuristic avg={:.2}ms max={:.2}ms moves={}",
         stats.net_timing.avg_ms(),
         stats.net_timing.max_ms(),
         stats.net_timing.moves,
+        stats.net_book_hits,
         stats.heuristic_timing.avg_ms(),
         stats.heuristic_timing.max_ms(),
         stats.heuristic_timing.moves,
@@ -165,7 +175,21 @@ fn parse_arg<T: std::str::FromStr>(arg: Option<String>, default: T) -> T {
     arg.and_then(|s| s.parse().ok()).unwrap_or(default)
 }
 
-fn choose_net(net: &NetEvaluator, state: &State, sims: u32) -> Option<Move> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MoveSource {
+    Book,
+    Search,
+}
+
+fn choose_net(
+    net: &NetEvaluator,
+    endgame_book: Option<&EndgameBook>,
+    state: &State,
+    sims: u32,
+) -> Option<(Move, MoveSource)> {
+    if let Some(mv) = endgame_book.and_then(|book| book.best_move(state)) {
+        return Some((mv, MoveSource::Book));
+    }
     let mut mcts = Mcts::new(
         net,
         MctsConfig {
@@ -177,7 +201,7 @@ fn choose_net(net: &NetEvaluator, state: &State, sims: u32) -> Option<Move> {
     mcts.run(state)
         .into_iter()
         .max_by_key(|(_, visits)| *visits)
-        .map(|(mv, _)| mv)
+        .map(|(mv, _)| (mv, MoveSource::Search))
 }
 
 fn choose_heuristic(heuristic: &Heuristic, state: &State, depth: u8) -> Option<Move> {
@@ -196,6 +220,14 @@ fn play_random_opening(state: &mut State, opening_plies: u32, rng: &mut Rng) {
         }
         *state = state.apply(moves[rng.index(moves.len())]);
     }
+}
+
+fn load_endgame_book() -> Option<EndgameBook> {
+    let path = std::env::var("ENDGAME_BOOK").ok()?;
+    let text = fs::read_to_string(&path).expect("read ENDGAME_BOOK");
+    let book = EndgameBook::from_jsonl(&text);
+    eprintln!("loaded {} endgame hints from {path}", book.len());
+    Some(book)
 }
 
 fn race_winner(state: &State) -> Option<Side> {
