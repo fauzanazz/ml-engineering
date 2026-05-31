@@ -69,15 +69,23 @@ labeling and training.
 
 ### Endgame Compression
 
-Next target: generate compact late-state hints keyed by `state_key`. Start with
-race-like states where both players have few or no walls, then expand to low-wall
-positions. Store only decisive states and best action/result distance, not full
-trees. The consumer should treat this as an exact or high-confidence override
+`core/src/bin/endgame_hints.rs` writes compact no-wall race hints keyed by
+`state_key`. Records store only decisive states and the best me-frame action /
+winner / score / race distances, not full trees.
+
+Smoke command:
+
+```bash
+cargo run --release --bin endgame_hints -- /private/tmp/wallchess-endgame-hints-smoke.jsonl 6 300
+```
+
+Next target: add a compact reader and expand beyond no-wall states into low-wall
+positions. The consumer should treat this as an exact or high-confidence override
 before spending MCTS simulations.
 
 ## Next Engineering Steps
 
-1. Add an endgame hint generator and compact reader.
+1. Add compact readers for opening graph and endgame hints.
 2. Teach `selfplay_data` to seed games from opening graph nodes, not only random
    plies, so training covers hard opening branches in parallel.
 3. Add candidate model configs smaller/faster than the current 195k-param MLP

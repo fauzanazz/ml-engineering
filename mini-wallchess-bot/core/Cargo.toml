@@ -32,6 +32,10 @@ name = "opening_graph"
 path = "src/bin/opening_graph.rs"
 
 [[bin]]
+name = "endgame_hints"
+path = "src/bin/endgame_hints.rs"
+
+[[bin]]
 name = "selfplay"
 path = "src/bin/selfplay.rs"
 
