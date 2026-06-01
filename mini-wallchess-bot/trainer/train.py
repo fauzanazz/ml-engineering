@@ -39,7 +39,20 @@ def main():
                     help="mlp: 2-layer MLP (default); cnn: CNN spatial encoder")
     ap.add_argument("--cnn-channels", type=int, default=32,
                     help="CNN: base channel count (halved before flatten)")
+    ap.add_argument("--device", default="auto",
+                    help="Training device: auto (mps > cuda > cpu), cpu, mps, cuda")
     args = ap.parse_args()
+
+    if args.device == "auto":
+        if torch.backends.mps.is_available():
+            device = torch.device("mps")
+        elif torch.cuda.is_available():
+            device = torch.device("cuda")
+        else:
+            device = torch.device("cpu")
+    else:
+        device = torch.device(args.device)
+    print(f"device: {device}")
 
     ds = SelfPlayDataset(args.data)
     n_val = max(1, int(len(ds) * args.val_frac))
@@ -51,9 +64,9 @@ def main():
     val_dl = DataLoader(val_ds, batch_size=args.batch)
 
     if args.arch == "cnn":
-        model = WallNetCNN(channels=args.cnn_channels)
+        model = WallNetCNN(channels=args.cnn_channels).to(device)
     else:
-        model = WallNet(hidden=args.hidden)
+        model = WallNet(hidden=args.hidden).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs, eta_min=1e-5)
 
@@ -63,6 +76,7 @@ def main():
     for epoch in range(1, args.epochs + 1):
         model.train()
         for f, pi, z in train_dl:
+            f, pi, z = f.to(device), pi.to(device), z.to(device)
             opt.zero_grad()
             logits, v = model(f)
             loss = policy_loss(logits, pi) + args.value_weight * F.mse_loss(v, z)
@@ -74,6 +88,7 @@ def main():
         with torch.no_grad():
             vp = vv = nb = 0.0
             for f, pi, z in val_dl:
+                f, pi, z = f.to(device), pi.to(device), z.to(device)
                 logits, v = model(f)
                 vp += policy_loss(logits, pi).item()
                 vv += F.mse_loss(v, z).item()
@@ -90,7 +105,9 @@ def main():
             )
 
     # Save best checkpoint (lowest combined val loss), not last epoch.
-    save_file(best_state, args.out)
+    # Move to CPU before saving — safetensors requires CPU tensors.
+    cpu_state = {k: v.cpu().detach().contiguous() for k, v in best_state.items()}
+    save_file(cpu_state, args.out)
     print(f"saved {args.out}  ({sum(p.numel() for p in model.parameters())} params)")
 
 
