@@ -73,7 +73,8 @@ fn main() {
         }
         let best_score = ranked[0].1;
         let z = score_to_value(best_score, value_scale);
-        let policy = policy_target(&state, &ranked, policy_scale);
+        let all_moves = legal_moves(&state);
+        let policy = policy_target(&state, &ranked, &all_moves, policy_scale);
         write_record(&mut w, z, &encode(&state), &policy);
         written += 1;
 
@@ -189,24 +190,41 @@ fn score_to_value(score: i32, value_scale: f32) -> f32 {
 fn policy_target(
     state: &State,
     ranked: &[(wallchess_core::Move, i32)],
+    all_moves: &[Move],
     policy_scale: f32,
 ) -> Vec<(usize, f32)> {
+    use std::collections::HashSet;
     let scale = policy_scale.max(1.0);
     let max = ranked[0].1 as f32;
-    let mut weighted = Vec::with_capacity(ranked.len());
+    // Score for unlisted moves: floor well below the worst candidate so they
+    // get ~0 probability in the softmax target, giving explicit negative signal.
+    let floor = ranked.last().map(|(_, s)| *s as f32).unwrap_or(max) - 4.0 * scale;
+
+    let mut weighted: Vec<(usize, f32)> = Vec::new();
     let mut total = 0.0f32;
+    let mut listed: HashSet<usize> = HashSet::new();
+
     for (mv, score) in ranked {
         let weight = ((*score as f32 - max) / scale).clamp(-40.0, 0.0).exp();
+        let idx = action_index(mirror_move(state.turn, *mv));
         total += weight;
-        weighted.push((*mv, weight));
+        weighted.push((idx, weight));
+        listed.insert(idx);
+    }
+    // Add all remaining legal moves with floor weight (explicit near-zero target).
+    let floor_weight = ((floor - max) / scale).clamp(-40.0, 0.0).exp();
+    for mv in all_moves {
+        let idx = action_index(mirror_move(state.turn, *mv));
+        if listed.contains(&idx) {
+            continue;
+        }
+        total += floor_weight;
+        weighted.push((idx, floor_weight));
     }
     weighted
         .into_iter()
         .filter(|(_, weight)| *weight > 0.0)
-        .map(|(mv, weight)| {
-            let idx = action_index(mirror_move(state.turn, mv));
-            (idx, weight / total)
-        })
+        .map(|(idx, weight)| (idx, weight / total))
         .collect()
 }
 

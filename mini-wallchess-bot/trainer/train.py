@@ -48,6 +48,10 @@ def main():
 
     model = WallNet(hidden=args.hidden)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs, eta_min=1e-5)
+
+    best_val = float("inf")
+    best_state = None
 
     for epoch in range(1, args.epochs + 1):
         model.train()
@@ -57,6 +61,7 @@ def main():
             loss = policy_loss(logits, pi) + args.value_weight * F.mse_loss(v, z)
             loss.backward()
             opt.step()
+        scheduler.step()
 
         model.eval()
         with torch.no_grad():
@@ -66,14 +71,19 @@ def main():
                 vp += policy_loss(logits, pi).item()
                 vv += F.mse_loss(v, z).item()
                 nb += 1
+            val_combined = vp / nb + args.value_weight * vv / nb
+            marker = ""
+            if val_combined < best_val:
+                best_val = val_combined
+                best_state = {k: v.detach().clone().contiguous() for k, v in model.state_dict().items()}
+                marker = " *"
             print(
                 f"epoch {epoch:>3}/{args.epochs}  "
-                f"val_policy {vp / nb:.4f}  val_value {vv / nb:.4f}"
+                f"val_policy {vp / nb:.4f}  val_value {vv / nb:.4f}{marker}"
             )
 
-    # Contiguous f32 tensors keyed by the names the candle loader expects.
-    state = {k: v.detach().contiguous() for k, v in model.state_dict().items()}
-    save_file(state, args.out)
+    # Save best checkpoint (lowest combined val loss), not last epoch.
+    save_file(best_state, args.out)
     print(f"saved {args.out}  ({sum(p.numel() for p in model.parameters())} params)")
 
 

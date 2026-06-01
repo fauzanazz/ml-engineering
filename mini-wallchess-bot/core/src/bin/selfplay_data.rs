@@ -152,15 +152,33 @@ fn play_games<P: PolicyValue>(
                 break;
             }
 
-            // Policy target: visit counts -> probabilities, in the me-frame.
-            let policy_target: Vec<(usize, f32)> = visits
+            // Policy target: MCTS visit counts + a tiny floor for every unvisited
+            // legal move, so the softmax CE loss explicitly pushes non-visited
+            // actions toward zero probability.
+            let floor_visits: f32 = 0.1; // ~0.1 visit equivalent per unvisited action
+            let visited_set: std::collections::HashSet<usize> = visits
+                .iter()
+                .filter(|(_, n)| *n > 0)
+                .map(|(mv, _)| action_index(mirror_move(state.turn, *mv)))
+                .collect();
+            let unvisited_count = legal_moves(&state).iter()
+                .filter(|mv| !visited_set.contains(&action_index(mirror_move(state.turn, **mv))))
+                .count() as f32;
+            let total_eff = total as f32 + floor_visits * unvisited_count;
+            let mut policy_target: Vec<(usize, f32)> = visits
                 .iter()
                 .filter(|(_, n)| *n > 0)
                 .map(|(mv, n)| {
                     let idx = action_index(mirror_move(state.turn, *mv));
-                    (idx, *n as f32 / total as f32)
+                    (idx, *n as f32 / total_eff)
                 })
                 .collect();
+            for mv in legal_moves(&state) {
+                let idx = action_index(mirror_move(state.turn, mv));
+                if !visited_set.contains(&idx) {
+                    policy_target.push((idx, floor_visits / total_eff));
+                }
+            }
             samples.push(Sample {
                 features: encode(&state),
                 policy: policy_target,

@@ -2,6 +2,7 @@ import { type CSSProperties, useState } from 'react'
 import {
   type Cell,
   type GameState,
+  type Move,
   type Orientation,
   type Side,
   type Wall,
@@ -71,6 +72,7 @@ type BoardProps = {
   onPlaceWall: (wall: Wall) => void
   goalTopLabel?: string
   goalBottomLabel?: string
+  bestMove?: Move
 }
 
 export default function Board({
@@ -84,6 +86,7 @@ export default function Board({
   onPlaceWall,
   goalTopLabel,
   goalBottomLabel,
+  bestMove,
 }: BoardProps) {
   const [hover, setHover] = useState<Wall | null>(null)
   const placing = interactive && actionMode === 'wall'
@@ -122,6 +125,7 @@ export default function Board({
                 interactive &&
                 actionMode === 'move' &&
                 legalTargets.some((t) => sameCell(t, cell))
+              const isBestMoveDest = bestMove?.type === 'move' && sameCell(bestMove.to, cell)
               const isLightSq = (r + c) % 2 === 0
               const isGoal = r === SIZE || r === 1
 
@@ -145,6 +149,9 @@ export default function Board({
                   )}
                   {isTarget && (
                     <span className="pointer-events-none h-[34%] w-[34%] rounded-full bg-[var(--lagoon-deep)] opacity-70" />
+                  )}
+                  {isBestMoveDest && (
+                    <span className="pointer-events-none absolute h-[78%] w-[78%] rounded-full ring-[3px] ring-[#16a34a] opacity-90" />
                   )}
                   {(isSouth || isNorth) && (
                     <span
@@ -206,6 +213,16 @@ export default function Board({
               style={wallStyle(w, WALL_TH)}
             />
           ))}
+          {bestMove?.type === 'wall' && (
+            <div
+              className="absolute rounded-full"
+              style={{
+                ...wallStyle(bestMove.wall, WALL_TH),
+                background: '#16a34a',
+                opacity: 0.85,
+              }}
+            />
+          )}
           {hover && (
             <div
               className="absolute rounded-full"

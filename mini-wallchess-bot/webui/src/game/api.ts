@@ -123,7 +123,7 @@ function loadWasm(): Promise<WasmModule> {
 // falls back to the heuristic path below.
 const NET_WEIGHTS_URL = '/wallnet.safetensors'
 const MOVE_BOOK_URL = '/counter-book.jsonl'
-const NET_SIMS = 200
+const NET_SIMS = 600
 let netBotReady: Promise<NetBot> | null = null
 let moveBookReady: Promise<Map<string, number>> | null = null
 function netBotEnabled(): boolean {

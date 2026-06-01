@@ -85,13 +85,14 @@ impl Rng {
 fn main() {
     let mut args = std::env::args().skip(1);
     let weights = args.next().expect(
-        "usage: net_arena <weights.safetensors> [games] [sims] [heuristic_depth] [max_plies] [opening_plies]",
+        "usage: net_arena <weights.safetensors> [games] [sims] [heuristic_depth] [max_plies] [opening_plies] [no_guard=0|1]",
     );
     let games: u32 = parse_arg(args.next(), 20);
     let sims: u32 = parse_arg(args.next(), 200);
     let heuristic_depth: u8 = parse_arg(args.next(), 2);
     let max_plies: u32 = parse_arg(args.next(), 140);
     let opening_plies: u32 = parse_arg(args.next(), 0);
+    let no_guard: bool = args.next().as_deref() == Some("1");
 
     let net = NetEvaluator::load(&weights).expect("load net weights");
     let move_book = load_move_book();
@@ -100,6 +101,7 @@ fn main() {
     let mut rng = Rng(0x51f1_7e5d_9a11_2026);
     let mut stats = MatchStats::default();
     let log_moves = std::env::var("NET_ARENA_LOG").is_ok();
+    eprintln!("guard={}", if no_guard { "off" } else { "on" });
 
     for game in 0..games {
         let net_side = if game % 2 == 0 {
@@ -125,6 +127,7 @@ fn main() {
                     endgame_book.as_ref(),
                     &state,
                     sims,
+                    no_guard,
                 ) {
                     Some((mv, source)) => {
                         match source {
@@ -212,6 +215,7 @@ fn choose_net(
     endgame_book: Option<&EndgameBook>,
     state: &State,
     sims: u32,
+    no_guard: bool,
 ) -> Option<(Move, MoveSource)> {
     if let Some(mv) = immediate_winning_move(state) {
         return Some((mv, MoveSource::Tactic));
@@ -230,7 +234,13 @@ fn choose_net(
             ..MctsConfig::default()
         },
     );
-    choose_guarded_mcts_move(state, &mcts.run(state))
+    let visits = mcts.run(state);
+    if no_guard {
+        let best = visits.iter().max_by_key(|(_, n)| *n).map(|(mv, _)| *mv)?;
+        Some((best, MoveSource::Search))
+    } else {
+        choose_guarded_mcts_move(state, &visits)
+    }
 }
 
 fn choose_guarded_mcts_move(state: &State, visits: &[(Move, u32)]) -> Option<(Move, MoveSource)> {
