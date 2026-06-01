@@ -17,9 +17,16 @@ pub trait Evaluator {
 ///     `2*(dist_opp - dist_me) ± 1` for the side-to-move tie-break. Doubling
 ///     keeps the tempo nudge below a full path step so it only breaks ties
 ///     between equidistant positions instead of distorting the race margin.
-///   - `w_wall` : wall-stock difference. Kept low — a wall's real worth shows
-///     up through `w_path` when it lengthens the opponent's path; over-valuing
-///     the *stock* makes the engine hoard/spam walls.
+///   - `w_wall` : wall-stock difference. Set HIGH (~2 path-steps per wall). The
+///     `w_path` race term credits "delay opponent by 1" exactly as much as
+///     "advance myself by 1", but advancing *wins* while a wall only delays and
+///     spends a finite resource. Without a strong stock cost, deeper search
+///     discovers multi-tempo wall combos that inflate the opponent's distance,
+///     stops racing, burns every wall, and then LOSES — measured as deeper
+///     search losing to shallower (d4 lost 0-8 to d2 at w_wall=4). Pricing the
+///     stock at ~100 restores depth monotonicity (d4 beats d2 16-0) by making
+///     the engine spend a wall only when the delay it buys clearly exceeds the
+///     tempo and resource it costs.
 ///
 /// Every term negates under swapping `side`/`opp`, so the eval is exactly
 /// antisymmetric (zero-sum): `eval(s, South) == -eval(s, North)` on all
@@ -35,7 +42,7 @@ impl Default for Heuristic {
     fn default() -> Self {
         Heuristic {
             w_path: 50,
-            w_wall: 4,
+            w_wall: 100,
         }
     }
 }

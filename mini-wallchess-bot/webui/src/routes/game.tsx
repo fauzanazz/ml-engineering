@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   Bot,
+  Download,
   HelpCircle,
+  History,
   Move as MoveIcon,
   RectangleHorizontal,
   RectangleVertical,
@@ -12,11 +14,15 @@ import {
 } from 'lucide-react'
 import Board from '../components/Board'
 import HowToPlay from '../components/HowToPlay'
+import ReplayList from '../components/ReplayList'
+import ReplayViewer from '../components/ReplayViewer'
 import WinMeter from '../components/WinMeter'
 import { type BotEngine, analyzePosition, botMove } from '../game/api'
+import { type BotSpec, BOTS, getBot } from '../game/bots'
 import {
   type Cell,
   type GameState,
+  type Move,
   type Orientation,
   type Side,
   type Wall,
@@ -27,6 +33,14 @@ import {
   initialState,
   pawnMoves,
 } from '../game/engine'
+import {
+  type ReplayEngine,
+  type ReplayFrame,
+  type ReplayRecord,
+  downloadReplay,
+  makeId,
+  saveReplay,
+} from '../game/replay'
 
 type Mode = 'bot' | 'friend' | 'arena'
 
@@ -44,13 +58,20 @@ export const Route = createFileRoute('/game')({
 
 const BOT_SIDE: Side = 'north'
 
-// Arena pits the trained net (south) against the heuristic (north) so you can
-// watch them play. Delay between auto-moves keeps it watchable.
-const ARENA_ENGINE: Record<Side, BotEngine> = { south: 'net', north: 'heuristic' }
+// Arena pits two bots against each other. Each side picks any bot from the
+// catalog (../game/bots) by id, so any matchup runs — including a bot vs an
+// identical copy of itself.
+type ArenaBots = { south: string; north: string }
+const DEFAULT_ARENA_BOTS: ArenaBots = { south: 'net', north: 'ab' }
 const ARENA_MOVE_DELAY_MS = 550
 // Stalling wall-wars never reach a goal; cap arena games and decide the cap by
 // race progress (closer pawn wins) so it always resolves instead of looping.
 const ARENA_PLY_CAP = 140
+
+function engineLabel(engine: BotEngine): string {
+  return engine === 'net' ? 'MCTS Net' : 'Alpha-Beta'
+}
+
 function raceWinner(s: GameState): Side {
   const ds = distanceToGoal(s.walls, s.pawns.south, GOAL_ROW.south)
   const dn = distanceToGoal(s.walls, s.pawns.north, GOAL_ROW.north)
@@ -69,7 +90,17 @@ function Game() {
   const [analyzing, setAnalyzing] = useState(false)
   const [movesMade, setMovesMade] = useState(0)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [arenaBots, setArenaBots] = useState<ArenaBots>(DEFAULT_ARENA_BOTS)
+  const [botEngine, setBotEngine] = useState<BotEngine>('heuristic')
+  const [confirmBotChange, setConfirmBotChange] = useState<BotEngine | null>(null)
+  const [savedReplay, setSavedReplay] = useState<ReplayRecord | null>(null)
+  type OverlayPanel = { type: 'list' } | { type: 'viewer'; record: ReplayRecord }
+  const [panel, setPanel] = useState<OverlayPanel | null>(null)
   const plyRef = useRef(0)
+  const replayFramesRef = useRef<ReplayFrame[]>([])
+  const gameIdRef = useRef(makeId())
+  const gameStartedAtRef = useRef(new Date().toISOString())
+  const winProbRef = useRef(50)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -104,9 +135,21 @@ function Game() {
           await new Promise((r) => setTimeout(r, ARENA_MOVE_DELAY_MS))
           if (cancelled) return
         }
-        const engine = mode === 'arena' ? ARENA_ENGINE[turn] : undefined
-        const move = await botMove({ data: state, engine })
+        let move: Move
+        if (mode === 'arena') {
+          const spec = getBot(arenaBots[turn])
+          move = await botMove({ data: state, engine: spec.engine, depth: spec.depth, sims: spec.sims })
+        } else {
+          move = await botMove({ data: state, engine: mode === 'bot' ? botEngine : undefined })
+        }
         if (!cancelled) {
+          replayFramesRef.current.push({
+            ply: replayFramesRef.current.length,
+            turn: state.turn,
+            state,
+            action: move,
+            win_prob_south: winProbRef.current,
+          })
           setState((s) => (s.turn === turn && !s.winner ? applyMove(s, move) : s))
           plyRef.current += 1
         }
@@ -120,7 +163,7 @@ function Game() {
     return () => {
       cancelled = true
     }
-  }, [state, mode])
+  }, [state, mode, arenaBots, botEngine, isAutoTurn])
 
   // Win-probability meter: re-evaluate the position with the engine each change.
   useEffect(() => {
@@ -166,11 +209,7 @@ function Game() {
           if (interactive && actionMode === 'wall') setOrientation('v')
           break
         case 'r': case 'R':
-          plyRef.current = 0
-          setState(initialState())
-          setActionMode('move')
-          setThinking(false)
-          setBotError(null)
+          reset()
           setShowHelp(false)
           break
         case '?':
@@ -195,6 +234,45 @@ function Game() {
     if (state.winner) setConfirmLeave(false)
   }, [state.winner])
 
+  // Keep winProbRef in sync so bot effect closure can read fresh value.
+  useEffect(() => { winProbRef.current = southWin }, [southWin])
+
+  // Auto-save completed game to localStorage.
+  useEffect(() => {
+    if (!state.winner || replayFramesRef.current.length === 0) return
+    const engines: { south: ReplayEngine; north: ReplayEngine } =
+      mode === 'bot'
+        ? { south: 'human', north: botEngine as ReplayEngine }
+        : mode === 'arena'
+          ? {
+              south: getBot(arenaBots.south).engine as ReplayEngine,
+              north: getBot(arenaBots.north).engine as ReplayEngine,
+            }
+          : { south: 'human', north: 'human' }
+    const record: ReplayRecord = {
+      id: gameIdRef.current,
+      mode,
+      engines,
+      winner: state.winner,
+      ply_count: replayFramesRef.current.length,
+      started_at: gameStartedAtRef.current,
+      frames: [...replayFramesRef.current],
+    }
+    saveReplay(record)
+    setSavedReplay(record)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.winner])
+
+  function pushFrame(s: GameState, action: Move) {
+    replayFramesRef.current.push({
+      ply: replayFramesRef.current.length,
+      turn: s.turn,
+      state: s,
+      action,
+      win_prob_south: winProbRef.current,
+    })
+  }
+
   function handleChangeMode() {
     if (movesMade > 0 && !state.winner) {
       setConfirmLeave(true)
@@ -204,12 +282,14 @@ function Game() {
   }
 
   function handleMove(to: Cell) {
+    pushFrame(state, { type: 'move', to })
     setState((s) => applyMove(s, { type: 'move', to }))
     setActionMode('move')
     setMovesMade((n) => n + 1)
   }
 
   function handlePlaceWall(wall: Wall) {
+    pushFrame(state, { type: 'wall', wall })
     setState((s) => applyMove(s, { type: 'wall', wall }))
     setActionMode('move')
     setMovesMade((n) => n + 1)
@@ -217,6 +297,10 @@ function Game() {
 
   function reset() {
     plyRef.current = 0
+    replayFramesRef.current = []
+    gameIdRef.current = makeId()
+    gameStartedAtRef.current = new Date().toISOString()
+    setSavedReplay(null)
     setState(initialState())
     setActionMode('move')
     setThinking(false)
@@ -225,15 +309,39 @@ function Game() {
     setConfirmLeave(false)
   }
 
+  function handleBotEngine(next: BotEngine) {
+    if (next === botEngine) return
+    if (movesMade > 0 && !state.winner) {
+      setConfirmBotChange(next)
+      return
+    }
+    setBotEngine(next)
+    reset()
+  }
+
+  function confirmBotSwitch() {
+    if (!confirmBotChange) return
+    setBotEngine(confirmBotChange)
+    setConfirmBotChange(null)
+    reset()
+  }
+
+  function handleArenaBot(side: Side, id: string) {
+    if (arenaBots[side] === id) return
+    setArenaBots((b) => ({ ...b, [side]: id }))
+    reset()
+  }
+
   const legalTargets = state.winner ? [] : pawnMoves(state, state.turn)
   const canPlace = (wall: Wall) =>
     !state.winner && canPlaceWall(state, wall, state.turn)
 
+  const botLabel = engineLabel(botEngine)
   const sideLabel = (s: typeof state.turn) =>
     mode === 'bot'
-      ? s === 'south' ? 'You' : 'Bot'
+      ? s === 'south' ? 'You' : botLabel
       : mode === 'arena'
-        ? s === 'south' ? 'Net' : 'Heuristic'
+        ? getBot(arenaBots[s]).label
         : s === 'south' ? 'Player 1' : 'Player 2'
   const southIcon = mode === 'arena' ? Bot : Users
   const northIcon = mode === 'friend' ? Users : Bot
@@ -278,16 +386,24 @@ function Game() {
 
         {/* board column */}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          {/* top bar: status + controls */}
+          {/* top bar: status + controls (controls hidden on desktop, live in right sidebar) */}
           <div className="flex flex-shrink-0 items-center justify-between gap-2">
             <span className="island-kicker" aria-live="polite" aria-atomic="true">{status}</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 lg:hidden">
               <button
                 type="button"
                 onClick={handleChangeMode}
                 className="text-xs font-semibold text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]"
               >
                 ← Mode
+              </button>
+              <button
+                type="button"
+                onClick={() => setPanel({ type: 'list' })}
+                aria-label="Replay history"
+                className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-1.5 text-[var(--sea-ink-soft)] transition hover:border-[var(--accent-text)] hover:text-[var(--sea-ink)]"
+              >
+                <History size={14} />
               </button>
               <button
                 type="button"
@@ -332,13 +448,11 @@ function Game() {
             />
           </div>
 
-          {/* board: fills remaining height, square constrained by whichever axis is smaller */}
-          <div className="flex min-h-0 flex-1 items-center justify-center">
+          {/* board: fills remaining space, square = min(width, height) via container query */}
+          <div className="flex min-h-0 flex-1 items-center justify-center" style={{ containerType: 'size' }}>
             <div
-              className={[
-                'aspect-square h-full max-w-full transition-opacity duration-300',
-                thinking ? 'opacity-60' : '',
-              ].join(' ')}
+              className={['transition-opacity duration-300', thinking ? 'opacity-60' : ''].join(' ')}
+              style={{ width: 'min(100cqw, 100cqh)', height: 'min(100cqw, 100cqh)' }}
             >
               <Board
                 state={state}
@@ -355,83 +469,254 @@ function Game() {
             </div>
           </div>
 
-          {/* action controls */}
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-center gap-2">
-            <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
-              <ToggleBtn
-                active={actionMode === 'move'}
-                disabled={!interactive}
-                onClick={() => setActionMode('move')}
-              >
-                <MoveIcon size={14} /> Move
-              </ToggleBtn>
-              <ToggleBtn
-                active={actionMode === 'wall'}
-                disabled={!interactive || wallsLeft <= 0}
-                onClick={() => setActionMode('wall')}
-              >
-                <Square size={14} /> Wall
-              </ToggleBtn>
+          {mode === 'arena' ? (
+            <div className="flex flex-shrink-0 lg:hidden">
+              <ArenaConfig bots={arenaBots} onChange={handleArenaBot} />
             </div>
+          ) : (
+            <div className="flex flex-col flex-shrink-0 gap-2 lg:hidden">
+              {/* action controls */}
+              <div className="flex flex-shrink-0 flex-wrap items-center justify-center gap-2">
+                <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
+                  <ToggleBtn
+                    active={actionMode === 'move'}
+                    disabled={!interactive}
+                    onClick={() => setActionMode('move')}
+                  >
+                    <MoveIcon size={14} /> Move
+                  </ToggleBtn>
+                  <ToggleBtn
+                    active={actionMode === 'wall'}
+                    disabled={!interactive || wallsLeft <= 0}
+                    onClick={() => setActionMode('wall')}
+                  >
+                    <Square size={14} /> Wall
+                  </ToggleBtn>
+                </div>
 
-            {actionMode === 'wall' && interactive && (
+                {actionMode === 'wall' && interactive && (
+                  <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
+                    <ToggleBtn
+                      active={orientation === 'h'}
+                      onClick={() => setOrientation('h')}
+                    >
+                      <RectangleHorizontal size={14} /> Horiz
+                    </ToggleBtn>
+                    <ToggleBtn
+                      active={orientation === 'v'}
+                      onClick={() => setOrientation('v')}
+                    >
+                      <RectangleVertical size={14} /> Vert
+                    </ToggleBtn>
+                  </div>
+                )}
+              </div>
+
+              {mode === 'bot' && (
+                <div className="flex flex-shrink-0 flex-wrap items-center justify-center gap-2">
+                  <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
+                    <ToggleBtn
+                      active={botEngine === 'heuristic'}
+                      onClick={() => handleBotEngine('heuristic')}
+                    >
+                      <Bot size={14} /> Alpha-Beta
+                    </ToggleBtn>
+                    <ToggleBtn
+                      active={botEngine === 'net'}
+                      onClick={() => handleBotEngine('net')}
+                    >
+                      <Bot size={14} /> MCTS Net
+                    </ToggleBtn>
+                  </div>
+                </div>
+              )}
+
+              <p className="flex-shrink-0 text-center text-xs text-[var(--sea-ink-soft)]">
+                {actionMode === 'move'
+                  ? 'Tap a highlighted square to move.'
+                  : 'Tap a grid line to place a wall.'}
+              </p>
+              <span className="sr-only" aria-live="polite" aria-atomic="true">
+                {actionMode === 'wall' ? 'Wall placement mode. Select a grid line to place a wall.' : ''}
+              </span>
+              <p className="flex-shrink-0 text-center text-xs text-[var(--sea-ink-soft)]">
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">M</kbd>
+                {' '}move{' · '}
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">W</kbd>
+                {' '}wall{' · '}
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">H/V</kbd>
+                {' '}orient{' · '}
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">R</kbd>
+                {' '}reset{' · '}
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">?</kbd>
+                {' '}help
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* right sidebar: controls (desktop only) */}
+        <div className="hidden w-56 flex-shrink-0 flex-col items-center gap-3 pt-1 lg:flex">
+          {/* Mode on left, icon buttons on right */}
+          <div className="flex w-full items-center justify-between">
+            <button
+              type="button"
+              onClick={handleChangeMode}
+              className="text-xs font-semibold text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]"
+            >
+              ← Mode
+            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPanel({ type: 'list' })}
+                aria-label="Replay history"
+                className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-1.5 text-[var(--sea-ink-soft)] transition hover:border-[var(--accent-text)] hover:text-[var(--sea-ink)]"
+              >
+                <History size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowHelp(true)}
+                aria-label="How to play"
+                className="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-1.5 text-[var(--sea-ink-soft)] transition hover:border-[var(--accent-text)] hover:text-[var(--sea-ink)]"
+              >
+                <HelpCircle size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--chip-bg)] px-2.5 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-[var(--accent-text)] whitespace-nowrap"
+              >
+                <RotateCcw size={12} />
+                Reset
+              </button>
+            </div>
+          </div>
+          <div className="w-full border-t border-[var(--line)]" />
+          {mode === 'arena' ? (
+            <ArenaConfig bots={arenaBots} onChange={handleArenaBot} compact />
+          ) : (
+            <>
               <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
-                <ToggleBtn
-                  active={orientation === 'h'}
-                  onClick={() => setOrientation('h')}
-                >
-                  <RectangleHorizontal size={14} /> Horiz
+                <ToggleBtn compact active={actionMode === 'move'} disabled={!interactive} onClick={() => setActionMode('move')}>
+                  <MoveIcon size={13} /> Move
                 </ToggleBtn>
-                <ToggleBtn
-                  active={orientation === 'v'}
-                  onClick={() => setOrientation('v')}
-                >
-                  <RectangleVertical size={14} /> Vert
+                <ToggleBtn compact active={actionMode === 'wall'} disabled={!interactive || wallsLeft <= 0} onClick={() => setActionMode('wall')}>
+                  <Square size={13} /> Wall
                 </ToggleBtn>
               </div>
-            )}
-          </div>
 
-          <p className="flex-shrink-0 text-center text-xs text-[var(--sea-ink-soft)]">
-            {actionMode === 'move'
-              ? 'Tap a highlighted square to move.'
-              : 'Tap a grid line to place a wall.'}
-          </p>
-          <span className="sr-only" aria-live="polite" aria-atomic="true">
-            {actionMode === 'wall' ? 'Wall placement mode. Select a grid line to place a wall.' : ''}
-          </span>
-          <p className="hidden flex-shrink-0 text-center text-xs text-[var(--sea-ink-soft)] sm:block">
-            <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">M</kbd>
-            {' '}move{' · '}
-            <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">W</kbd>
-            {' '}wall{' · '}
-            <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">H/V</kbd>
-            {' '}orient{' · '}
-            <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">R</kbd>
-            {' '}reset{' · '}
-            <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">?</kbd>
-            {' '}help
-          </p>
+              {actionMode === 'wall' && interactive && (
+                <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
+                  <ToggleBtn compact active={orientation === 'h'} onClick={() => setOrientation('h')}>
+                    <RectangleHorizontal size={13} /> Horiz
+                  </ToggleBtn>
+                  <ToggleBtn compact active={orientation === 'v'} onClick={() => setOrientation('v')}>
+                    <RectangleVertical size={13} /> Vert
+                  </ToggleBtn>
+                </div>
+              )}
+
+              {mode === 'bot' && (
+                <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
+                  <ToggleBtn compact active={botEngine === 'heuristic'} onClick={() => handleBotEngine('heuristic')}>
+                    <Bot size={13} /> Alpha-Beta
+                  </ToggleBtn>
+                  <ToggleBtn compact active={botEngine === 'net'} onClick={() => handleBotEngine('net')}>
+                    <Bot size={13} /> MCTS Net
+                  </ToggleBtn>
+                </div>
+              )}
+
+              <p className="text-center text-xs text-[var(--sea-ink-soft)]">
+                {actionMode === 'move'
+                  ? 'Tap a highlighted square to move.'
+                  : 'Tap a grid line to place a wall.'}
+              </p>
+              <span className="sr-only" aria-live="polite" aria-atomic="true">
+                {actionMode === 'wall' ? 'Wall placement mode. Select a grid line to place a wall.' : ''}
+              </span>
+              <p className="text-center text-xs text-[var(--sea-ink-soft)] leading-relaxed">
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">M</kbd>
+                {' '}move{' · '}
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">W</kbd>
+                {' '}wall{' · '}
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">H/V</kbd>
+                {' '}orient{' · '}
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">R</kbd>
+                {' '}reset{' · '}
+                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1 font-mono text-[0.65rem] font-semibold">?</kbd>
+                {' '}help
+              </p>
+            </>
+          )}
         </div>
       </div>
 
       {state.winner && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm">
           <div className="island-shell rise-in rounded-2xl p-6 text-center">
-            <p className="display-title mb-3 text-2xl font-bold text-[var(--sea-ink)]">
+            <p className="display-title mb-4 text-2xl font-bold text-[var(--sea-ink)]">
               {mode === 'arena'
                 ? `${sideLabel(state.winner)} wins! 🎉`
                 : state.winner === 'south'
                   ? mode === 'bot' ? 'You win! 🎉' : 'Player 1 wins! 🎉'
                   : mode === 'bot' ? 'Bot wins.' : 'Player 2 wins! 🎉'}
             </p>
-            <button
-              type="button"
-              onClick={reset}
-              className="rounded-full bg-[var(--btn-primary-bg)] px-6 py-2.5 text-sm font-bold text-[var(--btn-primary-fg)] transition hover:opacity-90"
-            >
-              Play again
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={reset}
+                className="rounded-full bg-[var(--btn-primary-bg)] px-6 py-2.5 text-sm font-bold text-[var(--btn-primary-fg)] transition hover:opacity-90"
+              >
+                Play again
+              </button>
+              {savedReplay && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPanel({ type: 'viewer', record: savedReplay })}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+                  >
+                    ▶ Replay
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadReplay(savedReplay)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+                  >
+                    <Download size={14} /> .jsonl
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmBotChange && !state.winner && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm">
+          <div className="island-shell rise-in rounded-2xl p-4" style={{ animationDuration: '300ms' }}>
+            <p className="mb-3 text-sm text-[var(--sea-ink)]">
+              Switch to {confirmBotChange === 'net' ? 'MCTS Net' : 'Alpha-Beta'}? Current match will reset.
+            </p>
+            <div className="flex justify-center gap-2">
+              <button
+                type="button"
+                onClick={confirmBotSwitch}
+                className="rounded-full bg-[var(--btn-primary-bg)] px-4 py-2 text-xs font-bold text-[var(--btn-primary-fg)] transition hover:opacity-90"
+              >
+                Switch & reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmBotChange(null)}
+                className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+              >
+                Keep playing
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -462,19 +747,94 @@ function Game() {
         </div>
       )}
 
+      {panel?.type === 'list' && (
+        <ReplayList
+          onView={(record) => setPanel({ type: 'viewer', record })}
+          onClose={() => setPanel(null)}
+        />
+      )}
+      {panel?.type === 'viewer' && (
+        <ReplayViewer
+          record={panel.record}
+          onClose={() => setPanel(null)}
+        />
+      )}
+
       {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
     </main>
+  )
+}
+
+// Per-side bot pickers for arena: choose any catalog bot for South and North
+// (same bot on both sides is allowed). Uses dropdowns so the list scales as
+// more variations are added.
+function ArenaConfig({
+  bots,
+  onChange,
+  compact,
+}: {
+  bots: ArenaBots
+  onChange: (side: Side, id: string) => void
+  compact?: boolean
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-center gap-x-3 gap-y-2">
+      <ArenaSidePicker label="South (P1)" side="south" value={bots.south} onChange={onChange} compact={compact} />
+      <span className="pb-2 text-xs font-bold text-[var(--sea-ink-soft)]">vs</span>
+      <ArenaSidePicker label="North (P2)" side="north" value={bots.north} onChange={onChange} compact={compact} />
+    </div>
+  )
+}
+
+function ArenaSidePicker({
+  label,
+  side,
+  value,
+  onChange,
+  compact,
+}: {
+  label: string
+  side: Side
+  value: string
+  onChange: (side: Side, id: string) => void
+  compact?: boolean
+}) {
+  return (
+    <label className="flex flex-col items-center gap-1">
+      <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--sea-ink-soft)]">
+        {label}
+      </span>
+      <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--chip-bg)] pl-2.5 pr-1.5">
+        <Bot size={compact ? 13 : 14} className="flex-shrink-0 text-[var(--sea-ink-soft)]" />
+        <select
+          value={value}
+          onChange={(e) => onChange(side, e.target.value)}
+          className={[
+            'cursor-pointer bg-transparent font-semibold text-[var(--sea-ink)] outline-none',
+            compact ? 'py-1.5 text-[0.7rem]' : 'py-2 text-xs',
+          ].join(' ')}
+        >
+          {BOTS.map((b: BotSpec) => (
+            <option key={b.id} value={b.id}>
+              {b.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </label>
   )
 }
 
 function ToggleBtn({
   active,
   disabled,
+  compact,
   onClick,
   children,
 }: {
   active: boolean
   disabled?: boolean
+  compact?: boolean
   onClick: () => void
   children: React.ReactNode
 }) {
@@ -498,7 +858,8 @@ function ToggleBtn({
       disabled={disabled}
       aria-pressed={active}
       className={[
-        'inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40',
+        'inline-flex items-center gap-1 font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 whitespace-nowrap',
+        compact ? 'px-3 py-1.5 text-[0.7rem]' : 'px-4 py-2 text-xs',
         active
           ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-fg)]'
           : 'bg-[var(--chip-bg)] text-[var(--sea-ink)] hover:bg-[var(--link-bg-hover)]',

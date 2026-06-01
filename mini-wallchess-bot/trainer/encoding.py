@@ -6,8 +6,9 @@ constant here, change it there (and vice-versa) or the net will read garbage.
 
 SIZE = 9
 
-# features.rs
-FEATURE_LEN = 81 + 81 + 64 + 64 + 3  # 293
+# features.rs — pawns + walls + walls-left/bias (293), then path features:
+# my_dist/16, opp_dist/16, race_margin/16, and 4 me-frame progress flags.
+FEATURE_LEN = 81 + 81 + 64 + 64 + 3 + 3 + 4  # 300
 
 # action.rs
 PAWN_ACTIONS = SIZE * SIZE              # 81

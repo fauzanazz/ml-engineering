@@ -2,17 +2,104 @@
 // (src/wasm), loaded lazily in the browser — no server round-trip. The pure-TS
 // engine (./bot) stays as a fallback if the WASM module fails to load.
 import {
+  type Cell,
   type GameState,
   type Move,
   type Side,
+  GOAL_ROW,
+  distanceToGoal,
   isLegalMove,
+  pawnMoves,
   stateKey,
 } from './engine'
 import { chooseMove } from './bot'
 import { parseGameState } from './validate'
 
-// Default search depth (plies) for the WASM engine.
-const BOT_DEPTH = 2
+// Anti-oscillation. In an awkward race the bounded-depth search can drift: the
+// true finishing path needs a temporary "down/away" step to route around a wall
+// line that the horizon scores no better than holding still, and there is no
+// repetition rule to force progress. So the opponent quietly races home
+// (observed: bot at 98% win-prob oscillating 6,4<->6,5 for ~18 plies, then
+// loses; and a wider wander over rows 7-9 for ~18 plies, also a loss). The Rust
+// eval now carries a forward-progress tie-break that removes most of this, but
+// the band-aid stays as a safety net for drifts that span beyond the search
+// horizon. We remember the bot's recent cells AND the closest BFS distance it
+// has reached; if the engine's chosen pawn move revisits a cell OR fails to beat
+// that closest distance, we override it with the move that most reduces our own
+// shortest-path distance (a 1-ply look gets this right), breaking the loop.
+const HISTORY_LEN = 12 // long enough to catch wide multi-cell wanders, not just 2-cell shuffles
+type Visit = { r: number; c: number; dist: number }
+const botHistory: Record<Side, Visit[]> = { south: [], north: [] }
+
+function sameCell(a: Cell, b: Cell): boolean {
+  return a.r === b.r && a.c === b.c
+}
+
+function startCell(side: Side): Cell {
+  return { r: side === 'south' ? 1 : 9, c: 5 }
+}
+
+function greedyProgressMove(state: GameState, side: Side): Move | null {
+  const goal = GOAL_ROW[side]
+  const moves = pawnMoves(state, side)
+  if (moves.length === 0) return null
+  let best = moves[0]
+  let bestScore = Infinity
+  for (const to of moves) {
+    const dist = distanceToGoal(state.walls, to, goal)
+    // progress first; tie-break AWAY from recently-visited cells to break loops
+    const revisits = botHistory[side].some((v) => v.r === to.r && v.c === to.c) ? 1 : 0
+    const score = dist * 10 + revisits
+    if (score < bestScore) {
+      bestScore = score
+      best = to
+    }
+  }
+  return { type: 'move', to: best }
+}
+
+function antiOscillate(state: GameState, chosen: Move): Move {
+  const side = state.turn
+  const hist = botHistory[side]
+  const here = state.pawns[side]
+  const opp = state.pawns[side === 'south' ? 'north' : 'south']
+  const goal = GOAL_ROW[side]
+  // Reset only on a genuinely fresh game (both pawns home, no walls). The old
+  // "pawn on its start cell" test also fired mid-game when the bot wandered back
+  // through its start cell, wiping the loop memory exactly when it was needed.
+  if (
+    state.walls.length === 0 &&
+    sameCell(here, startCell(side)) &&
+    sameCell(opp, startCell(side === 'south' ? 'north' : 'south'))
+  ) {
+    hist.length = 0
+  }
+
+  const distHere = distanceToGoal(state.walls, here, goal)
+  const closest = hist.reduce((m, v) => Math.min(m, v.dist), Infinity)
+
+  let out = chosen
+  if (chosen.type === 'move') {
+    const toDist = distanceToGoal(state.walls, chosen.to, goal)
+    const revisiting = hist.some((v) => v.r === chosen.to.r && v.c === chosen.to.c)
+    // Stagnation: enough history, yet the chosen move fails to get strictly
+    // closer than we have already been — a drift, not real progress.
+    const stagnating = hist.length >= 4 && toDist >= closest
+    if (revisiting || stagnating) {
+      const progress = greedyProgressMove(state, side)
+      if (progress) out = progress
+    }
+  }
+  hist.push({ r: here.r, c: here.c, dist: distHere })
+  if (hist.length > HISTORY_LEN) hist.shift()
+  return out
+}
+
+// Default search depth (plies) for the WASM engine. Depth 3: with the fixed
+// eval (high w_wall) it beats depth 2 16-0 — as strong as depth 4 here but
+// ~10x faster (one fewer ply over a ~130-wide tree), so move latency stays low
+// in the browser. Depth 4 was correct but too slow in wasm.
+const BOT_DEPTH = 3
 // Logistic squash constant for the 0..100 win meter (larger -> closer to 50/50).
 const SCORE_K = 200
 
@@ -65,9 +152,15 @@ export type BotEngine = 'heuristic' | 'net'
 export async function botMove({
   data,
   engine,
+  depth = BOT_DEPTH,
+  sims = NET_SIMS,
 }: {
   data: unknown
   engine?: BotEngine
+  // Optional per-call overrides so bot variations (see ./bots) can run the same
+  // engine at different strengths. Default to the legacy depth/sim budget.
+  depth?: number
+  sims?: number
 }): Promise<Move> {
   const state = parseGameState(data)
   const useNet = engine === 'net' || (engine === undefined && netBotEnabled())
@@ -77,20 +170,20 @@ export async function botMove({
         console.warn('move book unavailable, using net search', err)
         return null
       })
-      if (bookMove) return bookMove
+      if (bookMove) return antiOscillate(state, bookMove)
       const bot = await getNetBot()
-      const { move } = bot.analyze(state, NET_SIMS)
-      if (move) return move
+      const { move } = bot.analyze(state, sims)
+      if (move) return antiOscillate(state, move)
     } catch (err) {
       console.warn('net bot unavailable, using heuristic', err)
     }
   }
   try {
     const wasm = await loadWasm()
-    return wasm.choose_move(state, BOT_DEPTH) as Move
+    return antiOscillate(state, wasm.choose_move(state, depth) as Move)
   } catch (err) {
     console.warn('WASM bot unavailable, using TS fallback', err)
-    return chooseMove(state)
+    return antiOscillate(state, chooseMove(state))
   }
 }
 
