@@ -16,7 +16,7 @@ from safetensors.torch import save_file
 from torch.utils.data import DataLoader, random_split
 
 from dataset import SelfPlayDataset
-from model import WallNet
+from model import WallNet, WallNetCNN
 
 
 def policy_loss(logits, target):
@@ -35,6 +35,10 @@ def main():
     ap.add_argument("--val-frac", type=float, default=0.1)
     ap.add_argument("--value-weight", type=float, default=1.0)
     ap.add_argument("--hidden", type=int, default=256)
+    ap.add_argument("--arch", choices=["mlp", "cnn"], default="mlp",
+                    help="mlp: 2-layer MLP (default); cnn: CNN spatial encoder")
+    ap.add_argument("--cnn-channels", type=int, default=32,
+                    help="CNN: base channel count (halved before flatten)")
     args = ap.parse_args()
 
     ds = SelfPlayDataset(args.data)
@@ -46,7 +50,10 @@ def main():
     train_dl = DataLoader(train_ds, batch_size=args.batch, shuffle=True)
     val_dl = DataLoader(val_ds, batch_size=args.batch)
 
-    model = WallNet(hidden=args.hidden)
+    if args.arch == "cnn":
+        model = WallNetCNN(channels=args.cnn_channels)
+    else:
+        model = WallNet(hidden=args.hidden)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs, eta_min=1e-5)
 
