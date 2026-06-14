@@ -13,6 +13,7 @@ def test_postprocess_transcript_corrects_banking_lexicon():
     assert postprocess_transcript("saldo BIFAS dan Kris aku bloket") == "saldo BI-FAST dan QRIS aku blocked"
     assert postprocess_transcript("BI Fast Beifast bevas pelater Sopiko Sopi") == "BI-FAST BI-FAST BI-FAST paylater Shopee Shopee"
     assert postprocess_transcript("Krisaya dan Chris81514235177847") == "QRIS saya dan QRIS 81514235177847"
+    assert postprocess_transcript("CRIS Piloter Pailater virtual count RTGE") == "QRIS paylater paylater virtual account RTGS"
 
 
 def test_postprocess_transcript_normalizes_rupiah_amounts():
@@ -20,3 +21,5 @@ def test_postprocess_transcript_normalizes_rupiah_amounts():
     assert postprocess_transcript("sebesar RP36010000") == "sebesar Rp36.010.000"
     assert postprocess_transcript("sebesar RP36-010-000") == "sebesar Rp36.010.000"
     assert postprocess_transcript("sebesar Rp 17.110.000") == "sebesar Rp17.110.000"
+    assert postprocess_transcript("sebesar Rp11 juta") == "sebesar Rp11.000.000"
+    assert postprocess_transcript("sebesar Rp11.07.000") == "sebesar Rp11.070.000"

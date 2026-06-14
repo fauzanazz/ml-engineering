@@ -12,12 +12,17 @@ LEXICON_REPLACEMENTS = {
     "krisaya": "QRIS saya",
     "chris": "QRIS",
     "kris": "QRIS",
+    "cris": "QRIS",
     "keris": "QRIS",
     "bloket": "blocked",
     "pelater": "paylater",
     "pilater": "paylater",
+    "piloter": "paylater",
+    "pailater": "paylater",
     "sopiko": "Shopee",
     "sopi": "Shopee",
+    "virtual count": "virtual account",
+    "rtge": "RTGS",
 }
 
 
@@ -52,6 +57,10 @@ def _normalize_rupiah_amounts(text: str) -> str:
     processed = re.sub(r"\bRp\s+", "Rp", text, flags=re.IGNORECASE)
     compact_pattern = re.compile(r"\bRP(\d{5,})\b", flags=re.IGNORECASE)
     processed = compact_pattern.sub(lambda match: f"Rp{_format_rupiah_digits(match.group(1))}", processed)
+    spoken_million_pattern = re.compile(r"\bRp(\d{1,3})\s+juta\b", flags=re.IGNORECASE)
+    processed = spoken_million_pattern.sub(lambda match: f"Rp{match.group(1)}.000.000", processed)
+    short_group_pattern = re.compile(r"\bRp(\d{1,3})\.(\d{2})\.000\b")
+    processed = short_group_pattern.sub(lambda match: f"Rp{match.group(1)}.{match.group(2)}0.000", processed)
     spoken_pattern = re.compile(r"(?<!\w)(\d{1,3}(?:\.\d{3})+)\s+rupiah\b", flags=re.IGNORECASE)
     return spoken_pattern.sub(lambda match: f"Rp{match.group(1)}", processed)
 

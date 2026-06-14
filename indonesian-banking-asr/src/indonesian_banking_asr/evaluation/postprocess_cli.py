@@ -24,7 +24,7 @@ def _postprocess_prediction_row(row: dict) -> dict:
         **row,
         "raw_hypothesis": raw_hypothesis,
         "hypothesis": postprocess_transcript(raw_hypothesis),
-        "postprocess": "banking_entity_v1",
+        "postprocess": "banking_entity_v2",
     }
 
 
