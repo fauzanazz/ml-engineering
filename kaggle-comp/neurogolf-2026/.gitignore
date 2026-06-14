@@ -1,0 +1,52 @@
+# macOS
+.DS_Store
+
+# Python env / caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Kaggle dataset (re-downloadable, ~94MB)
+/data/
+
+# Profiling / temp dumps (regenerable, some 100MB+)
+tmpprof_*.json
+onnxruntime_profile__*.json
+*.prof
+
+# Aggregated task dump (regenerable from data/, ~93MB)
+all_tasks.json
+
+# Model / submission artifacts (binary, regenerable)
+*.onnx
+*.pb
+*.npy
+*.npz
+*.zip
+*.so
+*.pt
+*.bin
+*.onnx_data
+
+# Generated solver candidate / experiment / submission bundles
+neurogolf-solver/artifacts/
+neurogolf-solver/outputs/
+neurogolf-solver/scratch/
+neurogolf-solver/hf_submission/
+neurogolf-solver/full_public_solver/
+neurogolf-solver/dtype_spoof_probe/
+neurogolf-solver/targeted_full_public/
+neurogolf-solver/analytical_public/
+neurogolf-solver/best_*/
+neurogolf-solver/blend*/
+neurogolf-solver/experiment_*/
+neurogolf-solver/public_*/
+neurogolf-solver/ort_*/
+neurogolf-solver/*_candidates/
+neurogolf-solver/*_work/
+neurogolf-solver/*_probe/

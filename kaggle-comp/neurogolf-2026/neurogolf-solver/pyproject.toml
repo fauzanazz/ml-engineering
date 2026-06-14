@@ -1,0 +1,13 @@
+[project]
+name = "neurogolf-solver"
+version = "0.1.0"
+description = "Kaggle ML project scaffold."
+requires-python = ">=3.11"
+dependencies = ["numpy>=2.0.0", "onnx>=1.16.0", "onnxruntime>=1.18.0"]
+
+[dependency-groups]
+dev = ["pytest>=8.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,4 @@
+project: neurogolf-solver
+preset: kaggle
+target_column: target
+metric: rmse
