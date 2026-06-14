@@ -3,7 +3,7 @@ from pathlib import Path
 import time
 
 from webcam_effect.analyzer import AnalysisResult, AsyncLatestAnalyzer, EffectAnalyzer
-from webcam_effect.audio import AudioTrackConfig, MultiTrackAudio
+from webcam_effect.audio import AudioTrackConfig, MultiTrackAudio, NullAudio
 from webcam_effect.assets import resolve_asset_path
 from webcam_effect.camera import CameraSource
 from webcam_effect.classification import TemporalKicauClassifier
@@ -79,6 +79,7 @@ def run_live_effect(
     benchmark_frames: int = 0,
     components: ComponentSettings | None = None,
     hand_track_input: str = "auto",
+    audio_enabled: bool = True,
 ) -> None:
     import cv2
 
@@ -123,7 +124,12 @@ def run_live_effect(
         left_y=effect_definition.left_y,
         layers=effect_definition.layers,
     )
-    audio = audio_for_effect_definition(effect_definition, fallback_audio=effect_audio, override_audio=audio_path or None)
+    audio = audio_for_effect_definition(
+        effect_definition,
+        fallback_audio=effect_audio,
+        override_audio=audio_path or None,
+        audio_enabled=audio_enabled,
+    )
     output_sink = create_video_output(video_output, ffmpeg_video_command)
     preview_active = False
     preview_key_code = preview_key_to_code(preview_key)
@@ -182,7 +188,12 @@ def run_live_effect(
                     left_y=effect_definition.left_y,
                     layers=effect_definition.layers,
                 )
-                audio = audio_for_effect_definition(effect_definition, fallback_audio=effect_audio, override_audio=audio_path or None)
+                audio = audio_for_effect_definition(
+                    effect_definition,
+                    fallback_audio=effect_audio,
+                    override_audio=audio_path or None,
+                    audio_enabled=audio_enabled,
+                )
                 if effect_was_active:
                     audio.start()
 
@@ -195,26 +206,26 @@ def run_live_effect(
             effect_was_active = effect_active
             effect.set_scale(runtime_config.sticker_scale)
             output = effect.apply(frame, elapsed_active_time=now - active_started_at) if effect_active else frame
+            hands = None
+            if components.hand_track and not hand_tracker_failed:
+                try:
+                    if hand_tracker is None:
+                        hand_tracker = MediaPipeHandTracker(model_path=hand_model)
+                    hand_started_at = time.perf_counter()
+                    hands, hand_track_mode = track_hands_for_analysis(
+                        hand_tracker,
+                        frame,
+                        analysis,
+                        components,
+                        hand_track_input=hand_track_input,
+                    )
+                    benchmark_timer.add_hand(time.perf_counter() - hand_started_at, hand_track_mode)
+                except FileNotFoundError as exc:
+                    print(exc)
+                    hand_tracker_failed = True
+            else:
+                benchmark_timer.add_hand(0.0, "skipped")
             if runtime_config.debug:
-                hands = None
-                if components.hand_track and not hand_tracker_failed:
-                    try:
-                        if hand_tracker is None:
-                            hand_tracker = MediaPipeHandTracker(model_path=hand_model)
-                        hand_started_at = time.perf_counter()
-                        hands, hand_track_mode = track_hands_for_analysis(
-                            hand_tracker,
-                            frame,
-                            analysis,
-                            components,
-                            hand_track_input=hand_track_input,
-                        )
-                        benchmark_timer.add_hand(time.perf_counter() - hand_started_at, hand_track_mode)
-                    except FileNotFoundError as exc:
-                        print(exc)
-                        hand_tracker_failed = True
-                else:
-                    benchmark_timer.add_hand(0.0, "skipped")
                 output = draw_debug_overlay(
                     output,
                     DebugInfo(
@@ -308,7 +319,14 @@ def select_effect_for_analysis(library, analysis: AnalysisResult, fallback_id: s
     return library.effects[fallback_id]
 
 
-def audio_for_effect_definition(effect_definition, fallback_audio: str, override_audio: str | None = None) -> MultiTrackAudio:
+def audio_for_effect_definition(
+    effect_definition,
+    fallback_audio: str,
+    override_audio: str | None = None,
+    audio_enabled: bool = True,
+) -> MultiTrackAudio | NullAudio:
+    if not audio_enabled:
+        return NullAudio()
     if override_audio:
         track_configs = [AudioTrackConfig(Path(override_audio), volume=effect_definition.audio_volume, loop=effect_definition.audio_loop)]
     else:

@@ -5,6 +5,7 @@ import numpy as np
 
 from webcam_effect.analyzer import AnalysisResult
 from webcam_effect.app import BenchmarkTimer, audio_for_effect_definition, preview_key_to_code, track_hands_for_analysis
+from webcam_effect.audio import NullAudio
 from webcam_effect.components import ComponentSettings
 from webcam_effect.effects import EffectDefinition
 from webcam_effect.hand_tracking import HandTrackFrame
@@ -40,6 +41,16 @@ class AppTest(unittest.TestCase):
         self.assertEqual(str(audio.players[0].audio_path), "assets/song.mp3")
         self.assertEqual(audio.players[0].volume, 0.4)
         self.assertFalse(audio.players[0].loop)
+
+    def test_audio_for_effect_definition_can_disable_audio_backend(self):
+        effect = replace(EffectDefinition(), audio_tracks=())
+
+        audio = audio_for_effect_definition(effect, fallback_audio="assets/song.mp3", audio_enabled=False)
+
+        self.assertIsInstance(audio, NullAudio)
+        audio.start()
+        audio.stop()
+        audio.close()
 
 
     def test_track_hands_uses_box_when_segmentation_enabled(self):

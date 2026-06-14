@@ -151,6 +151,18 @@ class MultiTrackAudio:
             if close is not None:
                 close()
 
+class NullAudio:
+    players = []
+
+    def start(self) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
 def create_audio_player(track: AudioTrackConfig, player: str = "afplay"):
     if track.path.exists():
         try:

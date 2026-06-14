@@ -22,6 +22,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.left_sticker, "assets/cat.gif")
         self.assertEqual(args.sticker, "assets/nick.gif")
         self.assertEqual(args.audio, "assets/Kicau Mania Cutted.mp3")
+        self.assertFalse(args.no_audio)
         self.assertEqual(args.device, "mps")
         self.assertFalse(args.debug)
         self.assertEqual(args.components.segment, True)
@@ -67,6 +68,7 @@ class CliTest(unittest.TestCase):
                 "assets/nick.gif",
                 "--audio",
                 "assets/Kicau Mania Cutted.mp3",
+                "--no-audio",
                 "--device",
                 "mps",
                 "--debug",
@@ -99,6 +101,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.segmentation_input, "crop")
         self.assertEqual(args.left_sticker, "assets/cat.gif")
         self.assertEqual(args.audio, "assets/Kicau Mania Cutted.mp3")
+        self.assertTrue(args.no_audio)
         self.assertEqual(args.device, "mps")
         self.assertTrue(args.debug)
         self.assertTrue(args.components.segment)
@@ -120,6 +123,24 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.segmenter, "yolo-seg")
         self.assertEqual(args.detector, "yolo26n-seg.pt")
         self.assertEqual(args.segmentation_input, "masked-crop")
+
+    def test_filters_command_has_mediapipe_filter_defaults(self):
+        args = build_parser().parse_args(["filters"])
+
+        self.assertEqual(args.command, "filters")
+        self.assertEqual(args.camera, "0")
+        self.assertEqual(args.resolution, "640x480")
+        self.assertEqual(args.assets_dir, "assets")
+        self.assertEqual(args.glasses, "glasses.ppm")
+        self.assertEqual(args.face_model, "assets/face_landmarker.task")
+        self.assertEqual(args.hand_model, "assets/hand_landmarker.task")
+        self.assertEqual(args.pose_model, "assets/pose_landmarker_lite.task")
+        self.assertEqual(args.segmenter_model, "assets/selfie_segmenter.tflite")
+        self.assertEqual(args.start_filter, "0")
+        self.assertEqual(args.frame_skip, 1)
+        self.assertEqual(args.inference_scale, 0.5)
+        self.assertEqual(args.video_output, "preview")
+        self.assertEqual(args.record_output, "")
 
     def test_components_tui_can_be_disabled(self):
         args = build_parser().parse_args(["run", "--no-components-tui"])

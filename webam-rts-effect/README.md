@@ -36,11 +36,17 @@ When `segment` and `hand_track` are both enabled, hand tracking runs on the segm
 Force a specific hand-tracking input while benchmarking:
 
 ```bash
-uv run python main.py run --debug --no-components-tui --components segment,hand_track --hand-track-input bbox --video-output none --benchmark-frames 300
-uv run python main.py run --debug --no-components-tui --components segment,hand_track --hand-track-input full --video-output none --benchmark-frames 300
+uv run python main.py run --no-audio --debug --no-components-tui --components segment,hand_track --hand-track-input bbox --video-output none --benchmark-frames 300
+uv run python main.py run --no-audio --debug --no-components-tui --components segment,hand_track --hand-track-input full --video-output none --benchmark-frames 300
 ```
 
 Benchmark output includes total FPS, average analysis/hand/output milliseconds, and how many frames used bbox, full-frame, or skipped hand tracking.
+
+For cleaner timing, omit `--debug`; `hand_track` still runs, but skeleton drawing is skipped:
+
+```bash
+uv run python main.py run --no-audio --no-components-tui --components segment,hand_track --hand-track-input bbox --video-output none --benchmark-frames 300 --sync-analysis
+```
 
 Use YOLO bbox-only crop instead of segmentation mask:
 
@@ -62,6 +68,30 @@ Effect mode animates both GIFs: `--sticker` renders on the right and `--left-sti
 
 Press `p` to toggle preview effect without pose detection. Press `q` to quit.
 
+## MediaPipe Video Filters
+
+Run the general-purpose filter stack:
+
+```bash
+uv run python main.py filters
+```
+
+Defaults: `--camera 0`, `--resolution 640x480`, `--start-filter 0`, `--frame-skip 1`, `--inference-scale 0.5`. Press keys `1` through `0` to switch filters and `q` to quit. Key `0` selects `background_blur_lite`, the optimized mode targeting average FPS above 24.
+
+Optional model files: face filters expect `assets/face_landmarker.task`, hand filters use `assets/hand_landmarker.task`, pose/segmentation uses `assets/pose_landmarker_lite.task`, and image segmentation can use `assets/selfie_segmenter.tflite`. Missing models or assets are reported in the preview overlay without crashing the app.
+
+Benchmark optimized mode locally:
+
+```bash
+uv run python main.py filters --start-filter 0 --resolution 640x480 --video-output none --benchmark-seconds 60
+```
+
+Record processed video with OpenCV:
+
+```bash
+uv run python main.py filters --record-output outputs/filters.mp4
+```
+
 Use a local preview window explicitly:
 
 ```bash
@@ -77,6 +107,7 @@ uv run python main.py run --video-output none
 Development controls:
 
 - `--debug`: show classifier label, confidence score, active state, model backends, hand skeletons, and FPS overlay.
+- `--no-audio`: disable audio backend entirely. Use this for benchmarks or when Bluetooth audio should not be touched.
 - Components TUI opens by default in an interactive terminal before webcam starts. Toggle `segment`, `classify`, and `hand_track` with Space, then Enter to run.
 - `--no-components-tui`: skip the selector. Use with `--components segment,classify,hand_track` for scripted runs. Example: `--no-components-tui --components classify,hand_track` runs classification on full frames without segmentation.
 - `--sync-analysis`: run MediaPipe and YOLO on the preview thread for latency/FPS comparison.

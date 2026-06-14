@@ -1,10 +1,21 @@
 from dataclasses import dataclass
 
+SUPPORTED_RESOLUTIONS = {
+    "640x480": (640, 480),
+    "1280x720": (1280, 720),
+}
+
 
 def parse_camera_source(source: str):
     if source.isdigit():
         return int(source)
     return source
+
+def parse_resolution(value: str) -> tuple[int, int]:
+    if value not in SUPPORTED_RESOLUTIONS:
+        supported = ", ".join(SUPPORTED_RESOLUTIONS)
+        raise ValueError(f"unsupported resolution: {value}. Use one of: {supported}")
+    return SUPPORTED_RESOLUTIONS[value]
 
 
 @dataclass

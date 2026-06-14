@@ -27,10 +27,20 @@ DEFAULT_SEGMENTER_BACKEND = "yolo-seg"
 DEFAULT_STICKER = "assets/nick.gif"
 DEFAULT_VIDEO_OUTPUT = "preview"
 DEFAULT_FFMPEG_VIDEO_COMMAND = ""
+DEFAULT_FILTER_BACKGROUND = "example.png"
+DEFAULT_FILTER_FACE_MODEL = "assets/face_landmarker.task"
+DEFAULT_FILTER_GLASSES = "glasses.ppm"
+DEFAULT_FILTER_RECORD_OUTPUT = ""
+DEFAULT_FILTER_RESOLUTION = "640x480"
+DEFAULT_FILTER_SEGMENTER_MODEL = "assets/selfie_segmenter.tflite"
+DEFAULT_FILTER_START = "0"
+DEFAULT_FILTER_STICKER = "nick.gif"
 CLASSIFIER_BACKENDS = ("yolo", "mediapipe")
 SEGMENTER_BACKENDS = ("yolo", "yolo-seg", "mediapipe")
 SEGMENTATION_INPUTS = ("crop", "masked-crop")
 VIDEO_OUTPUTS = ("preview", "ffmpeg", "none")
+FILTER_VIDEO_OUTPUTS = ("preview", "none")
+FILTER_KEYS = tuple("1234567890")
 HAND_TRACK_INPUTS = ("auto", "bbox", "full")
 
 
@@ -53,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--left-sticker", default=DEFAULT_LEFT_STICKER)
     run_parser.add_argument("--sticker", default=DEFAULT_STICKER)
     run_parser.add_argument("--audio", default=DEFAULT_EFFECT_AUDIO)
+    run_parser.add_argument("--no-audio", action="store_true")
     run_parser.add_argument("--device", default=DEFAULT_DEVICE)
     run_parser.add_argument("--debug", action="store_true")
     run_parser.add_argument("--components", type=component_settings, default=ComponentSettings())
@@ -64,6 +75,24 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--effect-config", default=DEFAULT_EFFECT_CONFIG)
     run_parser.add_argument("--video-output", choices=VIDEO_OUTPUTS, default=DEFAULT_VIDEO_OUTPUT)
     run_parser.add_argument("--ffmpeg-video-command", default=DEFAULT_FFMPEG_VIDEO_COMMAND)
+
+    filters_parser = subparsers.add_parser("filters")
+    filters_parser.add_argument("--camera", default=DEFAULT_CAMERA)
+    filters_parser.add_argument("--resolution", choices=("640x480", "1280x720"), default=DEFAULT_FILTER_RESOLUTION)
+    filters_parser.add_argument("--assets-dir", default="assets")
+    filters_parser.add_argument("--background", default=DEFAULT_FILTER_BACKGROUND)
+    filters_parser.add_argument("--glasses", default=DEFAULT_FILTER_GLASSES)
+    filters_parser.add_argument("--sticker", default=DEFAULT_FILTER_STICKER)
+    filters_parser.add_argument("--face-model", default=DEFAULT_FILTER_FACE_MODEL)
+    filters_parser.add_argument("--hand-model", default=DEFAULT_HAND_MODEL)
+    filters_parser.add_argument("--pose-model", default=DEFAULT_MEDIAPIPE_MODEL)
+    filters_parser.add_argument("--segmenter-model", default=DEFAULT_FILTER_SEGMENTER_MODEL)
+    filters_parser.add_argument("--start-filter", choices=FILTER_KEYS, default=DEFAULT_FILTER_START)
+    filters_parser.add_argument("--frame-skip", type=int, default=1)
+    filters_parser.add_argument("--inference-scale", type=float, default=0.5)
+    filters_parser.add_argument("--video-output", choices=FILTER_VIDEO_OUTPUTS, default=DEFAULT_VIDEO_OUTPUT)
+    filters_parser.add_argument("--record-output", default=DEFAULT_FILTER_RECORD_OUTPUT)
+    filters_parser.add_argument("--benchmark-seconds", type=int, default=0)
 
     dataset_parser = subparsers.add_parser("dataset")
     dataset_parser.add_argument("--camera", default=DEFAULT_CAMERA)
@@ -147,6 +176,30 @@ def main(argv: list[str] | None = None) -> None:
             benchmark_frames=args.benchmark_frames,
             components=components,
             hand_track_input=args.hand_track_input,
+            audio_enabled=not args.no_audio,
+        )
+        return
+
+    if args.command == "filters":
+        from webcam_effect.video_filters.runtime import run_video_filter_app
+
+        run_video_filter_app(
+            camera=args.camera,
+            resolution=args.resolution,
+            assets_dir=args.assets_dir,
+            background=args.background,
+            glasses=args.glasses,
+            sticker=args.sticker,
+            face_model=args.face_model,
+            hand_model=args.hand_model,
+            pose_model=args.pose_model,
+            segmenter_model=args.segmenter_model,
+            start_filter=args.start_filter,
+            frame_skip=args.frame_skip,
+            inference_scale=args.inference_scale,
+            video_output=args.video_output,
+            record_output=args.record_output,
+            benchmark_seconds=args.benchmark_seconds,
         )
         return
 

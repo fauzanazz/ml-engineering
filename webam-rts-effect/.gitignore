@@ -1,5 +1,8 @@
 *.DS_Store
 
+# Model weights (downloaded artifacts)
+*.pt
+
 assets/.effect_versions/
 datasets/
 runs/
