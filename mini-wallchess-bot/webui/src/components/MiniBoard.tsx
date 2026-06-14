@@ -100,9 +100,9 @@ export default function MiniBoard({ state, size = 220 }: Props) {
         cx={cx(state.pawns.south.c)}
         cy={cy(state.pawns.south.r)}
         r={cell * 0.32}
-        fill="var(--lagoon)"
+        fill="var(--pawn-south)"
         stroke="#000"
-        strokeOpacity={0.25}
+        strokeOpacity={0.35}
       />
       <circle
         cx={cx(state.pawns.north.c)}

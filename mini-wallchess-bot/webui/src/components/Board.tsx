@@ -156,13 +156,15 @@ export default function Board({
                   {(isSouth || isNorth) && (
                     <span
                       className={[
-                        'relative h-[68%] w-[68%] rounded-full shadow-md transition',
+                        'relative h-[68%] w-[68%] rounded-full border shadow-md transition',
                         isSouth
-                          ? 'bg-[var(--lagoon)]'
-                          : 'bg-[var(--pawn-north)]',
+                          ? 'bg-[var(--pawn-south)] border-[var(--pawn-south-edge)]'
+                          : 'bg-[var(--pawn-north)] border-[var(--pawn-north-edge)]',
                         (isSouth ? state.turn === 'south' : state.turn === 'north') &&
                         !state.winner
-                          ? 'ring-2 ring-white/70 ring-offset-1'
+                          ? isSouth
+                            ? 'ring-2 ring-[var(--lagoon-deep)] ring-offset-1'
+                            : 'ring-2 ring-white/80 ring-offset-1'
                           : '',
                       ].join(' ')}
                       aria-hidden="true"

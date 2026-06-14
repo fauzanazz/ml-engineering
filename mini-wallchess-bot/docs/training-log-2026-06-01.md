@@ -224,3 +224,15 @@ Params: 414K
 | net-sp2-{1-4}.jsonl | 28K | 200-sim net MCTS (v6) | ★★★ |
 
 Permanent: `data/search-d3-{1-9}.jsonl` (9K), `data/selfplay-h-{1-9}.jsonl` (15K), `data/expert-d2-{1-5}.jsonl` (30K)
+
+---
+
+## Sequel (2026-06-03) — net shelved, search side won
+
+The "Next steps to break 20% ceiling" above were all pursued and all failed (see
+`restnet-architecture-research.md` — 8 approaches, net capped ~42% vs d3). The net
+is a proven dead end by imitation/self-play. Effort redirected to the **search
+side**, which succeeded: `search_moves` BFS-path wall pruning made **alpha-beta d10
+playable in WASM (<1s/move)**, monotonic D4–D10. Strongest deployed bot is now
+`ab-d10`, not the net. See `../memory/project_search_optimization.md` and the
+EPILOGUE in `restnet-architecture-research.md`.

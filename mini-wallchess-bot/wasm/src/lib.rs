@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wallchess_core::{
-    analyze, generate_graph, top_moves,
+    analyze, analyze_with_node_limit, generate_graph, top_moves,
     state::{Cell, Orientation, Side, State},
 };
 
@@ -86,6 +86,17 @@ struct Analysis {
     /// SOUTH win chance 0..100; `north = 100 - south`.
     south: u8,
     north: u8,
+}
+
+#[derive(Serialize)]
+struct BudgetAnalysis {
+    #[serde(rename = "move")]
+    mv: Option<MoveOut>,
+    south: u8,
+    north: u8,
+    depth: u8,
+    stopped: bool,
+    nodes: u64,
 }
 
 // ---- graph DTOs (full GameState per node so the UI can render each board) --
@@ -250,6 +261,31 @@ pub fn analyze_state(state: JsValue, depth: u8, k: f64) -> Result<JsValue, JsVal
         mv: best.map(move_to_out),
         south,
         north,
+    };
+    serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&format!("encode: {e}")))
+}
+
+/// Analyze with a node budget. Returns the deepest completed depth plus budget
+/// metadata so the browser can use a high max depth with stable tail latency.
+#[wasm_bindgen]
+pub fn analyze_state_budgeted(
+    state: JsValue,
+    depth: u8,
+    node_limit: u64,
+    k: f64,
+) -> Result<JsValue, JsValue> {
+    let js: StateJs = serde_wasm_bindgen::from_value(state)
+        .map_err(|e| JsValue::from_str(&format!("bad state: {e}")))?;
+    let core = to_core(js).map_err(|e| JsValue::from_str(&e))?;
+    let (best, south, north, reached, stopped, nodes) =
+        analyze_with_node_limit(&core, depth, node_limit, k);
+    let out = BudgetAnalysis {
+        mv: best.map(move_to_out),
+        south,
+        north,
+        depth: reached,
+        stopped,
+        nodes,
     };
     serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&format!("encode: {e}")))
 }

@@ -112,10 +112,9 @@ pub fn encode(state: &State) -> Vec<f32> {
     // Path features. `distance_to_goal` is frame-agnostic (a scalar BFS length),
     // so the raw value is correct without mirroring.
     let me_pos = state.pawn(me);
-    let me_dist =
-        distance_to_goal(state, me_pos, me.goal_row()).unwrap_or(UNREACHABLE_DIST);
-    let opp_dist = distance_to_goal(state, state.pawn(opp), opp.goal_row())
-        .unwrap_or(UNREACHABLE_DIST);
+    let me_dist = distance_to_goal(state, me_pos, me.goal_row()).unwrap_or(UNREACHABLE_DIST);
+    let opp_dist =
+        distance_to_goal(state, state.pawn(opp), opp.goal_row()).unwrap_or(UNREACHABLE_DIST);
     f[293] = me_dist as f32 / DIST_NORM;
     f[294] = opp_dist as f32 / DIST_NORM;
     f[295] = (opp_dist as f32 - me_dist as f32) / DIST_NORM;
@@ -167,6 +166,9 @@ mod tests {
         let fs = encode(&s);
         s.turn = Side::North;
         let fnorth = encode(&s);
-        assert_eq!(fs, fnorth, "symmetric start must look identical to both sides");
+        assert_eq!(
+            fs, fnorth,
+            "symmetric start must look identical to both sides"
+        );
     }
 }

@@ -34,7 +34,10 @@
   --board-dark: #d4c9be;
   --board-frame: #1a1510;
   --board-goal: rgba(196, 149, 106, 0.22);
-  --pawn-north: #c47d2f;
+  --pawn-south: #f7f3ec;
+  --pawn-north: #2a2520;
+  --pawn-south-edge: rgba(26, 21, 16, 0.35);
+  --pawn-north-edge: rgba(255, 255, 255, 0.30);
   --overlay: rgba(26, 21, 16, 0.42);
   --icon-bg: rgba(196, 149, 106, 0.10);
   --icon-bg-hover: rgba(196, 149, 106, 0.18);

@@ -2,6 +2,7 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const analyze_state: (a: any, b: number, c: number) => [number, number, number];
+export const analyze_state_budgeted: (a: any, b: number, c: bigint, d: number) => [number, number, number];
 export const choose_move: (a: any, b: number) => [number, number, number];
 export const generate_graph_js: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
 export const top_moves_js: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];

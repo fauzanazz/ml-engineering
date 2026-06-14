@@ -16,18 +16,27 @@ from safetensors.torch import save_file
 from torch.utils.data import DataLoader, random_split
 
 from dataset import SelfPlayDataset
-from model import WallNet, WallNetCNN
+from model import WallNet, WallNetCNN, WallNetResT
 
 
-def policy_loss(logits, target):
-    # soft cross-entropy: -sum_a target(a) * log_softmax(logits)(a), mean over batch
+def policy_loss(logits, target, pw=None):
+    # soft cross-entropy: -sum_a target(a) * log_softmax(logits)(a)
+    # pw: optional per-sample policy weight (0 = value-only sample). Normalized by
+    # sum(pw) so the loss scale is independent of the value-only fraction.
     logp = F.log_softmax(logits, dim=-1)
-    return -(target * logp).sum(dim=-1).mean()
+    ce = -(target * logp).sum(dim=-1)  # per-sample
+    if pw is None:
+        return ce.mean()
+    denom = pw.sum().clamp(min=1.0)
+    return (ce * pw).sum() / denom
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", nargs="+", default=["selfplay.jsonl"])
+    ap.add_argument("--data", nargs="+", default=["selfplay.jsonl"],
+                    help="full data: policy + value targets (the d3 search anchor)")
+    ap.add_argument("--value-data", nargs="*", default=[],
+                    help="value-only data (self-play z): trained on value, policy ignored")
     ap.add_argument("--out", default="wallnet.safetensors")
     ap.add_argument("--epochs", type=int, default=20)
     ap.add_argument("--batch", type=int, default=256)
@@ -35,10 +44,15 @@ def main():
     ap.add_argument("--val-frac", type=float, default=0.1)
     ap.add_argument("--value-weight", type=float, default=1.0)
     ap.add_argument("--hidden", type=int, default=256)
-    ap.add_argument("--arch", choices=["mlp", "cnn"], default="mlp",
-                    help="mlp: 2-layer MLP (default); cnn: CNN spatial encoder")
+    ap.add_argument("--arch", choices=["mlp", "cnn", "restnet"], default="mlp",
+                    help="mlp: 2-layer MLP (default); cnn: CNN encoder; "
+                         "restnet: interleaved Residual+Transformer (POC, not WASM-deployable)")
     ap.add_argument("--cnn-channels", type=int, default=32,
                     help="CNN: base channel count (halved before flatten)")
+    ap.add_argument("--rest-channels", type=int, default=64,
+                    help="ResTNet: tower channel width")
+    ap.add_argument("--rest-blocks", default="RRTRRT",
+                    help="ResTNet: block string, R=residual T=transformer (must start with R)")
     ap.add_argument("--device", default="auto",
                     help="Training device: auto (mps > cuda > cpu), cpu, mps, cuda")
     args = ap.parse_args()
@@ -54,7 +68,12 @@ def main():
         device = torch.device(args.device)
     print(f"device: {device}")
 
-    ds = SelfPlayDataset(args.data)
+    ds = SelfPlayDataset(args.data, policy_weight=1.0)
+    if args.value_data:
+        from torch.utils.data import ConcatDataset
+        vds = SelfPlayDataset(args.value_data, policy_weight=0.0)
+        print(f"data: {len(ds)} full + {len(vds)} value-only = {len(ds) + len(vds)}")
+        ds = ConcatDataset([ds, vds])
     n_val = max(1, int(len(ds) * args.val_frac))
     n_train = len(ds) - n_val
     train_ds, val_ds = random_split(
@@ -65,6 +84,8 @@ def main():
 
     if args.arch == "cnn":
         model = WallNetCNN(channels=args.cnn_channels).to(device)
+    elif args.arch == "restnet":
+        model = WallNetResT(channels=args.rest_channels, blocks=args.rest_blocks).to(device)
     else:
         model = WallNet(hidden=args.hidden).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -75,11 +96,11 @@ def main():
 
     for epoch in range(1, args.epochs + 1):
         model.train()
-        for f, pi, z in train_dl:
-            f, pi, z = f.to(device), pi.to(device), z.to(device)
+        for f, pi, z, pw in train_dl:
+            f, pi, z, pw = f.to(device), pi.to(device), z.to(device), pw.to(device)
             opt.zero_grad()
             logits, v = model(f)
-            loss = policy_loss(logits, pi) + args.value_weight * F.mse_loss(v, z)
+            loss = policy_loss(logits, pi, pw) + args.value_weight * F.mse_loss(v, z)
             loss.backward()
             opt.step()
         scheduler.step()
@@ -87,10 +108,10 @@ def main():
         model.eval()
         with torch.no_grad():
             vp = vv = nb = 0.0
-            for f, pi, z in val_dl:
-                f, pi, z = f.to(device), pi.to(device), z.to(device)
+            for f, pi, z, pw in val_dl:
+                f, pi, z, pw = f.to(device), pi.to(device), z.to(device), pw.to(device)
                 logits, v = model(f)
-                vp += policy_loss(logits, pi).item()
+                vp += policy_loss(logits, pi, pw).item()
                 vv += F.mse_loss(v, z).item()
                 nb += 1
             val_combined = vp / nb + args.value_weight * vv / nb

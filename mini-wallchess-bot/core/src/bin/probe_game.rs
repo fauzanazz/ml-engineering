@@ -21,7 +21,11 @@ fn main() {
     let mut ply = 0u32;
     println!("South=d{sd}  North=d{nd}");
     while state.winner.is_none() && ply < max {
-        let cfg = if state.turn == Side::South { &south } else { &north };
+        let cfg = if state.turn == Side::South {
+            &south
+        } else {
+            &north
+        };
         let mv = match cfg.choose(&state) {
             Some(m) => m,
             None => break,

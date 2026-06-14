@@ -95,11 +95,13 @@ function antiOscillate(state: GameState, chosen: Move): Move {
   return out
 }
 
-// Default search depth (plies) for the WASM engine. Depth 3: with the fixed
-// eval (high w_wall) it beats depth 2 16-0 — as strong as depth 4 here but
-// ~10x faster (one fewer ply over a ~130-wide tree), so move latency stays low
-// in the browser. Depth 4 was correct but too slow in wasm.
-const BOT_DEPTH = 3
+// Default heuristic search: ask for a high depth, but cap nodes so hard midgames
+// stay browser-playable. If the loaded WASM bundle predates budgeted search,
+// calls fall back to fixed-depth `choose_move`.
+const BOT_DEPTH = 4
+const ANALYSIS_DEPTH = 12
+const BOT_NODE_LIMIT = 600_000
+const GRAPH_DEPTH = 4
 // Logistic squash constant for the 0..100 win meter (larger -> closer to 50/50).
 const SCORE_K = 200
 
@@ -145,6 +147,15 @@ function getMoveBook(): Promise<Map<string, number>> {
 // `?net=1` is set, heuristic otherwise. Arena mode passes an explicit engine per
 // side so it can pit net vs heuristic regardless of the URL flag.
 export type BotEngine = 'heuristic' | 'net'
+type BudgetAnalysis = Analysis & { depth: number; stopped: boolean; nodes: number }
+type BudgetedWasm = WasmModule & {
+  analyze_state_budgeted?: (
+    state: GameState,
+    depth: number,
+    nodeLimit: bigint,
+    k: number,
+  ) => BudgetAnalysis
+}
 
 // Bot move, same call shape as the old server function: `botMove({ data })`.
 // Validates the state at the boundary, then runs the Rust search in WASM,
@@ -153,6 +164,7 @@ export async function botMove({
   data,
   engine,
   depth = BOT_DEPTH,
+  nodeLimit,
   sims = NET_SIMS,
 }: {
   data: unknown
@@ -160,6 +172,7 @@ export async function botMove({
   // Optional per-call overrides so bot variations (see ./bots) can run the same
   // engine at different strengths. Default to the legacy depth/sim budget.
   depth?: number
+  nodeLimit?: number
   sims?: number
 }): Promise<Move> {
   const state = parseGameState(data)
@@ -179,7 +192,14 @@ export async function botMove({
     }
   }
   try {
-    const wasm = await loadWasm()
+    const wasm = (await loadWasm()) as BudgetedWasm
+    // Yield two animation frames so React can paint thinking=true before
+    // choose_move blocks the main thread (WASM is synchronous).
+    await new Promise<void>((r) => requestAnimationFrame(() => { requestAnimationFrame(() => r()) }))
+    if (nodeLimit !== undefined && wasm.analyze_state_budgeted) {
+      const { move } = wasm.analyze_state_budgeted(state, depth, BigInt(nodeLimit), SCORE_K)
+      if (move) return antiOscillate(state, move)
+    }
     return antiOscillate(state, wasm.choose_move(state, depth) as Move)
   } catch (err) {
     console.warn('WASM bot unavailable, using TS fallback', err)
@@ -192,10 +212,13 @@ export type Analysis = { move: Move | null; south: number; north: number }
 
 export async function analyzePosition(
   state: GameState,
-  depth = BOT_DEPTH,
+  depth = ANALYSIS_DEPTH,
   k = SCORE_K,
 ): Promise<Analysis> {
-  const wasm = await loadWasm()
+  const wasm = (await loadWasm()) as BudgetedWasm
+  if (wasm.analyze_state_budgeted) {
+    return wasm.analyze_state_budgeted(state, depth, BigInt(BOT_NODE_LIMIT), k) as Analysis
+  }
   return wasm.analyze_state(state, depth, k) as Analysis
 }
 
@@ -208,7 +231,7 @@ export type RankedMove = { move: Move; south: number; score: number }
 // > `margin` centi-steps) dropped. Each comes pre-scored.
 export async function topMoves(
   state: GameState,
-  depth = BOT_DEPTH,
+  depth = GRAPH_DEPTH,
   k = 3,
   margin = 80,
   winK = SCORE_K,
@@ -340,7 +363,7 @@ export type GraphData = {
 // faster than expanding node-by-node from JS.
 export async function topGraph(
   state: GameState,
-  depth = BOT_DEPTH,
+  depth = GRAPH_DEPTH,
   k = 5,
   margin = 400,
   maxDepth = 12,

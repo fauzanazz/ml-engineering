@@ -8,6 +8,7 @@ import {
   HelpCircle,
   History,
   Lightbulb,
+  Loader2,
   Move as MoveIcon,
   Pause,
   Play,
@@ -22,8 +23,8 @@ import Board from '../components/Board'
 import HowToPlay from '../components/HowToPlay'
 import ReplayList from '../components/ReplayList'
 import WinMeter from '../components/WinMeter'
-import { type BotEngine, analyzePosition, botMove } from '../game/api'
-import { type BotSpec, BOTS, getBot } from '../game/bots'
+import { analyzePosition, botMove } from '../game/api'
+import { type BotSpec, BOTS, BROWSER_MAX_BOT_ID, getBot } from '../game/bots'
 import {
   type Cell,
   type GameState,
@@ -67,15 +68,11 @@ const BOT_SIDE: Side = 'north'
 // catalog (../game/bots) by id, so any matchup runs — including a bot vs an
 // identical copy of itself.
 type ArenaBots = { south: string; north: string }
-const DEFAULT_ARENA_BOTS: ArenaBots = { south: 'net', north: 'ab' }
+const DEFAULT_ARENA_BOTS: ArenaBots = { south: BROWSER_MAX_BOT_ID, north: 'ab-d10' }
 const ARENA_MOVE_DELAY_MS = 550
 // Stalling wall-wars never reach a goal; cap arena games and decide the cap by
 // race progress (closer pawn wins) so it always resolves instead of looping.
 const ARENA_PLY_CAP = 140
-
-function engineLabel(engine: BotEngine): string {
-  return engine === 'net' ? 'MCTS Net' : 'Alpha-Beta'
-}
 
 function raceWinner(s: GameState): Side {
   const ds = distanceToGoal(s.walls, s.pawns.south, GOAL_ROW.south)
@@ -96,8 +93,8 @@ function Game() {
   const [movesMade, setMovesMade] = useState(0)
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [arenaBots, setArenaBots] = useState<ArenaBots>(DEFAULT_ARENA_BOTS)
-  const [botEngine, setBotEngine] = useState<BotEngine>('heuristic')
-  const [confirmBotChange, setConfirmBotChange] = useState<BotEngine | null>(null)
+  const [botId, setBotId] = useState<string>(BROWSER_MAX_BOT_ID)
+  const [confirmBotChange, setConfirmBotChange] = useState<string | null>(null)
   const [savedReplay, setSavedReplay] = useState<ReplayRecord | null>(null)
   type OverlayPanel = { type: 'list' }
   const [panel, setPanel] = useState<OverlayPanel | null>(null)
@@ -148,9 +145,22 @@ function Game() {
         let move: Move
         if (mode === 'arena') {
           const spec = getBot(arenaBots[turn])
-          move = await botMove({ data: state, engine: spec.engine, depth: spec.depth, sims: spec.sims })
+          move = await botMove({
+            data: state,
+            engine: spec.engine,
+            depth: spec.depth,
+            nodeLimit: spec.nodeLimit,
+            sims: spec.sims,
+          })
         } else {
-          move = await botMove({ data: state, engine: mode === 'bot' ? botEngine : undefined })
+          const botSpec = mode === 'bot' ? getBot(botId) : undefined
+          move = await botMove({
+            data: state,
+            engine: botSpec?.engine,
+            depth: botSpec?.depth,
+            nodeLimit: botSpec?.nodeLimit,
+            sims: botSpec?.sims,
+          })
         }
         if (!cancelled) {
           replayFramesRef.current.push({
@@ -173,7 +183,7 @@ function Game() {
     return () => {
       cancelled = true
     }
-  }, [state, mode, arenaBots, botEngine, isAutoTurn])
+  }, [state, mode, arenaBots, botId, isAutoTurn])
 
   // Win-probability meter: re-evaluate the position with the engine each change.
   useEffect(() => {
@@ -252,7 +262,7 @@ function Game() {
     if (!state.winner || replayFramesRef.current.length === 0) return
     const engines: { south: ReplayEngine; north: ReplayEngine } =
       mode === 'bot'
-        ? { south: 'human', north: botEngine as ReplayEngine }
+        ? { south: 'human', north: getBot(botId).engine as ReplayEngine }
         : mode === 'arena'
           ? {
               south: getBot(arenaBots.south).engine as ReplayEngine,
@@ -329,19 +339,19 @@ function Game() {
     setConfirmLeave(false)
   }
 
-  function handleBotEngine(next: BotEngine) {
-    if (next === botEngine) return
+  function handleBotId(next: string) {
+    if (next === botId) return
     if (movesMade > 0 && !state.winner) {
       setConfirmBotChange(next)
       return
     }
-    setBotEngine(next)
+    setBotId(next)
     reset()
   }
 
   function confirmBotSwitch() {
     if (!confirmBotChange) return
-    setBotEngine(confirmBotChange)
+    setBotId(confirmBotChange)
     setConfirmBotChange(null)
     reset()
   }
@@ -375,7 +385,14 @@ function Game() {
     }
     let cancelled = false
     setReplayBotMove(undefined)
-    botMove({ data: replayBoardState, engine: 'heuristic' })
+    const spec = getBot(BROWSER_MAX_BOT_ID)
+    botMove({
+      data: replayBoardState,
+      engine: spec.engine,
+      depth: spec.depth,
+      nodeLimit: spec.nodeLimit,
+      sims: spec.sims,
+    })
       .then((move) => { if (!cancelled) setReplayBotMove(move) })
       .catch(() => {})
     return () => { cancelled = true }
@@ -391,7 +408,14 @@ function Game() {
     }
     let cancelled = false
     setHelpMove(undefined)
-    botMove({ data: state, engine: 'heuristic' })
+    const spec = getBot(BROWSER_MAX_BOT_ID)
+    botMove({
+      data: state,
+      engine: spec.engine,
+      depth: spec.depth,
+      nodeLimit: spec.nodeLimit,
+      sims: spec.sims,
+    })
       .then((move) => { if (!cancelled) setHelpMove(move) })
       .catch(() => {})
     return () => { cancelled = true }
@@ -405,7 +429,7 @@ function Game() {
         : (replayMode.record.winner === 'south' ? 100 : 0))
     : southWin
 
-  const botLabel = engineLabel(botEngine)
+  const botLabel = getBot(botId).label
   const sideLabel = (s: typeof state.turn) =>
     mode === 'bot'
       ? s === 'south' ? 'You' : botLabel
@@ -463,7 +487,12 @@ function Game() {
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           {/* top bar: status + controls (controls hidden on desktop, live in right sidebar) */}
           <div className="flex flex-shrink-0 items-center justify-between gap-2">
-            <span className="island-kicker" aria-live="polite" aria-atomic="true">{status}</span>
+            <span className="island-kicker flex items-center gap-1.5" aria-live="polite" aria-atomic="true">
+              {thinking && !replayMode && (
+                <Loader2 size={13} className="animate-spin text-[var(--accent-text)]" />
+              )}
+              {status}
+            </span>
             <div className="flex items-center gap-2 lg:hidden">
               <button
                 type="button"
@@ -617,19 +646,17 @@ function Game() {
 
               {mode === 'bot' && (
                 <div className="flex flex-shrink-0 flex-wrap items-center justify-center gap-2">
-                  <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
-                    <ToggleBtn
-                      active={botEngine === 'heuristic'}
-                      onClick={() => handleBotEngine('heuristic')}
+                  <div className="flex items-center gap-1.5">
+                    <Bot size={14} className="text-[var(--sea-ink-soft)]" />
+                    <select
+                      value={botId}
+                      onChange={(e) => handleBotId(e.target.value)}
+                      className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] px-2 py-0.5 text-xs font-medium text-[var(--sea-ink)] focus:outline-none"
                     >
-                      <Bot size={14} /> Alpha-Beta
-                    </ToggleBtn>
-                    <ToggleBtn
-                      active={botEngine === 'net'}
-                      onClick={() => handleBotEngine('net')}
-                    >
-                      <Bot size={14} /> MCTS Net
-                    </ToggleBtn>
+                      {BOTS.map((b) => (
+                        <option key={b.id} value={b.id}>{b.label}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
                     <ToggleBtn active={botHelp} onClick={() => setBotHelp((b) => !b)}>
@@ -737,13 +764,17 @@ function Game() {
                   )}
 
                   {mode === 'bot' && (
-                    <div className="inline-flex overflow-hidden rounded-full border border-[var(--line)]">
-                      <ToggleBtn compact active={botEngine === 'heuristic'} onClick={() => handleBotEngine('heuristic')}>
-                        <Bot size={13} /> Alpha-Beta
-                      </ToggleBtn>
-                      <ToggleBtn compact active={botEngine === 'net'} onClick={() => handleBotEngine('net')}>
-                        <Bot size={13} /> MCTS Net
-                      </ToggleBtn>
+                    <div className="flex w-full items-center gap-1.5">
+                      <Bot size={13} className="flex-shrink-0 text-[var(--sea-ink-soft)]" />
+                      <select
+                        value={botId}
+                        onChange={(e) => handleBotId(e.target.value)}
+                        className="w-full rounded-full border border-[var(--line)] bg-[var(--chip-bg)] px-2 py-0.5 text-xs font-medium text-[var(--sea-ink)] focus:outline-none"
+                      >
+                        {BOTS.map((b) => (
+                          <option key={b.id} value={b.id}>{b.label}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
 
@@ -827,7 +858,7 @@ function Game() {
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm">
           <div className="island-shell rise-in rounded-2xl p-4" style={{ animationDuration: '300ms' }}>
             <p className="mb-3 text-sm text-[var(--sea-ink)]">
-              Switch to {confirmBotChange === 'net' ? 'MCTS Net' : 'Alpha-Beta'}? Current match will reset.
+              Switch to {getBot(confirmBotChange).label}? Current match will reset.
             </p>
             <div className="flex justify-center gap-2">
               <button
@@ -1240,8 +1271,8 @@ function PlayerCard({
 }) {
   const dot =
     side === 'south'
-      ? 'bg-[var(--lagoon)]'
-      : 'bg-[var(--pawn-north)]'
+      ? 'bg-[var(--pawn-south)] border border-[var(--pawn-south-edge)]'
+      : 'bg-[var(--pawn-north)] border border-[var(--pawn-north-edge)]'
 
   return (
     <div

@@ -150,6 +150,14 @@ impl State {
         }
     }
 
+    /// Skip the current side's turn (null move). Used for null-move pruning only.
+    #[inline]
+    pub fn null_move(&self) -> State {
+        let mut next = *self;
+        next.turn = self.turn.other();
+        next
+    }
+
     /// Apply a move assumed legal. Flips turn, sets winner on goal.
     /// Callers must validate with `moves::is_legal` first.
     pub fn apply(&self, mv: Move) -> State {

@@ -58,10 +58,10 @@ impl Evaluator for Heuristic {
             return if w == side { WIN_SCORE } else { -WIN_SCORE };
         }
         let opp = side.other();
-        let dist_me =
-            distance_to_goal(state, state.pawn(side), side.goal_row()).unwrap_or(UNREACHABLE) as i32;
-        let dist_opp = distance_to_goal(state, state.pawn(opp), opp.goal_row())
+        let dist_me = distance_to_goal(state, state.pawn(side), side.goal_row())
             .unwrap_or(UNREACHABLE) as i32;
+        let dist_opp =
+            distance_to_goal(state, state.pawn(opp), opp.goal_row()).unwrap_or(UNREACHABLE) as i32;
 
         // Race in half-steps; the ±1 side-to-move tie-break stays below a full
         // step. Antisymmetric: every factor negates when side and opp swap.

@@ -12,9 +12,9 @@ pub mod books;
 pub mod eval;
 pub mod features;
 pub mod mcts;
+pub mod moves;
 #[cfg(feature = "net")]
 pub mod net;
-pub mod moves;
 pub mod search;
 pub mod state;
 
@@ -41,6 +41,33 @@ pub fn analyze(state: &State, depth: u8, k: f64) -> (Option<Move>, u8, u8) {
     };
     let south = win_prob(south_eval, k);
     (res.best, south, 100 - south)
+}
+
+/// Analyze with a relative node budget. If the budget is exhausted while a
+/// depth is in progress, the deepest completed iterative-deepening result is
+/// returned.
+pub fn analyze_with_node_limit(
+    state: &State,
+    depth: u8,
+    node_limit: u64,
+    k: f64,
+) -> (Option<Move>, u8, u8, u8, bool, u64) {
+    let h = Heuristic::default();
+    let mut s = Search::new(&h);
+    let res = s.search_with_node_limit(state, depth, node_limit);
+    let south_eval = match state.turn {
+        Side::South => res.score,
+        Side::North => -res.score,
+    };
+    let south = win_prob(south_eval, k);
+    (
+        res.best,
+        south,
+        100 - south,
+        res.depth,
+        res.stopped,
+        res.nodes,
+    )
 }
 
 /// A pruned, scored successor for the state graph: the move, the resulting
@@ -459,7 +486,14 @@ mod tests {
         let mut s = State::initial();
         s.pawns[Side::South.idx()] = Cell::new(4, 5);
         // wall anchor (4,5) spans cols 5,6 between rows 4 and 5
-        s = s.apply_wall_unchecked(Wall { r: 4, c: 5, o: Orientation::H }, Side::South);
+        s = s.apply_wall_unchecked(
+            Wall {
+                r: 4,
+                c: 5,
+                o: Orientation::H,
+            },
+            Side::South,
+        );
         assert!(s.is_blocked(Cell::new(4, 5), Cell::new(5, 5)));
         assert!(!s.is_blocked(Cell::new(4, 5), Cell::new(4, 6)));
     }
@@ -472,8 +506,19 @@ mod tests {
         s.pawns[Side::South.idx()] = Cell::new(1, 1);
         // surround (1,1): wall above it (h at (1,1)) leaves the side exit open,
         // wall to its right (v at (1,1)) seals it -> illegal.
-        s = s.apply_wall_unchecked(Wall { r: 1, c: 1, o: Orientation::H }, Side::North);
-        let seal = Wall { r: 1, c: 1, o: Orientation::V };
+        s = s.apply_wall_unchecked(
+            Wall {
+                r: 1,
+                c: 1,
+                o: Orientation::H,
+            },
+            Side::North,
+        );
+        let seal = Wall {
+            r: 1,
+            c: 1,
+            o: Orientation::V,
+        };
         assert!(!moves::can_place_wall(&s, seal, Side::North));
     }
 
@@ -534,7 +579,11 @@ mod tests {
     fn off_book_once_a_wall_is_placed() {
         let mut s = State::initial();
         s = s.apply_wall_unchecked(
-            Wall { r: 4, c: 4, o: Orientation::H },
+            Wall {
+                r: 4,
+                c: 4,
+                o: Orientation::H,
+            },
             Side::North,
         );
         assert_eq!(opening_move(&s), None, "walls on board -> must search");

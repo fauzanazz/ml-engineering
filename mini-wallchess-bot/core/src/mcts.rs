@@ -109,11 +109,7 @@ impl<'a, P: PolicyValue> Mcts<'a, P> {
             self.backup(&path, leaf_value);
         }
 
-        self.nodes[r]
-            .edges
-            .iter()
-            .map(|e| (e.mv, e.n))
-            .collect()
+        self.nodes[r].edges.iter().map(|e| (e.mv, e.n)).collect()
     }
 
     fn add_node(&mut self, state: State) -> usize {
@@ -299,7 +295,14 @@ mod tests {
         let mut state = State::initial();
         state.pawns[Side::South.idx()] = crate::state::Cell::new(8, 3);
         let policy = HeuristicPolicy::default();
-        let mut mcts = Mcts::new(&policy, MctsConfig { sims: 200, c_puct: 1.5, root_noise: 0.0 });
+        let mut mcts = Mcts::new(
+            &policy,
+            MctsConfig {
+                sims: 200,
+                c_puct: 1.5,
+                root_noise: 0.0,
+            },
+        );
         let visits = mcts.run(&state);
         let (best, n) = visits.iter().max_by_key(|(_, n)| *n).unwrap();
         // best move must land on the goal row (an immediate win)

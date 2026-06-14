@@ -28,6 +28,16 @@ path = "src/bin/net_arena.rs"
 required-features = ["net"]
 
 [[bin]]
+name = "rest_probe"
+path = "src/bin/rest_probe.rs"
+required-features = ["net"]
+
+[[bin]]
+name = "rl_data"
+path = "src/bin/rl_data.rs"
+required-features = ["net"]
+
+[[bin]]
 name = "opening_graph"
 path = "src/bin/opening_graph.rs"
 
@@ -51,6 +61,10 @@ path = "src/bin/diag.rs"
 [[bin]]
 name = "arena"
 path = "src/bin/arena.rs"
+
+[[bin]]
+name = "search_bench"
+path = "src/bin/search_bench.rs"
 
 [[bin]]
 name = "graphcount"

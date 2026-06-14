@@ -9,6 +9,12 @@
 export function analyze_state(state: any, depth: number, k: number): any;
 
 /**
+ * Analyze with a node budget. Returns the deepest completed depth plus budget
+ * metadata so the browser can use a high max depth with stable tail latency.
+ */
+export function analyze_state_budgeted(state: any, depth: number, node_limit: bigint, k: number): any;
+
+/**
  * Convenience: just the move (TS `Move` JSON), matching the old `chooseMove`.
  */
 export function choose_move(state: any, depth: number): any;
@@ -34,6 +40,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly analyze_state: (a: any, b: number, c: number) => [number, number, number];
+    readonly analyze_state_budgeted: (a: any, b: number, c: bigint, d: number) => [number, number, number];
     readonly choose_move: (a: any, b: number) => [number, number, number];
     readonly generate_graph_js: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly top_moves_js: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];

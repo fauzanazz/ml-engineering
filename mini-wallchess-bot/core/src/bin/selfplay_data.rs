@@ -161,7 +161,8 @@ fn play_games<P: PolicyValue>(
                 .filter(|(_, n)| *n > 0)
                 .map(|(mv, _)| action_index(mirror_move(state.turn, *mv)))
                 .collect();
-            let unvisited_count = legal_moves(&state).iter()
+            let unvisited_count = legal_moves(&state)
+                .iter()
                 .filter(|mv| !visited_set.contains(&action_index(mirror_move(state.turn, **mv))))
                 .count() as f32;
             let total_eff = total as f32 + floor_visits * unvisited_count;

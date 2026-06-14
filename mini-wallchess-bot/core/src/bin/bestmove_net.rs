@@ -7,7 +7,9 @@ use wallchess_core::{net::NetEvaluator, Mcts, MctsConfig, State};
 
 fn main() {
     let mut a = std::env::args().skip(1);
-    let path = a.next().expect("usage: bestmove_net <weights.safetensors> [sims]");
+    let path = a
+        .next()
+        .expect("usage: bestmove_net <weights.safetensors> [sims]");
     let sims: u32 = a.next().and_then(|s| s.parse().ok()).unwrap_or(200);
 
     let net = NetEvaluator::load(&path).expect("load net weights");

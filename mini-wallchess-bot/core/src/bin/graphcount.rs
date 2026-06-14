@@ -11,8 +11,14 @@ fn main() {
         .nth(1)
         .and_then(|a| a.parse().ok())
         .unwrap_or(8);
-    let k: usize = std::env::args().nth(2).and_then(|a| a.parse().ok()).unwrap_or(3);
-    let margin: i32 = std::env::args().nth(3).and_then(|a| a.parse().ok()).unwrap_or(80);
+    let k: usize = std::env::args()
+        .nth(2)
+        .and_then(|a| a.parse().ok())
+        .unwrap_or(3);
+    let margin: i32 = std::env::args()
+        .nth(3)
+        .and_then(|a| a.parse().ok())
+        .unwrap_or(80);
     let depth: u8 = 2; // search depth used to rank moves
 
     let root = State::initial();

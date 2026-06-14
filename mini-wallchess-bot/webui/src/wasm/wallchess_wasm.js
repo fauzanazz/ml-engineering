@@ -18,6 +18,23 @@ export function analyze_state(state, depth, k) {
 }
 
 /**
+ * Analyze with a node budget. Returns the deepest completed depth plus budget
+ * metadata so the browser can use a high max depth with stable tail latency.
+ * @param {any} state
+ * @param {number} depth
+ * @param {bigint} node_limit
+ * @param {number} k
+ * @returns {any}
+ */
+export function analyze_state_budgeted(state, depth, node_limit, k) {
+    const ret = wasm.analyze_state_budgeted(state, depth, node_limit, k);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * Convenience: just the move (TS `Move` JSON), matching the old `chooseMove`.
  * @param {any} state
  * @param {number} depth
@@ -241,6 +258,11 @@ function __wbg_get_imports() {
         __wbindgen_cast_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
             const ret = getStringFromWasm0(arg0, arg1);
+            return ret;
+        },
+        __wbindgen_cast_0000000000000003: function(arg0) {
+            // Cast intrinsic for `U64 -> Externref`.
+            const ret = BigInt.asUintN(64, arg0);
             return ret;
         },
         __wbindgen_init_externref_table: function() {

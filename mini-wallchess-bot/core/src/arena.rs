@@ -38,7 +38,11 @@ pub fn play_game(south: &BotConfig, north: &BotConfig, max_plies: u32) -> (Outco
     let mut state = State::initial();
     let mut ply = 0u32;
     while state.winner.is_none() && ply < max_plies {
-        let cfg = if state.turn == Side::South { south } else { north };
+        let cfg = if state.turn == Side::South {
+            south
+        } else {
+            north
+        };
         let mv = match cfg.choose(&state) {
             Some(m) => m,
             None => break, // no legal move (shouldn't happen under rules)

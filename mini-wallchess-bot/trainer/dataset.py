@@ -15,7 +15,9 @@ class SelfPlayDataset(Dataset):
     the game outcome from that state's side-to-move POV.
     """
 
-    def __init__(self, path: str | list[str]):
+    def __init__(self, path: str | list[str], policy_weight: float = 1.0):
+        """policy_weight scales this source's policy loss per sample. Set 0.0 for
+        value-only data (self-play z targets without trusting its weak policy)."""
         paths = [path] if isinstance(path, str) else path
         feats, pols, vals = [], [], []
         for one_path in paths:
@@ -42,9 +44,10 @@ class SelfPlayDataset(Dataset):
         self.feats = torch.stack(feats)
         self.pols = torch.stack(pols)
         self.vals = torch.tensor(vals, dtype=torch.float32)
+        self.pw = torch.full((len(vals),), float(policy_weight), dtype=torch.float32)
 
     def __len__(self):
         return len(self.vals)
 
     def __getitem__(self, i):
-        return self.feats[i], self.pols[i], self.vals[i]
+        return self.feats[i], self.pols[i], self.vals[i], self.pw[i]
