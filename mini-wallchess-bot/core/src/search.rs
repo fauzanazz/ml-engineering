@@ -1,14 +1,32 @@
-//! Negamax + alpha-beta with iterative deepening. The transposition table is
-//! a fixed-size array indexed by a cheap multiplicative hash — much faster than
-//! HashMap for the tight inner loop (no pointer-chasing, no SipHash overhead).
+//! Negamax + alpha-beta with iterative deepening, a transposition table, and a
+//! configurable bundle of pruning/reduction heuristics. The transposition table
+//! is a fixed-size array indexed by a cheap multiplicative hash — much faster
+//! than HashMap for the tight inner loop (no pointer-chasing, no SipHash).
 //!
-//! Move ordering (priority, highest first):
-//!   1. TT move from prior iteration.
-//!   2. Killer moves — quiet moves that caused a beta cutoff at this ply.
-//!   3. History heuristic — moves that caused cutoffs in other nodes.
+//! Every aggressive heuristic is gated behind a [`SearchConfig`] flag so
+//! strength/speed tradeoffs can be A/B-tested without recompiling. The native
+//! `bestmove` / `search_bench` binaries build their config with
+//! [`SearchConfig::from_env`], so a match can be driven by `WC_*` env vars
+//! (e.g. `WC_PRESET=aggressive`, `WC_NULLMOVE=1 WC_NMP_R=3`).
 //!
-//! Late-move reductions (LMR): wall moves past the first FULL_DEPTH_MOVES are
-//! searched at depth-2 first; re-searched at full depth only if they beat alpha.
+//! `SearchConfig::default()` reproduces the previously-deployed behavior
+//! exactly — LMR + TT on, every newer pruning off — so `Search::new` and the
+//! wasm `analyze` path are unchanged until flags are flipped.
+//!
+//! Heuristics implemented (all flagged):
+//!   - PVS         : null-window scout searches, full re-search only on the PV.
+//!   - null-move   : skip a turn at reduced depth; cut if it still beats beta.
+//!   - RFP         : reverse futility / static null move — prune when the static
+//!                   eval already clears beta by a depth-scaled margin.
+//!   - razoring    : drop nodes whose static eval sits far below alpha.
+//!   - futility    : skip frontier wall moves that cannot lift alpha.
+//!   - LMP         : after enough quiet (wall) moves at low depth, skip the rest.
+//!   - LMR         : late quiet moves searched shallow first, re-searched if they
+//!                   beat alpha.
+//!   - aspiration  : root iterative deepening searches a narrow window first.
+//!
+//! Move ordering (priority, highest first): TT move → killer[0] → killer[1] →
+//! history heuristic.
 
 use crate::eval::{Evaluator, WIN_SCORE};
 use crate::moves::{legal_moves, pawn_moves, search_moves, search_moves_wide};
@@ -17,14 +35,200 @@ use crate::state::{Move, Orientation, State};
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const MAX_PLY: usize = 64; // search tree depth ceiling
-const FULL_DEPTH_MOVES: usize = 4; // first N moves always searched at full depth
-const LMR_MIN_DEPTH: u8 = 4; // don't reduce at depth < this
-const LMR_REDUCTION: u8 = 1; // extra plies below (depth-1) for reduced search
 
 // TT: 2^18 = 262 144 slots × ~24 bytes ≈ 6 MB per Search instance.
 const TT_BITS: usize = 18;
 const TT_SIZE: usize = 1 << TT_BITS;
 const TT_MASK: usize = TT_SIZE - 1;
+
+// ── Search configuration ────────────────────────────────────────────────────
+
+/// Toggles + margins for every search heuristic. `Copy` so a single config is
+/// cheaply cloned into a fresh [`Search`] per query. `Default` == the
+/// previously-deployed engine (LMR + TT only).
+#[derive(Clone, Copy, Debug)]
+pub struct SearchConfig {
+    /// Transposition table probe/store (exact — affects speed, not strength).
+    pub tt: bool,
+
+    /// Principal Variation Search: scout non-PV moves with a null window.
+    pub pvs: bool,
+
+    /// Aspiration windows at the root iterative-deepening loop.
+    pub aspiration: bool,
+    pub asp_min_depth: u8,
+    pub asp_window: i32,
+
+    /// Null-move pruning.
+    pub null_move: bool,
+    pub nmp_min_depth: u8,
+    pub nmp_reduction: u8,
+
+    /// Reverse futility / static null move pruning.
+    pub rfp: bool,
+    pub rfp_max_depth: u8,
+    pub rfp_margin: i32,
+
+    /// Razoring: trust the static eval when it sits far below alpha.
+    pub razoring: bool,
+    pub razor_max_depth: u8,
+    pub razor_margin: i32,
+
+    /// Futility pruning of frontier quiet (wall) moves.
+    pub futility: bool,
+    pub futility_max_depth: u8,
+    pub futility_margin: i32,
+
+    /// Late move pruning (move-count based, quiet moves only).
+    pub lmp: bool,
+    pub lmp_max_depth: u8,
+    pub lmp_base: u32,
+    pub lmp_factor: u32,
+
+    /// Late move reductions.
+    pub lmr: bool,
+    pub lmr_min_depth: u8,
+    pub lmr_full_moves: usize,
+    pub lmr_reduction: u8,
+}
+
+impl Default for SearchConfig {
+    /// Reproduces the previously-deployed search exactly: LMR + TT on, every
+    /// newer pruning off. Margins are the defaults the new prunings use *when*
+    /// their flag is flipped on (they have no effect while disabled).
+    fn default() -> Self {
+        SearchConfig {
+            tt: true,
+            pvs: false,
+            aspiration: false,
+            asp_min_depth: 4,
+            asp_window: 75,
+            null_move: false,
+            nmp_min_depth: 3,
+            nmp_reduction: 2,
+            rfp: false,
+            rfp_max_depth: 4,
+            rfp_margin: 120,
+            razoring: false,
+            razor_max_depth: 2,
+            razor_margin: 300,
+            futility: false,
+            futility_max_depth: 2,
+            futility_margin: 150,
+            lmp: false,
+            lmp_max_depth: 3,
+            lmp_base: 4,
+            lmp_factor: 2,
+            lmr: true,
+            lmr_min_depth: 4,
+            lmr_full_moves: 4,
+            lmr_reduction: 1,
+        }
+    }
+}
+
+impl SearchConfig {
+    /// Every heuristic on, default margins. The "throw everything at it" preset.
+    pub fn aggressive() -> Self {
+        SearchConfig {
+            pvs: true,
+            aspiration: true,
+            null_move: true,
+            rfp: true,
+            razoring: true,
+            futility: true,
+            lmp: true,
+            lmr: true,
+            ..SearchConfig::default()
+        }
+    }
+
+    /// Conservative Stockfish-style bundle: the heuristics that are usually safe
+    /// (PVS, null-move, RFP, LMR, aspiration) without the lossy quiet-move
+    /// skippers (razoring, futility, LMP).
+    pub fn safe() -> Self {
+        SearchConfig {
+            pvs: true,
+            aspiration: true,
+            null_move: true,
+            rfp: true,
+            lmr: true,
+            ..SearchConfig::default()
+        }
+    }
+
+    /// Pure alpha-beta + TT — no reductions or prunings. Baseline for A/B speed
+    /// and exactness comparisons.
+    pub fn plain() -> Self {
+        SearchConfig {
+            lmr: false,
+            ..SearchConfig::default()
+        }
+    }
+
+    /// Build a config from `WC_*` environment variables.
+    ///
+    /// `WC_PRESET` (`aggressive` | `safe` | `plain` | `default`) picks a base;
+    /// any individual `WC_*` var then overrides a single knob. Flags accept
+    /// `1/0/true/false/on/off/yes/no`; numbers parse directly.
+    pub fn from_env() -> Self {
+        let mut c = match std::env::var("WC_PRESET").ok().as_deref() {
+            Some("aggressive") => Self::aggressive(),
+            Some("safe") | Some("lite") => Self::safe(),
+            Some("plain") | Some("baseline") => Self::plain(),
+            _ => Self::default(),
+        };
+        env_flag("WC_TT", &mut c.tt);
+        env_flag("WC_PVS", &mut c.pvs);
+        env_flag("WC_ASP", &mut c.aspiration);
+        env_num("WC_ASP_MIN", &mut c.asp_min_depth);
+        env_num("WC_ASP_WINDOW", &mut c.asp_window);
+        env_flag("WC_NULLMOVE", &mut c.null_move);
+        env_num("WC_NMP_MIN", &mut c.nmp_min_depth);
+        env_num("WC_NMP_R", &mut c.nmp_reduction);
+        env_flag("WC_RFP", &mut c.rfp);
+        env_num("WC_RFP_MAXD", &mut c.rfp_max_depth);
+        env_num("WC_RFP_MARGIN", &mut c.rfp_margin);
+        env_flag("WC_RAZOR", &mut c.razoring);
+        env_num("WC_RAZOR_MAXD", &mut c.razor_max_depth);
+        env_num("WC_RAZOR_MARGIN", &mut c.razor_margin);
+        env_flag("WC_FUTILITY", &mut c.futility);
+        env_num("WC_FUT_MAXD", &mut c.futility_max_depth);
+        env_num("WC_FUT_MARGIN", &mut c.futility_margin);
+        env_flag("WC_LMP", &mut c.lmp);
+        env_num("WC_LMP_MAXD", &mut c.lmp_max_depth);
+        env_num("WC_LMP_BASE", &mut c.lmp_base);
+        env_num("WC_LMP_FACTOR", &mut c.lmp_factor);
+        env_flag("WC_LMR", &mut c.lmr);
+        env_num("WC_LMR_MIN", &mut c.lmr_min_depth);
+        env_num("WC_LMR_FULL", &mut c.lmr_full_moves);
+        env_num("WC_LMR_R", &mut c.lmr_reduction);
+        c
+    }
+
+    /// One-line dump of the active config (for logging which knobs ran).
+    pub fn summary(&self) -> String {
+        format!("{self:?}")
+    }
+}
+
+pub(crate) fn env_flag(key: &str, slot: &mut bool) {
+    if let Ok(v) = std::env::var(key) {
+        match v.trim() {
+            "1" | "true" | "on" | "yes" => *slot = true,
+            "0" | "false" | "off" | "no" => *slot = false,
+            _ => {}
+        }
+    }
+}
+
+pub(crate) fn env_num<T: std::str::FromStr>(key: &str, slot: &mut T) {
+    if let Ok(v) = std::env::var(key) {
+        if let Ok(n) = v.trim().parse() {
+            *slot = n;
+        }
+    }
+}
 
 // ── TT ────────────────────────────────────────────────────────────────────────
 
@@ -93,6 +297,7 @@ fn history_idx(mv: Move) -> usize {
 
 pub struct Search<'a, E: Evaluator> {
     eval: &'a E,
+    config: SearchConfig,
     tt: Vec<TtSlot>,
     killers: [[Option<Move>; 2]; MAX_PLY],
     history: [i32; HISTORY_SIZE],
@@ -111,9 +316,16 @@ pub struct SearchResult {
 }
 
 impl<'a, E: Evaluator> Search<'a, E> {
+    /// Construct with the default (previously-deployed) config.
     pub fn new(eval: &'a E) -> Self {
+        Self::with_config(eval, SearchConfig::default())
+    }
+
+    /// Construct with an explicit heuristic config.
+    pub fn with_config(eval: &'a E, config: SearchConfig) -> Self {
         Search {
             eval,
+            config,
             tt: vec![TtSlot::default(); TT_SIZE],
             killers: [[None; 2]; MAX_PLY],
             history: [0; HISTORY_SIZE],
@@ -121,6 +333,10 @@ impl<'a, E: Evaluator> Search<'a, E> {
             stopped: false,
             nodes: 0,
         }
+    }
+
+    pub fn config(&self) -> SearchConfig {
+        self.config
     }
 
     /// Iterative deepening to `max_depth`. Returns the best root move and its
@@ -149,7 +365,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
         let mut score = 0;
         let mut reached = 0;
         for depth in 1..=max_depth {
-            let (s, m) = self.root(state, depth, best);
+            let (s, m) = self.search_root(state, depth, best, score);
             if self.stopped {
                 break;
             }
@@ -184,26 +400,80 @@ impl<'a, E: Evaluator> Search<'a, E> {
         result
     }
 
-    fn root(&mut self, state: &State, depth: u8, hint: Option<Move>) -> (i32, Option<Move>) {
-        let mut alpha = -WIN_SCORE * 2;
-        let beta = WIN_SCORE * 2;
+    /// Root search for one iterative-deepening depth, optionally wrapped in an
+    /// aspiration window centered on the previous iteration's score.
+    fn search_root(
+        &mut self,
+        state: &State,
+        depth: u8,
+        hint: Option<Move>,
+        prev_score: i32,
+    ) -> (i32, Option<Move>) {
+        const FULL: i32 = WIN_SCORE * 2;
+        if !self.config.aspiration || depth < self.config.asp_min_depth {
+            return self.root(state, depth, hint, -FULL, FULL);
+        }
+        let mut window = self.config.asp_window.max(1);
+        loop {
+            let alpha = (prev_score - window).max(-FULL);
+            let beta = (prev_score + window).min(FULL);
+            let (s, m) = self.root(state, depth, hint, alpha, beta);
+            if self.stopped {
+                return (s, m);
+            }
+            if s <= alpha {
+                if alpha <= -FULL {
+                    return (s, m); // already widest — accept
+                }
+                window = window.saturating_mul(3);
+            } else if s >= beta {
+                if beta >= FULL {
+                    return (s, m);
+                }
+                window = window.saturating_mul(3);
+            } else {
+                return (s, m);
+            }
+        }
+    }
+
+    fn root(
+        &mut self,
+        state: &State,
+        depth: u8,
+        hint: Option<Move>,
+        mut alpha: i32,
+        beta: i32,
+    ) -> (i32, Option<Move>) {
         let mut best_move = None;
         let mut best_score = -WIN_SCORE * 2;
         // Prefer the prior iteration's best move, then any TT move for this state.
         let hash = state_hash(state);
-        let tt_move = {
-            let slot = self.tt[hash as usize & TT_MASK]; // Copy
-            hint.or_else(|| {
+        let tt_move = hint.or_else(|| {
+            if self.config.tt {
+                let slot = self.tt[hash as usize & TT_MASK]; // Copy
                 if slot.key == hash && slot.depth > 0 {
-                    slot.best
-                } else {
-                    None
+                    return slot.best;
                 }
-            })
-        };
-        for mv in self.order_moves(state, tt_move, 0, true) {
+            }
+            None
+        });
+        for (i, mv) in self
+            .order_moves(state, tt_move, 0, true)
+            .into_iter()
+            .enumerate()
+        {
             let child = state.apply(mv);
-            let s = -self.negamax(&child, depth - 1, -beta, -alpha, 1);
+            let s = if i == 0 || !self.config.pvs {
+                -self.negamax(&child, depth - 1, -beta, -alpha, 1, true, true)
+            } else {
+                // PVS scout with a null window, full re-search if it beats alpha.
+                let mut s = -self.negamax(&child, depth - 1, -alpha - 1, -alpha, 1, false, true);
+                if !self.stopped && s > alpha && s < beta {
+                    s = -self.negamax(&child, depth - 1, -beta, -alpha, 1, true, true);
+                }
+                s
+            };
             if self.stopped {
                 break;
             }
@@ -214,6 +484,9 @@ impl<'a, E: Evaluator> Search<'a, E> {
             if s > alpha {
                 alpha = s;
             }
+            if alpha >= beta {
+                break; // only reachable under a finite (aspiration) beta
+            }
         }
         (best_score, best_move)
     }
@@ -222,6 +495,9 @@ impl<'a, E: Evaluator> Search<'a, E> {
     /// move gets an exact comparable score), sorted best-first from the
     /// side-to-move's perspective. Used by the graph to prune to the strong
     /// moves only. Shares one transposition table across all children.
+    ///
+    /// Note: children are searched as PV nodes; with pruning flags enabled their
+    /// scores become approximate (the default config keeps them exact).
     pub fn ranked(&mut self, state: &State, depth: u8) -> Vec<(Move, i32)> {
         let alpha = -WIN_SCORE * 2;
         let beta = WIN_SCORE * 2;
@@ -229,7 +505,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
             .into_iter()
             .map(|mv| {
                 let child = state.apply(mv);
-                let s = -self.negamax(&child, depth.saturating_sub(1), -beta, -alpha, 1);
+                let s = -self.negamax(&child, depth.saturating_sub(1), -beta, -alpha, 1, true, true);
                 (mv, s)
             })
             .collect();
@@ -237,7 +513,22 @@ impl<'a, E: Evaluator> Search<'a, E> {
         out
     }
 
-    fn negamax(&mut self, state: &State, depth: u8, mut alpha: i32, beta: i32, ply: usize) -> i32 {
+    /// Negamax with alpha-beta plus the configured pruning bundle.
+    ///
+    /// `is_pv` marks principal-variation nodes — the lossy prunings (RFP,
+    /// razoring, null-move, futility, LMP) only fire on non-PV nodes. `null_ok`
+    /// guards against two null moves in a row.
+    #[allow(clippy::too_many_arguments)]
+    fn negamax(
+        &mut self,
+        state: &State,
+        depth: u8,
+        mut alpha: i32,
+        beta: i32,
+        ply: usize,
+        is_pv: bool,
+        null_ok: bool,
+    ) -> i32 {
         if self.over_budget() {
             self.stopped = true;
             return self.eval.eval(state, state.turn);
@@ -248,7 +539,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
         let idx = hash as usize & TT_MASK;
 
         let mut tt_move = None;
-        {
+        if self.config.tt {
             let slot = self.tt[idx]; // Copy — no live borrow held into recursive calls
             if slot.key == hash && slot.depth > 0 {
                 tt_move = slot.best;
@@ -268,36 +559,148 @@ impl<'a, E: Evaluator> Search<'a, E> {
             return self.eval.eval(state, state.turn);
         }
 
+        // Static eval feeds the margin-based prunings; compute once, lazily.
+        let need_static = !is_pv
+            && (self.config.rfp
+                || self.config.razoring
+                || self.config.null_move
+                || self.config.futility);
+        let static_eval = if need_static {
+            self.eval.eval(state, state.turn)
+        } else {
+            0
+        };
+        // Eval magnitudes are bounded well below WIN_SCORE, so a window bound at
+        // mate magnitude means a forced result is in play — never prune there.
+        let mate_zone = beta >= WIN_SCORE || alpha <= -WIN_SCORE;
+
+        // ── node-level pruning (non-PV, away from mate scores) ──
+        if !is_pv && !mate_zone {
+            // Reverse futility / static null move pruning. Only `value >= beta`
+            // is proven (not `>= static_eval`), so return the proven bound — a
+            // larger fail-soft score would be a wrong lower bound to the parent.
+            if self.config.rfp
+                && depth <= self.config.rfp_max_depth
+                && static_eval - self.config.rfp_margin * depth as i32 >= beta
+            {
+                return beta;
+            }
+            // Razoring: static eval sits far below alpha — trust it (no qsearch).
+            // Only `value <= alpha` is asserted, so return alpha, not the lower
+            // static_eval (which would over-claim the upper bound).
+            if self.config.razoring
+                && depth <= self.config.razor_max_depth
+                && static_eval + self.config.razor_margin <= alpha
+            {
+                return alpha;
+            }
+            // Null-move pruning: hand the opponent a free move; if we still beat
+            // beta, this node is too good to be worth a full search.
+            if self.config.null_move
+                && null_ok
+                && depth >= self.config.nmp_min_depth
+                && static_eval >= beta
+            {
+                let r = self.config.nmp_reduction;
+                let reduced = depth.saturating_sub(1 + r);
+                let child = state.null_move();
+                let s = -self.negamax(&child, reduced, -beta, -beta + 1, ply + 1, false, false);
+                if self.stopped {
+                    return alpha; // discarded by caller's stop check
+                }
+                if s >= beta {
+                    // Never propagate an unverified mate score out of a null search.
+                    return if s >= WIN_SCORE { beta } else { s };
+                }
+            }
+        }
+
         let mut best = -WIN_SCORE * 2;
         let mut best_move = None;
         let safe_ply = ply.min(MAX_PLY - 1);
+        let mut quiets_seen = 0u32;
 
         for (move_idx, mv) in self
             .order_moves(state, tt_move, safe_ply, false)
             .into_iter()
             .enumerate()
         {
-            let child = state.apply(mv);
-
-            // Late-move reductions: after the first few moves, reduce quiet
-            // (wall) moves.  If the reduced search beats alpha, re-search full.
             let is_wall = matches!(mv, Move::Wall(_));
-            let score = if depth >= LMR_MIN_DEPTH
-                && move_idx >= FULL_DEPTH_MOVES
+            let is_killer = self.is_killer(mv, safe_ply);
+            if is_wall {
+                quiets_seen += 1;
+            }
+            let have_fallback = best > -WIN_SCORE;
+
+            // Late move pruning: after enough quiet (wall) moves at low depth,
+            // skip the remaining ones outright.
+            if self.config.lmp
+                && !is_pv
+                && have_fallback
                 && is_wall
-                && !self.is_killer(mv, safe_ply)
+                && !is_killer
+                && depth <= self.config.lmp_max_depth
+                && quiets_seen > self.config.lmp_base + self.config.lmp_factor * depth as u32
             {
-                let full_depth = depth - 1;
-                let reduced_depth = full_depth.saturating_sub(LMR_REDUCTION);
-                let s_reduced = -self.negamax(&child, reduced_depth, -beta, -alpha, ply + 1);
-                if s_reduced > alpha {
-                    // Reduced search beat alpha: re-search at full depth.
-                    -self.negamax(&child, full_depth, -beta, -alpha, ply + 1)
+                continue;
+            }
+
+            // Futility pruning: frontier quiet move whose static eval cannot
+            // realistically lift alpha.
+            if self.config.futility
+                && !is_pv
+                && have_fallback
+                && is_wall
+                && !is_killer
+                && move_idx > 0
+                && depth <= self.config.futility_max_depth
+                && static_eval + self.config.futility_margin * depth as i32 <= alpha
+            {
+                continue;
+            }
+
+            let child = state.apply(mv);
+            let child_pv = is_pv && move_idx == 0;
+            let new_depth = depth - 1;
+
+            // Late-move reduction target depth for late quiet moves.
+            let reduced_depth = if self.config.lmr
+                && depth >= self.config.lmr_min_depth
+                && move_idx >= self.config.lmr_full_moves
+                && is_wall
+                && !is_killer
+            {
+                new_depth.saturating_sub(self.config.lmr_reduction)
+            } else {
+                new_depth
+            };
+
+            let score = if move_idx == 0 || !self.config.pvs {
+                // Full-window search (PVS off, or the principal move).
+                if reduced_depth < new_depth {
+                    let sr =
+                        -self.negamax(&child, reduced_depth, -beta, -alpha, ply + 1, false, true);
+                    if !self.stopped && sr > alpha {
+                        -self.negamax(&child, new_depth, -beta, -alpha, ply + 1, child_pv, true)
+                    } else {
+                        sr
+                    }
                 } else {
-                    s_reduced
+                    -self.negamax(&child, new_depth, -beta, -alpha, ply + 1, child_pv, true)
                 }
             } else {
-                -self.negamax(&child, depth - 1, -beta, -alpha, ply + 1)
+                // PVS: scout with a null window, widening only when it pays off.
+                let mut s =
+                    -self.negamax(&child, reduced_depth, -alpha - 1, -alpha, ply + 1, false, true);
+                if !self.stopped && reduced_depth < new_depth && s > alpha {
+                    // Reduced scout beat alpha: re-search full depth, null window.
+                    s = -self.negamax(&child, new_depth, -alpha - 1, -alpha, ply + 1, false, true);
+                }
+                if !self.stopped && s > alpha && s < beta {
+                    // Looks like a new PV: full-window, full-depth re-search.
+                    s = -self.negamax(&child, new_depth, -beta, -alpha, ply + 1, true, true);
+                }
+                s
             };
 
             if self.stopped {
@@ -324,23 +727,25 @@ impl<'a, E: Evaluator> Search<'a, E> {
             return best;
         }
 
-        let bound = if best <= alpha_orig {
-            Bound::Upper
-        } else if best >= beta {
-            Bound::Lower
-        } else {
-            Bound::Exact
-        };
-        // Depth-preferred replacement: keep the deeper (more expensive) analysis.
-        let cur = self.tt[idx]; // Copy
-        if cur.key != hash || depth >= cur.depth {
-            self.tt[idx] = TtSlot {
-                key: hash,
-                depth,
-                score: best,
-                bound,
-                best: best_move,
+        if self.config.tt {
+            let bound = if best <= alpha_orig {
+                Bound::Upper
+            } else if best >= beta {
+                Bound::Lower
+            } else {
+                Bound::Exact
             };
+            // Depth-preferred replacement: keep the deeper (more expensive) analysis.
+            let cur = self.tt[idx]; // Copy
+            if cur.key != hash || depth >= cur.depth {
+                self.tt[idx] = TtSlot {
+                    key: hash,
+                    depth,
+                    score: best,
+                    bound,
+                    best: best_move,
+                };
+            }
         }
         best
     }
@@ -421,6 +826,36 @@ mod tests {
     use crate::moves::is_legal;
     use crate::state::{Cell, Side};
 
+    /// Pseudo-random balanced-ish positions for cross-config comparisons.
+    fn sample_states(count: usize) -> Vec<State> {
+        let mut rng: u64 = 0x1234_5678_9abc_def0;
+        let mut next = move || {
+            rng ^= rng << 13;
+            rng ^= rng >> 7;
+            rng ^= rng << 17;
+            rng
+        };
+        let mut out = vec![State::initial()];
+        while out.len() < count {
+            let mut state = State::initial();
+            let plies = 4 + (next() as usize % 16);
+            for _ in 0..plies {
+                if state.winner.is_some() {
+                    break;
+                }
+                let moves = legal_moves(&state);
+                if moves.is_empty() {
+                    break;
+                }
+                state = state.apply(moves[(next() as usize) % moves.len()]);
+            }
+            if state.winner.is_none() {
+                out.push(state);
+            }
+        }
+        out
+    }
+
     #[test]
     fn immediate_goal_move_short_circuits_search() {
         let state = State {
@@ -453,5 +888,89 @@ mod tests {
         assert!(result.depth > 0);
         assert!(result.nodes <= 1_000);
         assert!(result.best.is_some_and(|mv| is_legal(&state, mv)));
+    }
+
+    /// PVS + aspiration are exact transforms: on top of plain alpha-beta (no
+    /// lossy reductions) they must return the identical minimax score. A
+    /// mismatch means a window/re-search bug.
+    #[test]
+    fn pvs_and_aspiration_preserve_exact_score() {
+        let eval = Heuristic::default();
+        let plain = SearchConfig::plain();
+        let pvs_asp = SearchConfig {
+            pvs: true,
+            aspiration: true,
+            ..SearchConfig::plain()
+        };
+        for state in sample_states(12) {
+            for depth in 3..=6u8 {
+                let sa = Search::with_config(&eval, plain).search(&state, depth).score;
+                let sb = Search::with_config(&eval, pvs_asp)
+                    .search(&state, depth)
+                    .score;
+                assert_eq!(
+                    sa, sb,
+                    "PVS/aspiration changed exact score at depth {depth} on {state:?}"
+                );
+            }
+        }
+    }
+
+    /// Default config must reproduce the previously-deployed engine exactly,
+    /// i.e. LMR + TT and nothing else — guards against an accidental flag flip.
+    #[test]
+    fn default_config_is_lmr_plus_tt_only() {
+        let c = SearchConfig::default();
+        assert!(c.tt && c.lmr);
+        assert!(
+            !(c.pvs
+                || c.aspiration
+                || c.null_move
+                || c.rfp
+                || c.razoring
+                || c.futility
+                || c.lmp)
+        );
+        assert_eq!(c.lmr_min_depth, 4);
+        assert_eq!(c.lmr_full_moves, 4);
+        assert_eq!(c.lmr_reduction, 1);
+    }
+
+    /// Every aggressive heuristic on: search must still complete and return a
+    /// legal move on a range of positions (no panic, no illegal output).
+    #[test]
+    fn aggressive_config_returns_legal_moves() {
+        let eval = Heuristic::default();
+        let cfg = SearchConfig::aggressive();
+        for state in sample_states(16) {
+            let result = Search::with_config(&eval, cfg).search(&state, 6);
+            assert!(!result.stopped);
+            assert!(
+                result.best.is_some_and(|mv| is_legal(&state, mv)),
+                "aggressive search returned illegal/no move on {state:?}"
+            );
+        }
+    }
+
+    /// Null-move pruning must not blind the engine to a forced win.
+    #[test]
+    fn null_move_still_finds_forced_win() {
+        // South to move, one step from the goal row with the path open.
+        let state = State {
+            pawns: [Cell::new(8, 5), Cell::new(2, 1)],
+            h_walls: 0,
+            v_walls: 0,
+            walls_left: [5, 5],
+            turn: Side::South,
+            winner: None,
+        };
+        let eval = Heuristic::default();
+        let cfg = SearchConfig {
+            null_move: true,
+            ..SearchConfig::aggressive()
+        };
+        let result = Search::with_config(&eval, cfg).search(&state, 6);
+        assert_eq!(result.score, WIN_SCORE);
+        assert_eq!(result.best, Some(Move::Pawn(Cell::new(9, 5))));
     }
 }

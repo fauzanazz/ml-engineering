@@ -35,6 +35,38 @@ export function analyze_state_budgeted(state, depth, node_limit, k) {
 }
 
 /**
+ * Gen-2 analyze with a node budget — the bot's move path (mirrors
+ * [`analyze_state_budgeted`]).
+ * @param {any} state
+ * @param {number} depth
+ * @param {bigint} node_limit
+ * @param {number} k
+ * @returns {any}
+ */
+export function analyze_state_budgeted_gen2(state, depth, node_limit, k) {
+    const ret = wasm.analyze_state_budgeted_gen2(state, depth, node_limit, k);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Gen-2 fixed-depth analyze (fallback when no node budget is supplied).
+ * @param {any} state
+ * @param {number} depth
+ * @param {number} k
+ * @returns {any}
+ */
+export function analyze_state_gen2(state, depth, k) {
+    const ret = wasm.analyze_state_gen2(state, depth, k);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * Convenience: just the move (TS `Move` JSON), matching the old `chooseMove`.
  * @param {any} state
  * @param {number} depth
@@ -42,6 +74,20 @@ export function analyze_state_budgeted(state, depth, node_limit, k) {
  */
 export function choose_move(state, depth) {
     const ret = wasm.choose_move(state, depth);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Gen-2 convenience: just the move (matches [`choose_move`]).
+ * @param {any} state
+ * @param {number} depth
+ * @returns {any}
+ */
+export function choose_move_gen2(state, depth) {
+    const ret = wasm.choose_move_gen2(state, depth);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }

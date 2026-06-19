@@ -15,9 +15,25 @@ export function analyze_state(state: any, depth: number, k: number): any;
 export function analyze_state_budgeted(state: any, depth: number, node_limit: bigint, k: number): any;
 
 /**
+ * Gen-2 analyze with a node budget — the bot's move path (mirrors
+ * [`analyze_state_budgeted`]).
+ */
+export function analyze_state_budgeted_gen2(state: any, depth: number, node_limit: bigint, k: number): any;
+
+/**
+ * Gen-2 fixed-depth analyze (fallback when no node budget is supplied).
+ */
+export function analyze_state_gen2(state: any, depth: number, k: number): any;
+
+/**
  * Convenience: just the move (TS `Move` JSON), matching the old `chooseMove`.
  */
 export function choose_move(state: any, depth: number): any;
+
+/**
+ * Gen-2 convenience: just the move (matches [`choose_move`]).
+ */
+export function choose_move_gen2(state: any, depth: number): any;
 
 /**
  * Generate the whole pruned state graph from `state` in one call. BFS happens
@@ -41,7 +57,10 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly analyze_state: (a: any, b: number, c: number) => [number, number, number];
     readonly analyze_state_budgeted: (a: any, b: number, c: bigint, d: number) => [number, number, number];
+    readonly analyze_state_budgeted_gen2: (a: any, b: number, c: bigint, d: number) => [number, number, number];
+    readonly analyze_state_gen2: (a: any, b: number, c: number) => [number, number, number];
     readonly choose_move: (a: any, b: number) => [number, number, number];
+    readonly choose_move_gen2: (a: any, b: number) => [number, number, number];
     readonly generate_graph_js: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly top_moves_js: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;

@@ -7,9 +7,27 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wallchess_core::{
-    analyze, analyze_with_node_limit, generate_graph, top_moves,
+    analyze, analyze_with_eval, analyze_with_node_limit, analyze_with_node_limit_eval,
+    generate_graph, top_moves,
     state::{Cell, Orientation, Side, State},
+    Heuristic, SearchConfig,
 };
+
+/// The Gen-2 bot's evaluator: race + a richer wall valuation (stock priced at
+/// ~2.4 race-steps instead of 2.0) plus exact endgame race resolution.
+fn gen2_eval() -> Heuristic {
+    Heuristic::new(50, 120, true)
+}
+
+/// The Gen-2 bot's search: the aggressive pruning bundle (PVS, null-move, RFP,
+/// razoring, futility, LMP, LMR, aspiration). It reaches several extra plies in
+/// the same node budget, and its pruning cutoffs lean on [`gen2_eval`]'s margins
+/// — so eval and search compound. Measured 81% (163-37 / 200 games) vs the
+/// previous-gen d12-v2 bot at the same 600k-node budget. (Eval alone, on the
+/// default search, was *weaker* at this depth — 47% — so the two ship together.)
+fn gen2_config() -> SearchConfig {
+    SearchConfig::aggressive()
+}
 
 // ---- inbound DTOs (match the TS GameState JSON exactly) --------------------
 
@@ -368,6 +386,73 @@ pub fn choose_move(state: JsValue, depth: u8) -> Result<JsValue, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("bad state: {e}")))?;
     let core = to_core(js).map_err(|e| JsValue::from_str(&e))?;
     let (best, _s, _n) = analyze(&core, depth, 200.0);
+    match best {
+        Some(mv) => serde_wasm_bindgen::to_value(&move_to_out(mv))
+            .map_err(|e| JsValue::from_str(&format!("encode: {e}"))),
+        None => Err(JsValue::from_str("no legal move")),
+    }
+}
+
+// ---- Gen-2 bot (stronger eval, same lightweight search) --------------------
+// Same WASM/search path as the default bot — only the evaluator changes
+// ([`gen2_eval`]). Separate entry points (rather than a flag on the existing
+// ones) keep the deployed default byte-identical and let the UI offer Gen-2 as a
+// distinct bot. The browser has no env vars, so the eval is wired in directly.
+
+/// Gen-2 analyze with a node budget — the bot's move path (mirrors
+/// [`analyze_state_budgeted`]).
+#[wasm_bindgen]
+pub fn analyze_state_budgeted_gen2(
+    state: JsValue,
+    depth: u8,
+    node_limit: u64,
+    k: f64,
+) -> Result<JsValue, JsValue> {
+    let js: StateJs = serde_wasm_bindgen::from_value(state)
+        .map_err(|e| JsValue::from_str(&format!("bad state: {e}")))?;
+    let core = to_core(js).map_err(|e| JsValue::from_str(&e))?;
+    let (best, south, north, reached, stopped, nodes) = analyze_with_node_limit_eval(
+        &core,
+        depth,
+        node_limit,
+        k,
+        gen2_eval(),
+        gen2_config(),
+    );
+    let out = BudgetAnalysis {
+        mv: best.map(move_to_out),
+        south,
+        north,
+        depth: reached,
+        stopped,
+        nodes,
+    };
+    serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&format!("encode: {e}")))
+}
+
+/// Gen-2 fixed-depth analyze (fallback when no node budget is supplied).
+#[wasm_bindgen]
+pub fn analyze_state_gen2(state: JsValue, depth: u8, k: f64) -> Result<JsValue, JsValue> {
+    let js: StateJs = serde_wasm_bindgen::from_value(state)
+        .map_err(|e| JsValue::from_str(&format!("bad state: {e}")))?;
+    let core = to_core(js).map_err(|e| JsValue::from_str(&e))?;
+    let (best, south, north) =
+        analyze_with_eval(&core, depth, k, gen2_eval(), gen2_config());
+    let out = Analysis {
+        mv: best.map(move_to_out),
+        south,
+        north,
+    };
+    serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&format!("encode: {e}")))
+}
+
+/// Gen-2 convenience: just the move (matches [`choose_move`]).
+#[wasm_bindgen]
+pub fn choose_move_gen2(state: JsValue, depth: u8) -> Result<JsValue, JsValue> {
+    let js: StateJs = serde_wasm_bindgen::from_value(state)
+        .map_err(|e| JsValue::from_str(&format!("bad state: {e}")))?;
+    let core = to_core(js).map_err(|e| JsValue::from_str(&e))?;
+    let (best, _s, _n) = analyze_with_eval(&core, depth, 200.0, gen2_eval(), gen2_config());
     match best {
         Some(mv) => serde_wasm_bindgen::to_value(&move_to_out(mv))
             .map_err(|e| JsValue::from_str(&format!("encode: {e}"))),

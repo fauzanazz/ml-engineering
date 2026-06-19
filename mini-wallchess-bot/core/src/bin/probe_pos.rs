@@ -43,6 +43,7 @@ fn main() {
     let h = Heuristic {
         w_path: 50,
         w_wall: 100,
+        ..Heuristic::default()
     };
     for &(label, np) in &[("at (6,5)", Cell::new(6, 5)), ("at (6,4)", Cell::new(6, 4))] {
         st.pawns[Side::North.idx()] = np;

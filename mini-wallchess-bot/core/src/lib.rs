@@ -24,15 +24,27 @@ pub use eval::{win_prob, Evaluator, Heuristic};
 pub use features::{encode, mirror_move, FEATURE_LEN};
 pub use mcts::{HeuristicPolicy, Mcts, MctsConfig, PolicyValue};
 pub use moves::{distance_to_goal, legal_moves, pawn_moves};
-pub use search::Search;
+pub use search::{Search, SearchConfig};
 pub use state::{Cell, Move, Orientation, Side, State, Wall};
 
 /// Pick the best move for the side to move and report the 0..100 win split.
 /// Returns `(best_move, south_score, north_score)` with the two scores summing
 /// to 100 — matching the "north 23 / south 77" framing.
 pub fn analyze(state: &State, depth: u8, k: f64) -> (Option<Move>, u8, u8) {
-    let h = Heuristic::default();
-    let mut s = Search::new(&h);
+    analyze_with_eval(state, depth, k, Heuristic::default(), SearchConfig::default())
+}
+
+/// [`analyze`] with an explicit evaluator + search config. The deploy path for a
+/// stronger bot (e.g. Gen-2: a reweighted eval with exact endgame resolution)
+/// goes through here; the default args reproduce the legacy engine exactly.
+pub fn analyze_with_eval(
+    state: &State,
+    depth: u8,
+    k: f64,
+    eval: Heuristic,
+    config: SearchConfig,
+) -> (Option<Move>, u8, u8) {
+    let mut s = Search::with_config(&eval, config);
     let res = s.search(state, depth);
     // res.score is from the side-to-move POV; convert to SOUTH's POV.
     let south_eval = match state.turn {
@@ -52,8 +64,26 @@ pub fn analyze_with_node_limit(
     node_limit: u64,
     k: f64,
 ) -> (Option<Move>, u8, u8, u8, bool, u64) {
-    let h = Heuristic::default();
-    let mut s = Search::new(&h);
+    analyze_with_node_limit_eval(
+        state,
+        depth,
+        node_limit,
+        k,
+        Heuristic::default(),
+        SearchConfig::default(),
+    )
+}
+
+/// [`analyze_with_node_limit`] with an explicit evaluator + search config.
+pub fn analyze_with_node_limit_eval(
+    state: &State,
+    depth: u8,
+    node_limit: u64,
+    k: f64,
+    eval: Heuristic,
+    config: SearchConfig,
+) -> (Option<Move>, u8, u8, u8, bool, u64) {
+    let mut s = Search::with_config(&eval, config);
     let res = s.search_with_node_limit(state, depth, node_limit);
     let south_eval = match state.turn {
         Side::South => res.score,

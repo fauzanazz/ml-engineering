@@ -13,12 +13,24 @@ export type BotSpec = {
   nodeLimit?: number
   // MCTS simulation budget per move (net engine only); higher = stronger/slower.
   sims?: number
+  // Use the Gen-2 evaluator (stronger wall value + exact endgame resolution) for
+  // the heuristic engine. Beats the legacy eval ~70% at equal search budget.
+  gen2?: boolean
 }
 
 export const D12_V2_BOT_ID = 'ab-d12-v2'
-export const BROWSER_MAX_BOT_ID = D12_V2_BOT_ID
+export const D12_GEN2_BOT_ID = 'ab-d12-gen2'
+export const BROWSER_MAX_BOT_ID = D12_GEN2_BOT_ID
 
 export const BOTS: BotSpec[] = [
+  {
+    id: D12_GEN2_BOT_ID,
+    label: 'Alpha-Beta · D12 Gen-2',
+    engine: 'heuristic',
+    depth: 12,
+    nodeLimit: 600_000,
+    gen2: true,
+  },
   {
     id: D12_V2_BOT_ID,
     label: 'Alpha-Beta · D12-V2',

@@ -151,6 +151,7 @@ function Game() {
             depth: spec.depth,
             nodeLimit: spec.nodeLimit,
             sims: spec.sims,
+            gen2: spec.gen2,
           })
         } else {
           const botSpec = mode === 'bot' ? getBot(botId) : undefined
@@ -160,6 +161,7 @@ function Game() {
             depth: botSpec?.depth,
             nodeLimit: botSpec?.nodeLimit,
             sims: botSpec?.sims,
+            gen2: botSpec?.gen2,
           })
         }
         if (!cancelled) {
@@ -392,6 +394,7 @@ function Game() {
       depth: spec.depth,
       nodeLimit: spec.nodeLimit,
       sims: spec.sims,
+      gen2: spec.gen2,
     })
       .then((move) => { if (!cancelled) setReplayBotMove(move) })
       .catch(() => {})
@@ -415,6 +418,7 @@ function Game() {
       depth: spec.depth,
       nodeLimit: spec.nodeLimit,
       sims: spec.sims,
+      gen2: spec.gen2,
     })
       .then((move) => { if (!cancelled) setHelpMove(move) })
       .catch(() => {})

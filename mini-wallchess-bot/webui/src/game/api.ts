@@ -148,13 +148,19 @@ function getMoveBook(): Promise<Map<string, number>> {
 // side so it can pit net vs heuristic regardless of the URL flag.
 export type BotEngine = 'heuristic' | 'net'
 type BudgetAnalysis = Analysis & { depth: number; stopped: boolean; nodes: number }
+type BudgetedFn = (
+  state: GameState,
+  depth: number,
+  nodeLimit: bigint,
+  k: number,
+) => BudgetAnalysis
+type ChooseFn = (state: GameState, depth: number) => Move
 type BudgetedWasm = WasmModule & {
-  analyze_state_budgeted?: (
-    state: GameState,
-    depth: number,
-    nodeLimit: bigint,
-    k: number,
-  ) => BudgetAnalysis
+  analyze_state_budgeted?: BudgetedFn
+  // Gen-2 bot: same search, stronger evaluator (wall value + exact endgame).
+  // Optional so an older bundle without these exports falls back gracefully.
+  analyze_state_budgeted_gen2?: BudgetedFn
+  choose_move_gen2?: ChooseFn
 }
 
 // Bot move, same call shape as the old server function: `botMove({ data })`.
@@ -166,6 +172,7 @@ export async function botMove({
   depth = BOT_DEPTH,
   nodeLimit,
   sims = NET_SIMS,
+  gen2 = false,
 }: {
   data: unknown
   engine?: BotEngine
@@ -174,6 +181,9 @@ export async function botMove({
   depth?: number
   nodeLimit?: number
   sims?: number
+  // Route the heuristic move through the Gen-2 evaluator (stronger wall value +
+  // exact endgame resolution). No effect on the net engine.
+  gen2?: boolean
 }): Promise<Move> {
   const state = parseGameState(data)
   const useNet = engine === 'net' || (engine === undefined && netBotEnabled())
@@ -196,11 +206,16 @@ export async function botMove({
     // Yield two animation frames so React can paint thinking=true before
     // choose_move blocks the main thread (WASM is synchronous).
     await new Promise<void>((r) => requestAnimationFrame(() => { requestAnimationFrame(() => r()) }))
-    if (nodeLimit !== undefined && wasm.analyze_state_budgeted) {
-      const { move } = wasm.analyze_state_budgeted(state, depth, BigInt(nodeLimit), SCORE_K)
+    // Gen-2 uses its own entry points; fall back to the default eval if the
+    // loaded bundle lacks them (older cached wasm).
+    const budgeted =
+      (gen2 ? wasm.analyze_state_budgeted_gen2 : undefined) ?? wasm.analyze_state_budgeted
+    if (nodeLimit !== undefined && budgeted) {
+      const { move } = budgeted(state, depth, BigInt(nodeLimit), SCORE_K)
       if (move) return antiOscillate(state, move)
     }
-    return antiOscillate(state, wasm.choose_move(state, depth) as Move)
+    const choose = (gen2 ? wasm.choose_move_gen2 : undefined) ?? wasm.choose_move
+    return antiOscillate(state, choose(state, depth) as Move)
   } catch (err) {
     console.warn('WASM bot unavailable, using TS fallback', err)
     return antiOscillate(state, chooseMove(state))

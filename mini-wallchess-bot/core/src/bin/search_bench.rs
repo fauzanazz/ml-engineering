@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use wallchess_core::eval::Heuristic;
 use wallchess_core::moves::{search_moves, search_moves_wide};
-use wallchess_core::{distance_to_goal, legal_moves, Move, Search, Side, State};
+use wallchess_core::{distance_to_goal, legal_moves, Move, Search, SearchConfig, Side, State};
 
 #[derive(Clone, Copy)]
 struct Rng(u64);
@@ -47,6 +47,7 @@ fn main() {
 
     let states = bench_positions(positions, open_plies, seed);
     let eval = Heuristic::default();
+    let config = SearchConfig::from_env();
     let mut stats: Vec<DepthStats> = depths.iter().map(|_| DepthStats::default()).collect();
 
     println!(
@@ -57,6 +58,7 @@ fn main() {
         node_limit,
         depths
     );
+    println!("config: {}", config.summary());
 
     for (pos_idx, state) in states.iter().enumerate() {
         let candidates = search_moves(state).len();
@@ -66,7 +68,7 @@ fn main() {
             state.turn
         );
         for (depth_idx, depth) in depths.iter().copied().enumerate() {
-            let mut search = Search::new(&eval);
+            let mut search = Search::with_config(&eval, config);
             let start = Instant::now();
             let result = if node_limit > 0 {
                 search.search_with_node_limit(state, depth, node_limit)

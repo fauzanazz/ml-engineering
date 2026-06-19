@@ -18,7 +18,7 @@
 use std::io::{self, BufRead, Write};
 
 use wallchess_core::eval::Heuristic;
-use wallchess_core::search::Search;
+use wallchess_core::search::{Search, SearchConfig};
 use wallchess_core::state::{Cell, Move, Orientation, Side, State};
 
 fn parse_state(line: &str) -> Option<State> {
@@ -60,7 +60,12 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let depth: u8 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(12);
     let node_limit: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
-    let eval = Heuristic::default();
+    // Eval + pruning config both come from env vars (WC_EVAL_* / WC_*), logged
+    // to stderr so the stdout move protocol stays clean for the xmatch referee.
+    // A stripped environment reproduces the deployed default eval exactly.
+    let eval = Heuristic::from_env();
+    let config = SearchConfig::from_env();
+    eprintln!("bestmove eval: {eval:?} | config: {}", config.summary());
 
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -81,7 +86,7 @@ fn main() {
                 continue;
             }
         };
-        let mut s = Search::new(&eval);
+        let mut s = Search::with_config(&eval, config);
         let best = if node_limit > 0 {
             s.search_with_node_limit(&state, depth, node_limit).best
         } else {

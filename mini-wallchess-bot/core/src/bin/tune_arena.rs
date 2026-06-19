@@ -16,6 +16,7 @@ fn main() {
         Heuristic {
             w_path: wpa,
             w_wall: wwa,
+            ..Heuristic::default()
         },
         da,
     );
@@ -23,6 +24,7 @@ fn main() {
         Heuristic {
             w_path: wpb,
             w_wall: wwb,
+            ..Heuristic::default()
         },
         db,
     );
