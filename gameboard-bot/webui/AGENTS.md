@@ -1,4 +1,4 @@
-# mini-wallchess-bot WebUI
+# gameboard-bot WebUI
 
 TanStack Start app with Cloudflare Workers deployment.
 

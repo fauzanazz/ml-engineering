@@ -1,11 +1,23 @@
 project: {{project_name}}
 preset: existing-model-wrapper
 model_contract:
-  task_type: external_model
-  prediction_key: prediction
+  input_schema_uri: schemas/{{task_schema_dir}}/input.json
+  output_schema_uri: schemas/{{task_schema_dir}}/output.json
+  task_type: {{task_type}}
+  prediction_key: {{prediction_key}}
 external_commands:
   train: []
   evaluate: []
+training:
+  type: command
+  command:
+    - python
+    - -m
+    - {{package_name}}.train
+    - --summary-path
+    - reports/training-summary.json
+  summary_path: reports/training-summary.json
+
 quality_gate:
   enabled: true
   metrics_path: reports/metrics.json

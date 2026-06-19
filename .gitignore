@@ -52,3 +52,5 @@ ml-production-ecosystem/.rules/
 
 # ML production ecosystem local agent instructions
 ml-production-ecosystem/AGENTS.md
+# Local Pi runtime state
+.atl/

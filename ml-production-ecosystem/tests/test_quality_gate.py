@@ -42,3 +42,21 @@ def test_evaluate_quality_gate_reports_failed_minimums(tmp_path: Path) -> None:
 
 def test_evaluate_quality_gate_disabled_passes_without_checks() -> None:
     assert evaluate_quality_gate({"enabled": False}) == {"passed": True, "failures": []}
+
+
+def test_evaluate_quality_gate_resolves_relative_metrics_path_against_base_path(tmp_path: Path) -> None:
+    metrics_dir = tmp_path / "nested"
+    metrics_dir.mkdir()
+    metrics_path = metrics_dir / "metrics.json"
+    metrics_path.write_text(json.dumps({"accuracy": 0.91}))
+
+    result = evaluate_quality_gate(
+        {
+            "enabled": True,
+            "metrics_path": "nested/metrics.json",
+            "minimums": {"accuracy": 0.9},
+        },
+        base=tmp_path,
+    )
+
+    assert result == {"passed": True, "failures": []}

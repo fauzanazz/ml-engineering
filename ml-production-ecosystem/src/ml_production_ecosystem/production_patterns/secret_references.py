@@ -23,10 +23,10 @@ FORBIDDEN_SECRET_VALUE_KEYS = {
     "value",
 }
 
-def _read_structured_file(path: Path) -> Any:
+def _read_structured_documents(path: Path) -> list[Any]:
     if path.suffix == ".json":
-        return json.loads(path.read_text())
-    return yaml.safe_load(path.read_text())
+        return [json.loads(path.read_text())]
+    return list(yaml.safe_load_all(path.read_text()))
 
 def _scan_value(value: Any, location: str) -> list[str]:
     violations = []
@@ -59,18 +59,21 @@ def validate_secret_references(
     for path in _candidate_files(root):
         relative_path = path.relative_to(root)
         try:
-            payload = _read_structured_file(path)
+            payloads = _read_structured_documents(path)
         except Exception as error:
             violations.append({"path": str(relative_path), "location": "<parse>", "reason": str(error)})
             continue
-        for location in _scan_value(payload, ""):
-            violations.append(
-                {
-                    "path": str(relative_path),
-                    "location": location,
-                    "reason": "forbidden secret value key",
-                }
-            )
+        for payload in payloads:
+            if payload is None:
+                continue
+            for location in _scan_value(payload, ""):
+                violations.append(
+                    {
+                        "path": str(relative_path),
+                        "location": location,
+                        "reason": "forbidden secret value key",
+                    }
+                )
 
     report = {
         "status": "passed" if not violations else "failed",

@@ -28,6 +28,14 @@ Run this before push when changing local lifecycle contracts, local lifecycle de
 
 Run this before release as a lightweight local gate after following [release-checklist.md](./release-checklist.md) and before relying on [deployment-manifest.md](./deployment-manifest.md) metadata.
 
+For enterprise-grade evidence, run:
+
+```bash
+./scripts/validate-enterprise-readiness.sh
+```
+
+This script runs local production-pattern CI, full pytest (with optional RT warehouse services), enterprise control validations, smoke checks, monitoring, load/burn-rate/safety chain, scheduled retrain, and release-summary artifact generation where possible.
+
 ## What it checks
 
 The script runs focused production patterns tests:
@@ -59,6 +67,7 @@ The script runs focused production patterns tests:
 - `tests/test_recommendation_prediction_adapter.py`
 - `tests/test_platform_plan.py`
 - `tests/test_local_platform.py`
+- `tests/test_platform_apply.py`
 - `tests/test_platform_plan_adapter.py`
 - `tests/test_cloud_provider_adapters.py`
 - `tests/test_provider_boundaries.py`
@@ -83,7 +92,7 @@ The script runs focused production patterns tests:
 - `tests/test_load_aggregate.py`
 - `tests/test_cost_estimate.py`
 
-This covers scaffold presence, retraining, quality gate, monitoring, legacy monitoring loop compatibility, scheduled retraining, DAG import safety, local lifecycle commands, local canary release decision, local traffic-splitting canary simulation, local platform apply proof, local lifecycle demo config and runbook, lifecycle status summary, goal readiness audit, continual-learning history summary, command-trained non-recommender sample model, model contracts, generic prediction adapter bridge, provider-neutral platform plan validation, platform plan adapter loading, cloud provider adapter loading, provider boundary enforcement, provider portability checks, provider swap matrix proof, secret-reference enforcement, local secret injection validation, local Kubernetes manifest validation, local scheduler plan validation and runtime dry-run, policies-as-code reference validation, shared contracts, alert rules parsing, rollback behavior including command-trained generic classifier rollback, release checklist presence, deployment manifest parsing, release summary generation, and scope review closure, and local SLO burn-rate simulation, multi-window burn-rate alert simulation, and autoscaling decision simulation, and distributed load report aggregation, and local cost estimation.
+This covers scaffold presence, retraining, quality gate, monitoring, legacy monitoring loop compatibility, scheduled retraining, DAG import safety, local lifecycle commands, local canary release decision, local traffic-splitting canary simulation, cross-provider platform apply proof, local lifecycle demo config and runbook, lifecycle status summary, goal readiness audit, continual-learning history summary, command-trained non-recommender sample model, model contracts, generic prediction adapter bridge, provider-neutral platform plan validation, platform plan adapter loading, cloud provider adapter loading, provider boundary enforcement, provider portability checks, provider swap matrix proof, secret-reference enforcement, local secret injection validation, local Kubernetes manifest validation, local scheduler plan validation and runtime dry-run, policies-as-code reference validation, shared contracts, alert rules parsing, rollback behavior including command-trained generic classifier rollback, release checklist presence, deployment manifest parsing, release summary generation, and scope review closure, and local SLO burn-rate simulation, multi-window burn-rate alert simulation, and autoscaling decision simulation, and distributed load report aggregation, and local cost estimation.
 
 ## Limits
 

@@ -15,7 +15,8 @@ uv run production-monitor \
   --base-url http://127.0.0.1:8000 \
   --max-error-count 0 \
   --max-drift-score 0.2 \
-  --max-latency-ms-last 100
+  --max-latency-ms-last 100 \
+  --output-path artifacts/reports/production-patterns/compose-monitoring-summary.json
 ```
 
 ## What It Checks
@@ -74,12 +75,13 @@ foundation-api
 - Prometheus query API.
 - Grafana integration.
 - Scheduler/Airflow.
-- Persistent monitoring reports.
+- Persistent monitoring reports (beyond file-level summaries).
 - Slack/email notification.
 
 ## Acceptance Criteria
 
 - `production-monitor --base-url ...` returns JSON summary.
+- `--output-path <path>` writes the same JSON summary artifact to disk.
 - Failing threshold sets `status = "unhealthy"`.
 - HTTP failure becomes failed check, not stack trace.
 - Tests mock HTTP responses or use small local adapter.

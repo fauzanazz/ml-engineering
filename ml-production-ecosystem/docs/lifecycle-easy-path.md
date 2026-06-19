@@ -76,6 +76,32 @@ training:
 
 The command must write JSON with `model_name`, `version`, `artifact_uri`, and `metrics_uri`. This keeps core lifecycle logic generic while the model-specific trainer lives outside core code.
 
+Framework-specific seams reuse the same command boundary (`command`, `summary_path`) while making intent explicit in config:
+
+```yaml
+training:
+  type: onnx
+  framework: onnx
+  command:
+    - python
+    - examples/onnx/train.py
+    - --summary-path
+    - artifacts/reports/production-patterns/onnx-training-summary.json
+  summary_path: artifacts/reports/production-patterns/onnx-training-summary.json
+
+training:
+  type: pytorch
+  framework: pytorch
+  command:
+    - python
+    - examples/pytorch/train.py
+    - --summary-path
+    - artifacts/reports/production-patterns/pytorch-training-summary.json
+  summary_path: artifacts/reports/production-patterns/pytorch-training-summary.json
+```
+
+These are first-class minimum hooks: as long as your training command writes the required summary contract, no edit to core lifecycle or retraining code is required.
+
 Runnable non-recommender proof:
 
 ```bash

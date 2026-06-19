@@ -5,15 +5,38 @@ import json
 from typing import Any
 
 
-def evaluate_quality_gate(config: dict[str, Any] | None) -> dict[str, object]:
+def _resolve_metrics_path(config: dict[str, Any] | None, base: Path | None = None) -> Path | None:
+    if not config:
+        return None
+    metrics_path = config.get("metrics_path")
+    if metrics_path is None:
+        return None
+
+    path = Path(str(metrics_path))
+    if path.is_absolute() or base is None:
+        return path
+
+    candidate_paths: list[Path] = [base / path]
+    if base.name == "configs":
+        candidate_paths.append(base.parent / path)
+    candidate_paths.append(Path.cwd() / path)
+
+    for candidate_path in candidate_paths:
+        if candidate_path.exists():
+            return candidate_path
+
+    return candidate_paths[0]
+
+
+def evaluate_quality_gate(config: dict[str, Any] | None, base: Path | None = None) -> dict[str, object]:
     if not config or not bool(config.get("enabled", False)):
         return {"passed": True, "failures": []}
 
-    metrics_path = config.get("metrics_path")
+    metrics_path = _resolve_metrics_path(config, base=base)
     if metrics_path is None:
         return {"passed": False, "failures": ["quality_gate.metrics_path is required"]}
 
-    with Path(str(metrics_path)).open() as file:
+    with metrics_path.open() as file:
         metrics = json.load(file)
 
     failures = []

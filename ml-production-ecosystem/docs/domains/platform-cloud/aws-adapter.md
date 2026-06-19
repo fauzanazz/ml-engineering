@@ -20,4 +20,4 @@ Adapter implementations must expose shared ports from `src/ml_production_ecosyst
 
 ## Current Adapter
 
-`adapter.py` implements a thin plan-backed `aws` provider adapter using `shared.platform.PlatformPlanAdapter`. It returns provider resource and secret references from `configs/platform/aws/platform-plan.yaml` without importing provider SDKs or reading cloud credentials.
+`adapter.py` implements a thin plan-backed `aws` provider adapter using `shared.platform.PlatformPlanAdapter`. It returns provider resource and secret references from `configs/platform/iac/aws/platform-plan.yaml` without importing provider SDKs or reading cloud credentials.

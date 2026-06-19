@@ -73,4 +73,6 @@ Local scheduler jobs live under `iac/local/scheduler/jobs.yaml`. Run `uv run pro
 
 ## Cloud Provider Adapters
 
-AWS, GCP, and Azure adapters are thin wrappers around provider-neutral platform plans. They expose `plan(...)` and dry-run `deploy(...)` previews through shared contracts without importing provider SDKs or reading credentials. Real cloud apply remains outside the local-first core.
+AWS, GCP, and Azure adapters are thin wrappers around provider-neutral platform plans. They expose `plan(...)` and dry-run `deploy(...)` previews through shared contracts without importing provider SDKs or reading credentials.
+
+Runtime apply runs through command hooks declared in `configs/platform/iac/<provider>/platform-plan.yaml` using `production-apply-platform --apply ...`. Keep command templates reusable with placeholders (`{provider}`, `{environment}`, `{project_root}`). For controlled local-first execution, set a provider command through `PLATFORM_APPLY_<PROVIDER>_COMMAND` only when credentials/runtime are available; otherwise hooks use safe fallback and still emit command evidence.

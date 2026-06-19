@@ -34,11 +34,11 @@ production-validate-local-secret-injections
 production-validate-policy-references
 ```
 
-The validator scans committed YAML/JSON under `configs` and `platform-cloud domain` for forbidden secret-value keys such as `api_key`, `password`, `private_key`, `secret_value`, and `token_value`.
+The validator scans committed YAML/JSON under `configs` and `platform-cloud docs` for forbidden secret-value keys such as `api_key`, `password`, `private_key`, `secret_value`, and `token_value`.
 
 ## Policy References
 
-Every `policy_ref` in `configs/platform/*/platform-plan.yaml` must resolve to a YAML file under `configs/platform/policies/<provider>/`. Policy files define provider, policy ref, effect, actions, resources, injection targets, and `value_handling: external-only`.
+Every `policy_ref` in `configs/platform/iac/*/platform-plan.yaml` must resolve to a YAML file under `configs/platform/policies/<provider>/`. Policy files define provider, policy ref, effect, actions, resources, injection targets, and `value_handling: external-only`.
 
 ## Local Secret Injection Manifest
 

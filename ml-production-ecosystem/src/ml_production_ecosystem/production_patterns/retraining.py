@@ -3,13 +3,13 @@
 from pathlib import Path
 import argparse
 import json
-import subprocess
 
 import yaml
 
 from ml_production_ecosystem.shared.model_storage.registry import register_model_version, set_active_model
 from ml_production_ecosystem.recommendation.train import train_recommender_from_config
 from .quality_gate import evaluate_quality_gate
+from .training_adapters import TrainingAdapterError, run_training
 
 DEFAULT_MODEL_NAME = "movielens-popularity"
 
@@ -35,15 +35,11 @@ def _registry_path_from_config(config_path: Path) -> Path | None:
 def _run_training_from_config(config_path: Path) -> dict[str, object]:
     config = _load_config(config_path)
     training = config.get("training", {})
-    if isinstance(training, dict) and training.get("type") == "command":
-        command = training.get("command")
-        summary_path = training.get("summary_path")
-        if not isinstance(command, list) or not command:
-            raise ValueError("training.command must be a non-empty list")
-        if summary_path is None:
-            raise ValueError("training.summary_path is required for command training")
-        subprocess.run([str(part) for part in command], check=True)
-        return json.loads(Path(str(summary_path)).read_text())
+    if isinstance(training, dict) and training:
+        try:
+            return run_training(config_path=config_path, training=training)
+        except TrainingAdapterError as error:
+            raise ValueError(str(error)) from error
 
     result = train_recommender_from_config(config_path)
     return {
@@ -66,7 +62,10 @@ def run_retraining(
     quality_gate_result = {"passed": True, "failures": []}
     if require_quality_gate:
         quality_gate = config.get("quality_gate", {})
-        quality_gate_result = evaluate_quality_gate(quality_gate if isinstance(quality_gate, dict) else {})
+        quality_gate_result = evaluate_quality_gate(
+            quality_gate if isinstance(quality_gate, dict) else {},
+            base=config_path.parent,
+        )
 
     status = "completed"
     activated = False

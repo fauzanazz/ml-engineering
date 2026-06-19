@@ -94,7 +94,7 @@ bunx create-ml-struct
 
 `preset` is only starter shape. Real scaffold is composed from axes:
 
-- `--task`: classification, regression, recommendation, speech-to-text, nlp, computer-vision, forecasting, llm-post-training, batch-inference, existing-model
+- `--task`: classification, regression, object-detection, segmentation, text-generation, recommendation, speech-to-text, nlp, computer-vision, forecasting, llm-post-training, batch-inference, existing-model
 - `--model-type`: sklearn, xgboost, pytorch, transformers, whisper, llm, rules, external
 - `--backend`: local, fastapi, batch, spark, airflow, kubernetes, serverless, external-command
 - `--infra`: repeatable checklist items: api, batch, registry, quality-gate, monitoring, drift, retraining, rollback, docker, kubernetes, secrets, ci
@@ -146,8 +146,28 @@ uv run pytest
 Expected test result:
 
 ```text
-276 passed, 3 integration tests require local Redpanda/Postgres services
+318 passed, 3 skipped (RT warehouse integration)
 ```
+
+Tip:
+RT warehouse integration tests (`tests/test_rt_warehouse_foundation.py`) are skipped unless services are available. Enable and run with explicit dependency services if needed:
+
+```bash
+ML_ECOSYSTEM_RUN_RT_WAREHOUSE_TESTS=1 uv run pytest tests/test_rt_warehouse_foundation.py
+```
+
+Run full-suite with services in one command:
+
+```bash
+./scripts/validate-full-suite.sh
+```
+
+Run enterprise evidence chain in one command:
+
+```bash
+./scripts/validate-enterprise-readiness.sh
+```
+
 
 ## Docs
 

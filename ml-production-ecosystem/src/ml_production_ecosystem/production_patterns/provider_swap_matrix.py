@@ -46,7 +46,7 @@ def build_provider_swap_matrix(
         "environment": environment,
         "providers": list(PROVIDERS),
         "core_code_changes_required": False,
-        "swap_unit": "configs/platform/<provider>/platform-plan.yaml + configs/platform/adapters/<provider>",
+        "swap_unit": "configs/platform/iac/<provider>/platform-plan.yaml + configs/platform/adapters/<provider>",
         "core_workflows": list(CORE_WORKFLOWS),
         "resource_matrix": matrix,
         "secret_injection_targets": {

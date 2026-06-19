@@ -91,7 +91,7 @@ Attention maps captured human game concepts: alive stones, territory, ladders (G
 
 ---
 
-## Implications for mini-wallchess-bot
+## Implications for gameboard-bot
 
 **Confirms:**
 - MLP spatial blindness is a known, documented failure class (non-local dependency).

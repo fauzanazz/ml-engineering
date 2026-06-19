@@ -1,6 +1,10 @@
 from argparse import Namespace
 from pathlib import Path
 import importlib
+import json
+import subprocess
+import sys
+import tomllib
 
 import pytest
 
@@ -94,6 +98,181 @@ def test_scaffold_project_writes_modular_axes(tmp_path: Path) -> None:
     assert "backend: external-command" in config
     assert "- [ ] registry" in checklist
 
+
+def test_scaffold_project_writes_pypi_safe_package_name_in_pyproject(tmp_path: Path) -> None:
+    target = tmp_path / "pyproject-name"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="kaggle",
+            name="House Prices Advanced",
+            target=target,
+        )
+    )
+
+    data = tomllib.loads((target / "pyproject.toml").read_text())
+    assert data["project"]["name"] == result.package_name
+    assert " " not in data["project"]["name"]
+
+
+@pytest.mark.parametrize(
+    ("task", "task_type", "prediction_key"),
+    [
+        ("classification", "classification", "label"),
+        ("regression", "regression", "value"),
+        ("object-detection", "object_detection", "detections"),
+        ("segmentation", "segmentation", "mask"),
+        ("text-generation", "text_generation", "text"),
+    ],
+)
+def test_existing_model_wrapper_bootstrap_supports_common_task_output_forms(tmp_path: Path, task: str, task_type: str, prediction_key: str) -> None:
+    target = tmp_path / f"wrapper-{task.replace('-', '_')}"
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="existing-model-wrapper",
+            name=f"Task {task}",
+            target=target,
+            task=task,
+        )
+    )
+
+    config_text = (target / "configs" / "project.yaml").read_text()
+    assert f"task_type: {task_type}" in config_text
+    assert f"prediction_key: {prediction_key}" in config_text
+    assert "training:" in config_text
+    assert f"{result.package_name}.train" in config_text
+    assert "reports/training-summary.json" in config_text
+    assert (target / "schemas" / task / "input.json").exists()
+    assert (target / "schemas" / task / "output.json").exists()
+
+
+def test_existing_model_wrapper_bootstrap_includes_task_train_example(tmp_path: Path) -> None:
+    target = tmp_path / "wrapper-train-example"
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="existing-model-wrapper",
+            name="My Existing Project",
+            target=target,
+            task="classification",
+        )
+    )
+
+    train_path = target / result.package_name / "train.py"
+    train_text = train_path.read_text()
+    assert train_path.exists()
+    assert 'TASK_TYPE = "classification"' in train_text
+    assert 'PREDICTION_KEY = "label"' in train_text
+
+    summary_path = target / "artifacts" / "reports" / "bootstrap-summary.json"
+    run_result = subprocess.run(
+        [
+            sys.executable,
+            str(train_path),
+            "--summary-path",
+            str(summary_path),
+        ],
+        cwd=target,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert run_result.returncode == 0
+    summary = json.loads(summary_path.read_text())
+    assert summary["model_name"] == result.package_name
+    metrics_data = json.loads((summary_path.parent / "metrics.json").read_text())
+    assert "loss" in metrics_data
+    assert "loss_history" in metrics_data
+
+    state_path = target / "model_state.json"
+    state_path.write_text(json.dumps({"weights": [0.05, -0.02, 0.01, 0.03], "bias": 0.04}, indent=2) + "\n")
+    loaded_summary = target / "artifacts" / "reports" / "loaded-summary.json"
+    run_result = subprocess.run(
+        [
+            sys.executable,
+            str(train_path),
+            "--summary-path",
+            str(loaded_summary),
+            "--model-state",
+            str(state_path),
+        ],
+        cwd=target,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert run_result.returncode == 0
+    loaded_metrics = json.loads((loaded_summary.parent / "metrics.json").read_text())
+    assert "loss" in loaded_metrics
+
+
+def test_text_generation_task_train_example_emits_generation_metrics(tmp_path: Path) -> None:
+    target = tmp_path / "wrapper-text-generation"
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="existing-model-wrapper",
+            name="Text Generation Project",
+            target=target,
+            task="text-generation",
+        )
+    )
+
+    train_path = target / result.package_name / "train.py"
+    summary_path = target / "artifacts" / "reports" / "text-gen-summary.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(train_path),
+            "--summary-path",
+            str(summary_path),
+        ],
+        cwd=target,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    metrics = json.loads((summary_path.parent / "metrics.json").read_text())
+
+    assert "perplexity" in metrics
+    assert "bleu" in metrics
+    assert "latency_ms" in metrics
+    assert "mae" in metrics
+    assert "rmse" in metrics
+    assert "loss" in metrics
+
+
+def test_train_script_normalizes_directory_summary_path_to_file(tmp_path: Path) -> None:
+    target = tmp_path / "wrapper-summary-dir"
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="existing-model-wrapper",
+            name="Summary Dir Project",
+            target=target,
+            task="classification",
+        )
+    )
+
+    train_path = target / result.package_name / "train.py"
+    summary_dir = target / "artifacts" / "manual-summary-dir"
+    summary_dir.mkdir(parents=True)
+    summary_file = summary_dir / "training-summary.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(train_path),
+            "--summary-path",
+            str(summary_dir),
+        ],
+        cwd=target,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    summary = json.loads(summary_file.read_text())
+    assert summary["model_name"] == result.package_name
+    assert (summary_dir / "metrics.json").exists()
+
+
 def test_served_model_scaffold_includes_api_and_dockerfile(tmp_path: Path) -> None:
     target = tmp_path / "served"
 
@@ -157,6 +336,28 @@ def test_flexible_gap_presets_include_main_seam(
 
     assert expected_text in (target / "flexible_project" / package_file).read_text()
     assert (target / "configs" / "project.yaml").exists()
+
+
+def test_llm_post_training_dataset_build_examples_has_no_todo_placeholder(tmp_path: Path, monkeypatch) -> None:
+    target = tmp_path / "llm-post-training"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="llm-post-training",
+            name="Reasoning Tutor",
+            target=target,
+        )
+    )
+
+    dataset_path = target / result.package_name / "dataset.py"
+    dataset_text = dataset_path.read_text()
+    assert "TODO" not in dataset_text
+
+    monkeypatch.syspath_prepend(str(target))
+    dataset_module = importlib.import_module(f"{result.package_name}.dataset")
+    examples = dataset_module.build_examples(["seed prompt"])
+    assert examples == [{"prompt": "seed prompt", "answer": "synthetic response for: seed prompt"}]
+
 
 def test_enterprise_pipeline_scaffold_includes_quality_gate(tmp_path: Path) -> None:
     target = tmp_path / "enterprise"

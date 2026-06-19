@@ -20,4 +20,4 @@ Adapter implementations must expose shared ports from `src/ml_production_ecosyst
 
 ## Current Adapter
 
-`adapter.py` implements a thin plan-backed `gcp` provider adapter using `shared.platform.PlatformPlanAdapter`. It returns provider resource and secret references from `configs/platform/gcp/platform-plan.yaml` without importing provider SDKs or reading cloud credentials.
+`adapter.py` implements a thin plan-backed `gcp` provider adapter using `shared.platform.PlatformPlanAdapter`. It returns provider resource and secret references from `configs/platform/iac/gcp/platform-plan.yaml` without importing provider SDKs or reading cloud credentials.

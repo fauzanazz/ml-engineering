@@ -17,7 +17,7 @@ uv run production-rollback-model --registry-path registry/models.json --model-na
 Provider swap changes only these files:
 
 ```text
-configs/platform/<provider>/platform-plan.yaml
+configs/platform/iac/<provider>/platform-plan.yaml
 configs/platform/adapters/<provider>/
 ```
 
@@ -27,7 +27,7 @@ Local comes first:
 
 ```bash
 uv run production-apply-local-platform
-uv run production-validate-platform-plan --plan-path configs/platform/local/platform-plan.yaml
+uv run production-validate-platform-plan --plan-path configs/platform/iac/local/platform-plan.yaml
 uv run production-validate-provider-portability
 uv run production-provider-swap-matrix
 ```
@@ -37,12 +37,12 @@ The local adapter creates filesystem resources for artifacts, logs, and registry
 ## Swap Steps
 
 1. Keep model contract and lifecycle config stable.
-2. Choose target provider plan under `configs/platform/<provider>/platform-plan.yaml`.
-3. Validate plan shape with `production-validate-platform-plan --plan-path configs/platform/<provider>/platform-plan.yaml`.
+2. Choose target provider plan under `configs/platform/iac/<provider>/platform-plan.yaml`.
+3. Validate plan shape with `production-validate-platform-plan --plan-path configs/platform/iac/<provider>/platform-plan.yaml`.
 4. Validate portability with `production-validate-provider-portability`.
 5. Generate `production-provider-swap-matrix` and confirm core workflows require no code changes.
 6. Implement or update thin provider adapter under `configs/platform/adapters/<provider>/`.
-7. Preview deployment through adapter `deploy("development")` or tests before adding provider-specific apply logic.
+7. Preview deployment through adapter `deploy("development")` or tests, then run provider plan apply hooks with `--apply` after hook config is in place (`configs/platform/iac/<provider>/platform-plan.yaml`). Set `PLATFORM_APPLY_<PROVIDER>_COMMAND` for real cloud execution; without it, hooks emit safe fallback evidence.
 8. Keep secret values outside repo; commit only `SecretRef` names, injection targets, and policy files under `configs/platform/policies/<provider>/`.
 
 ## Current Provider Matrix
@@ -50,9 +50,9 @@ The local adapter creates filesystem resources for artifacts, logs, and registry
 | Provider | Current Proof | Runtime Status |
 |---|---|---|
 | local | Executable adapter + filesystem apply command | Runs without cloud credentials |
-| AWS | Provider-neutral IaC plan shape + secret refs + plan-backed adapter | Dry-run deployment preview, no SDK import |
-| GCP | Provider-neutral IaC plan shape + secret refs + plan-backed adapter | Dry-run deployment preview, no SDK import |
-| Azure | Provider-neutral IaC plan shape + secret refs + plan-backed adapter | Dry-run deployment preview, no SDK import |
+| AWS | Provider-neutral IaC plan shape + secret refs + plan-backed adapter | Dry-run preview + command hook evidence |
+| GCP | Provider-neutral IaC plan shape + secret refs + plan-backed adapter | Dry-run preview + command hook evidence |
+| Azure | Provider-neutral IaC plan shape + secret refs + plan-backed adapter | Dry-run preview + command hook evidence |
 
 ## Validation Commands
 
@@ -64,4 +64,4 @@ uv run production-validate-secret-references
 uv run production-validate-policy-references
 ```
 
-These commands prove boundaries and portability at scaffold level. Adapter tests prove provider-neutral deployment preview. They do not apply real cloud resources.
+These commands prove boundaries and portability at scaffold level. Adapter tests prove provider-neutral deployment preview. `--apply` mode executes command hooks declared in each provider plan and records command-level outcomes in deployment artifacts, including fallback-safe guard runs.

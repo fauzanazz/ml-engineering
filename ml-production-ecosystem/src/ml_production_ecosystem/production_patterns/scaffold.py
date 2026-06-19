@@ -4,16 +4,191 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import json
 import re
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 TEMPLATE_ROOT = PROJECT_ROOT / "templates" / "scaffold"
 SUPPORTED_PRESETS = ("kaggle", "generic-classifier", "served-model", "asr-served-model", "recommendation", "batch-inference", "existing-model-wrapper", "llm-post-training", "enterprise-pipeline")
 METADATA_FILE = "template.yaml"
-SUPPORTED_TASKS = ("classification", "regression", "recommendation", "speech-to-text", "nlp", "computer-vision", "forecasting", "llm-post-training", "batch-inference", "existing-model")
+SUPPORTED_TASKS = (
+    "classification",
+    "regression",
+    "object-detection",
+    "segmentation",
+    "text-generation",
+    "recommendation",
+    "speech-to-text",
+    "nlp",
+    "computer-vision",
+    "forecasting",
+    "llm-post-training",
+    "batch-inference",
+    "existing-model",
+)
 SUPPORTED_MODEL_TYPES = ("sklearn", "xgboost", "pytorch", "transformers", "whisper", "llm", "rules", "external")
 SUPPORTED_BACKENDS = ("local", "fastapi", "batch", "spark", "airflow", "kubernetes", "serverless", "external-command")
 SUPPORTED_INFRA = ("api", "batch", "registry", "quality-gate", "monitoring", "drift", "retraining", "rollback", "docker", "kubernetes", "secrets", "ci")
+
+
+@dataclass(frozen=True)
+class TaskBootstrapProfile:
+    task_type: str
+    prediction_key: str
+    schema_dir: str
+    input_schema: dict
+    output_schema: dict
+
+
+TASK_BOOTSTRAP_BLUEPRINTS: dict[str, TaskBootstrapProfile] = {
+    "classification": TaskBootstrapProfile(
+        task_type="classification",
+        prediction_key="label",
+        schema_dir="classification",
+        input_schema={
+            "type": "object",
+            "required": ["features"],
+            "properties": {
+                "features": {"type": "object", "additionalProperties": True},
+            },
+            "additionalProperties": True,
+        },
+        output_schema={
+            "type": "object",
+            "required": ["label"],
+            "properties": {
+                "label": {"type": "string"},
+                "score": {"type": "number", "minimum": 0, "maximum": 1},
+            },
+            "additionalProperties": True,
+        },
+    ),
+    "regression": TaskBootstrapProfile(
+        task_type="regression",
+        prediction_key="value",
+        schema_dir="regression",
+        input_schema={
+            "type": "object",
+            "required": ["features"],
+            "properties": {
+                "features": {"type": "object", "additionalProperties": True},
+            },
+            "additionalProperties": True,
+        },
+        output_schema={
+            "type": "object",
+            "required": ["value"],
+            "properties": {
+                "value": {"type": "number"},
+                "uncertainty": {"type": "number", "minimum": 0},
+            },
+            "additionalProperties": True,
+        },
+    ),
+    "object-detection": TaskBootstrapProfile(
+        task_type="object_detection",
+        prediction_key="detections",
+        schema_dir="object-detection",
+        input_schema={
+            "type": "object",
+            "required": ["image_path"],
+            "properties": {
+                "image_path": {"type": "string"},
+                "max_objects": {"type": "integer", "minimum": 1},
+            },
+            "additionalProperties": True,
+        },
+        output_schema={
+            "type": "object",
+            "required": ["detections"],
+            "properties": {
+                "detections": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["label", "score", "bbox"],
+                        "properties": {
+                            "label": {"type": "string"},
+                            "score": {"type": "number", "minimum": 0, "maximum": 1},
+                            "bbox": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 4,
+                                "maxItems": 4,
+                            },
+                        },
+                        "additionalProperties": True,
+                    },
+                },
+            },
+            "additionalProperties": True,
+        },
+    ),
+    "segmentation": TaskBootstrapProfile(
+        task_type="segmentation",
+        prediction_key="mask",
+        schema_dir="segmentation",
+        input_schema={
+            "type": "object",
+            "required": ["image_path"],
+            "properties": {
+                "image_path": {"type": "string"},
+            },
+            "additionalProperties": True,
+        },
+        output_schema={
+            "type": "object",
+            "required": ["mask"],
+            "properties": {
+                "mask": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {"type": "integer", "minimum": 0},
+                    },
+                },
+                "classes": {"type": "array", "items": {"type": "integer"}},
+            },
+            "additionalProperties": True,
+        },
+    ),
+    "text-generation": TaskBootstrapProfile(
+        task_type="text_generation",
+        prediction_key="text",
+        schema_dir="text-generation",
+        input_schema={
+            "type": "object",
+            "required": ["prompt"],
+            "properties": {
+                "prompt": {"type": "string"},
+                "max_tokens": {"type": "integer", "minimum": 1},
+            },
+            "additionalProperties": True,
+        },
+        output_schema={
+            "type": "object",
+            "required": ["text"],
+            "properties": {
+                "text": {"type": "string"},
+                "tokens": {"type": "integer", "minimum": 0},
+            },
+            "additionalProperties": True,
+        },
+    ),
+    "existing-model": TaskBootstrapProfile(
+        task_type="external_model",
+        prediction_key="prediction",
+        schema_dir="existing-model",
+        input_schema={
+            "type": "object",
+            "additionalProperties": True,
+        },
+        output_schema={
+            "type": "object",
+            "additionalProperties": True,
+        },
+    ),
+}
 PRESET_DEFAULTS = {
     "kaggle": ("classification", "sklearn", "batch", ("batch", "quality-gate", "ci")),
     "generic-classifier": ("classification", "sklearn", "batch", ("quality-gate", "registry", "ci")),
@@ -78,6 +253,7 @@ def scaffold_project(request: ScaffoldRequest) -> ScaffoldResult:
 
     task, model_type, backend, infra = resolve_scaffold_axes(request)
     package_name = package_name_from_project(request.name)
+    profile = TASK_BOOTSTRAP_BLUEPRINTS.get(task, TASK_BOOTSTRAP_BLUEPRINTS["existing-model"])
     variables = {
         "project_name": request.name,
         "package_name": package_name,
@@ -86,9 +262,12 @@ def scaffold_project(request: ScaffoldRequest) -> ScaffoldResult:
         "model_type": model_type,
         "backend": backend,
         "infra": ", ".join(infra),
+        "task_type": profile.task_type,
+        "prediction_key": profile.prediction_key,
+        "task_schema_dir": profile.schema_dir,
     }
     written_paths = _copy_template(template_dir, target, variables)
-    written_paths.extend(_write_modular_files(target, request.name, preset, task, model_type, backend, infra))
+    written_paths.extend(_write_modular_files(target, request.name, preset, task, model_type, backend, infra, profile))
     return ScaffoldResult(
         preset=preset,
         name=request.name,
@@ -127,6 +306,7 @@ def _write_modular_files(
     model_type: str,
     backend: str,
     infra: tuple[str, ...],
+    profile: TaskBootstrapProfile,
 ) -> list[Path]:
     config_path = target / "ml-struct.yaml"
     checklist_path = target / "docs" / "infra-checklist.md"
@@ -142,11 +322,25 @@ def _write_modular_files(
     checklist_path.write_text(
         "# Infra Checklist\n\n"
         f"Task: `{task}`\n"
+        f"Task type: `{profile.task_type}`\n"
+        f"Prediction key: `{profile.prediction_key}`\n"
         f"Model type: `{model_type}`\n"
         f"Backend: `{backend}`\n\n"
         + "".join(f"- [ ] {item}\n" for item in infra)
     )
-    return [config_path, checklist_path]
+    written_paths = [config_path, checklist_path]
+
+    if preset == "existing-model-wrapper":
+        schema_dir = target / "schemas" / profile.schema_dir
+        schema_dir.mkdir(parents=True, exist_ok=True)
+        (schema_dir / "input.json").write_text(
+            json.dumps(profile.input_schema, indent=2, sort_keys=True) + "\n"
+        )
+        (schema_dir / "output.json").write_text(
+            json.dumps(profile.output_schema, indent=2, sort_keys=True) + "\n"
+        )
+        written_paths.extend([schema_dir / "input.json", schema_dir / "output.json"])
+    return written_paths
 
 def _copy_template(template_dir: Path, target: Path, variables: dict[str, str]) -> list[Path]:
     written_paths: list[Path] = []

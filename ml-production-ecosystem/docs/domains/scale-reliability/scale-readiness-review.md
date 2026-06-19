@@ -61,7 +61,7 @@ Missing for real million requests:
 - model server optimization
 - feature store at scale
 - centralized logs/metrics/traces
-- Multi-window SLO burn-rate alert simulation; local only, no Alertmanager/paging runtime
+- Multi-window SLO burn-rate alert simulation + optional local webhook dispatch for alerting artifacts; no Alertmanager/paging runtime
 - capacity planning with real traffic
 - multi-region reliability
 - cloud IAM/secrets/networking
@@ -71,7 +71,7 @@ These gaps mean 03 should not be described as production-scale or million-reques
 
 ## Out Of Scope For 03
 
-03 intentionally excludes implementing new scaling mechanism, cloud infrastructure, Kubernetes manifests, real autoscaling configuration, real distributed load test execution, production benchmark claims, real Alertmanager/paging runtime, real cloud cost modeling, and real million traffic validation.
+03 intentionally excludes implementing new scaling mechanism, cloud infrastructure, Kubernetes manifests, real autoscaling configuration, real distributed load test execution, production benchmark claims, full Alertmanager/paging runtime integration, real cloud cost modeling, and real million traffic validation.
 
 ## Next Module Decision
 
@@ -92,10 +92,10 @@ The best default is Move to platform-cloud domain, because 03 already taught loc
 
 Possible Step 39 choices:
 
-1. Start `platform-cloud domain` scaffold for cloud deployment, managed infrastructure, IAM/secrets, CI/CD, and platform boundaries.
+1. Move to platform configs by starting `platform-cloud domain` scaffold for cloud deployment, managed infrastructure, IAM/secrets, CI/CD, and platform boundaries.
 2. Continue deeper 03 work with queue-based asynchronous inference.
 3. Continue deeper 03 work with batching optimization and model-server tuning.
 4. Continue deeper 03 work with distributed cache design.
 5. Pause coding and manually compare load test, retry, cache, backpressure, SLO, and runbook artifacts.
 
-Recommended Step 39: create `platform-cloud domain` scaffold if next learning goal is production platform reality. Choose deeper 03 only if serving optimization is more important than platform learning right now.
+Recommended Step 39: Move to platform configs / create `platform-cloud domain` scaffold if next learning goal is production platform reality. If platform maturity is not yet required, Go deeper inside scale reliability first (queue-based inference, batching, model-server tuning, distributed caching) and revisit platform scope once serving optimization stabilizes.

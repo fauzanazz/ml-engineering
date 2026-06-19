@@ -44,6 +44,14 @@ def _threshold_check(name: str, actual: float, maximum: float) -> dict[str, obje
     return _failed_check(name, message)
 
 
+def _write_summary(summary: dict[str, object], output_path: Path | None) -> dict[str, object]:
+    if output_path is None:
+        return summary
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(summary, indent=2))
+    return summary
+
+
 def run_monitoring_loop(
     metrics_path: Path,
     output_path: Path,
@@ -71,9 +79,7 @@ def run_monitoring_loop(
         "metrics_path": str(metrics_path),
         "checks": checks,
     }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(summary, indent=2))
-    return summary
+    return _write_summary(summary, output_path)
 
 
 def evaluate_monitoring_summary(
@@ -83,6 +89,7 @@ def evaluate_monitoring_summary(
     max_latency_ms_last: float,
     http_client: HttpClient | None = None,
     timeout: float = 5.0,
+    output_path: Path | None = None,
 ) -> dict[str, object]:
     client = http_client or httpx.Client()
     health, health_error = _get_json(base_url, "/health", client, timeout)
@@ -116,7 +123,8 @@ def evaluate_monitoring_summary(
         checks.append(_threshold_check("latency_ms_last", latency_ms_last, max_latency_ms_last))
 
     status = "healthy" if all(bool(check["passed"]) for check in checks) else "unhealthy"
-    return {"status": status, "checks": checks}
+    summary: dict[str, object] = {"status": status, "checks": checks}
+    return _write_summary(summary, output_path)
 
 
 def _parse_maximums(raw_maximums: list[str]) -> dict[str, float]:
@@ -152,6 +160,7 @@ def main() -> None:
             max_error_count=args.max_error_count,
             max_drift_score=args.max_drift_score,
             max_latency_ms_last=args.max_latency_ms_last,
+            output_path=args.output_path,
         )
     print(json.dumps(summary, indent=2))
 

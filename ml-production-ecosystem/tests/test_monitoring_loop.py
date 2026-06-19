@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from ml_production_ecosystem.production_patterns.monitoring_loop import evaluate_monitoring_summary
 
 
@@ -106,3 +109,22 @@ def test_monitoring_summary_reports_http_failure_as_failed_check() -> None:
             {"name": "latency_ms_last", "passed": False, "message": "metrics unavailable"},
         ],
     }
+
+
+def test_monitoring_summary_writes_output_path_when_provided(tmp_path: Path) -> None:
+    output_path = tmp_path / "monitoring-loop.json"
+    class FailingHttpClient:
+        def get(self, url: str, timeout: float) -> StubResponse:
+            raise RuntimeError("connection refused")
+
+    summary = evaluate_monitoring_summary(
+        base_url="http://api.test",
+        max_error_count=0,
+        max_drift_score=0.2,
+        max_latency_ms_last=100.0,
+        http_client=FailingHttpClient(),
+        output_path=output_path,
+    )
+
+    assert output_path.exists()
+    assert json.loads(output_path.read_text()) == summary

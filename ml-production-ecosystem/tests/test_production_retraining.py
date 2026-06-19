@@ -3,6 +3,8 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 from ml_production_ecosystem.production_patterns.retraining import run_retraining
 from ml_production_ecosystem.recommendation.train import get_active_model
 
@@ -106,6 +108,140 @@ quality_gate:
         "set_active": False,
         "quality_gate": {"passed": True, "failures": []},
     }
+
+
+def test_run_retraining_runs_command_relative_to_config_directory(tmp_path: Path) -> None:
+    script_path = tmp_path / "train_relative.py"
+    script_path.write_text(
+        """\
+import json
+from pathlib import Path
+
+Path("artifacts").mkdir()
+Path("artifacts/model.bin").write_text("artifact")
+Path("metrics.json").write_text(json.dumps({"accuracy": 0.91}))
+Path("reports").mkdir()
+Path("reports/summary.json").write_text(
+    json.dumps(
+        {
+            "model_name": "relative-trainer",
+            "version": "v1",
+            "artifact_uri": "artifacts/model.bin",
+            "metrics_uri": "metrics.json",
+        }
+    )
+)
+"""
+    )
+    config_path = tmp_path / "command-relative.yaml"
+    config_path.write_text(
+        f"""
+training:
+  type: command
+  command:
+    - {sys.executable}
+    - train_relative.py
+  summary_path: reports/summary.json
+""".strip()
+    )
+
+    summary = run_retraining(config_path, require_quality_gate=False)
+
+    assert summary == {
+        "status": "completed",
+        "model_name": "relative-trainer",
+        "version": "v1",
+        "artifact_uri": "artifacts/model.bin",
+        "metrics_uri": "metrics.json",
+        "set_active": False,
+        "quality_gate": {"passed": True, "failures": []},
+    }
+
+
+@pytest.mark.parametrize("training_type", ["onnx", "pytorch"])
+def test_run_retraining_supports_framework_training_adapters(tmp_path: Path, training_type: str) -> None:
+    summary_path = tmp_path / f"{training_type}-summary.json"
+    metrics_path = tmp_path / f"{training_type}-metrics.json"
+    artifact_path = tmp_path / training_type / "artifact"
+    command = (
+        "import json, pathlib; "
+        f"pathlib.Path({str(metrics_path)!r}).write_text(json.dumps({{'f1': 0.85}})); "
+        f"pathlib.Path({str(artifact_path)!r}).mkdir(parents=True); "
+        f"pathlib.Path({str(summary_path)!r}).write_text(json.dumps("
+        "{'model_name':'custom-model','version':'v2','artifact_uri':%r,'metrics_uri':%r}))"
+        % (str(artifact_path), str(metrics_path))
+    )
+    config_path = tmp_path / f"{training_type}-model.yaml"
+    config_path.write_text(
+        f"""
+training:
+  type: {training_type}
+  framework: {training_type}
+  command:
+    - {sys.executable}
+    - -c
+    - "{command}"
+  summary_path: {summary_path}
+""".strip()
+    )
+
+    summary = run_retraining(config_path, model_name="custom-model")
+
+    assert summary == {
+        "status": "completed",
+        "model_name": "custom-model",
+        "version": "v2",
+        "artifact_uri": str(artifact_path),
+        "metrics_uri": str(metrics_path),
+        "set_active": False,
+        "quality_gate": {"passed": True, "failures": []},
+    }
+
+
+def test_run_retraining_rejects_unknown_training_type(tmp_path: Path) -> None:
+    config_path = tmp_path / "invalid-training.yaml"
+    config_path.write_text(
+        f"""
+training:
+  type: unknown-framework
+  command:
+    - {sys.executable}
+    - -c
+    - "print('should not run')"
+  summary_path: {tmp_path / 'invalid-summary.json'}
+""".strip()
+    )
+
+    with pytest.raises(ValueError, match="unsupported training.type 'unknown-framework'"):
+        run_retraining(config_path)
+
+
+def test_run_retraining_rejects_invalid_summary_contract(tmp_path: Path) -> None:
+    summary_path = tmp_path / "incomplete-summary.json"
+    metrics_path = tmp_path / "metrics.json"
+    artifact_path = tmp_path / "artifact"
+    command = (
+        "import json, pathlib; "
+        f"pathlib.Path({str(metrics_path)!r}).write_text(json.dumps({{'loss': 0.3}})); "
+        f"pathlib.Path({str(artifact_path)!r}).mkdir(parents=True); "
+        f"pathlib.Path({str(summary_path)!r}).write_text(json.dumps({{'model_name':'broken','version':'v1','artifact_uri':%r}}))"
+        % (str(artifact_path))
+    )
+    config_path = tmp_path / "invalid-summary.yaml"
+    config_path.write_text(
+        f"""
+training:
+  type: command
+  command:
+    - {sys.executable}
+    - -c
+    - "{command}"
+  summary_path: {summary_path}
+""".strip()
+    )
+
+    with pytest.raises(ValueError, match="training summary missing required fields"):
+        run_retraining(config_path)
 
 
 def test_run_retraining_can_set_active_model(tmp_path: Path) -> None:

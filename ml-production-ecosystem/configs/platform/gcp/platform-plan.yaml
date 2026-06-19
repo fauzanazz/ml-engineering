@@ -21,13 +21,3 @@ secrets:
     name: development/gcp/model-registry-token
     injection_target: MODEL_REGISTRY_TOKEN
     policy_ref: policy/gcp-model-registry-read
-apply:
-  commands:
-    - - python
-      - "{project_root}/scripts/platform_apply_runtime.py"
-      - "--provider"
-      - "{provider}"
-      - "--environment"
-      - "{environment}"
-      - "--project-root"
-      - "{project_root}"

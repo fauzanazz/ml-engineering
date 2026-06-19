@@ -3,6 +3,7 @@ import json
 
 from ml_production_ecosystem.production_patterns.secret_references import validate_secret_references
 
+
 def test_validate_secret_references_passes_reference_only_configs(tmp_path: Path) -> None:
     plan_path = tmp_path / "configs" / "platform" / "iac" / "local" / "platform-plan.yaml"
     plan_path.parent.mkdir(parents=True)
@@ -23,6 +24,29 @@ secrets:
     assert report["status"] == "passed"
     assert report["violations"] == []
     assert json.loads((tmp_path / "report.json").read_text()) == report
+
+
+def test_validate_secret_references_handles_multi_document_yaml_files(tmp_path: Path) -> None:
+    path = tmp_path / "configs" / "platform" / "local" / "kubernetes.yaml"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        """
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: one
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: two
+""".strip()
+    )
+
+    report = validate_secret_references(tmp_path, tmp_path / "report.json")
+    assert report["status"] == "passed"
+    assert not any(v["path"] == "configs/platform/local/kubernetes.yaml" and v["location"] == "<parse>" for v in report["violations"])
+
 
 def test_validate_secret_references_rejects_forbidden_value_keys(tmp_path: Path) -> None:
     config_path = tmp_path / "configs" / "bad.yaml"
