@@ -8,12 +8,12 @@
 
 use std::time::Instant;
 
-use wallchess_core::arena::{BotConfig, Outcome};
-use wallchess_core::distance_to_goal;
-use wallchess_core::eval::Heuristic;
-use wallchess_core::legal_moves;
-use wallchess_core::search::Search;
-use wallchess_core::state::{Side, State};
+use gameboard_core::arena::{BotConfig, Outcome};
+use gameboard_core::distance_to_goal;
+use gameboard_core::eval::Heuristic;
+use gameboard_core::legal_moves;
+use gameboard_core::search::Search;
+use gameboard_core::state::{Side, State};
 
 fn xorshift(rng: &mut u64) -> u64 {
     *rng ^= *rng << 13;
@@ -26,7 +26,7 @@ fn xorshift(rng: &mut u64) -> u64 {
 /// until both pawns have equal BFS distance to their goals (±1 step).
 /// Equal race start ensures deeper search wins by strategy, not by inherited advantage.
 fn random_opening(open_plies: u32, rng: &mut u64) -> Option<State> {
-    use wallchess_core::state::Move;
+    use gameboard_core::state::Move;
     for _attempt in 0..200 {
         let mut state = State::initial();
         let mut ok = true;
@@ -63,8 +63,8 @@ fn random_opening(open_plies: u32, rng: &mut u64) -> Option<State> {
 
 /// Play one game starting from `start`; returns (winner_tag, plies, mean_ms_per_move).
 fn play_timed(
-    south: &BotConfig,
-    north: &BotConfig,
+    south: &BotConfig<Heuristic>,
+    north: &BotConfig<Heuristic>,
     start: State,
     max_plies: u32,
 ) -> (Outcome, u32, f64) {
@@ -97,8 +97,8 @@ fn play_timed(
         0.0
     };
     let outcome = match state.winner {
-        Some(Side::South) => Outcome::SouthWin,
-        Some(Side::North) => Outcome::NorthWin,
+        Some(Side::South) => Outcome::P0Win,
+        Some(Side::North) => Outcome::P1Win,
         None => Outcome::Draw,
     };
     (outcome, ply, mean_ms)
@@ -131,11 +131,11 @@ fn main() {
         total_mean_ms += mean_ms;
 
         let tag = match outcome {
-            Outcome::SouthWin if a_is_south => {
+            Outcome::P0Win if a_is_south => {
                 aw += 1;
                 "A"
             }
-            Outcome::NorthWin if !a_is_south => {
+            Outcome::P1Win if !a_is_south => {
                 aw += 1;
                 "A"
             }

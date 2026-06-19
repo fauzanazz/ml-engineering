@@ -28,9 +28,13 @@
 //! Move ordering (priority, highest first): TT move → killer[0] → killer[1] →
 //! history heuristic.
 
-use crate::eval::{Evaluator, WIN_SCORE};
-use crate::moves::{legal_moves, pawn_moves, search_moves, search_moves_wide};
-use crate::state::{Move, Orientation, State};
+use crate::game::{Evaluator, Game, WIN_SCORE};
+
+// Projections through the evaluator's game, so `Search` keeps a single type
+// parameter (`E`) while operating on that game's concrete `State`/`Move`.
+type Gm<E> = <E as Evaluator>::G;
+type St<E> = <Gm<E> as Game>::State;
+type Mv<E> = <Gm<E> as Game>::Move;
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -90,6 +94,12 @@ pub struct SearchConfig {
     pub lmr_min_depth: u8,
     pub lmr_full_moves: usize,
     pub lmr_reduction: u8,
+
+    /// Quiescence search at the leaf: extend through forced tactical exchanges
+    /// (captures) so the static eval is never taken mid-trade. Off by default —
+    /// Wall Chess has no captures, so this is inert there and the deployed engine
+    /// is unchanged. Draughts turns it on (see [`SearchConfig::draughts`]).
+    pub quiescence: bool,
 }
 
 impl Default for SearchConfig {
@@ -123,6 +133,7 @@ impl Default for SearchConfig {
             lmr_min_depth: 4,
             lmr_full_moves: 4,
             lmr_reduction: 1,
+            quiescence: false,
         }
     }
 }
@@ -166,6 +177,23 @@ impl SearchConfig {
         }
     }
 
+    /// Tuned defaults for International Draughts (forced-capture games).
+    /// Quiescence ON (capture chains are the dominant horizon-effect source) and
+    /// **null-move OFF** — with mandatory captures a "pass" is illegal and the
+    /// null-move soundness assumption (a free move can only help) breaks in
+    /// zugzwang-prone positions. PVS + LMR + aspiration are kept (LMR never
+    /// reduces captures because they are not quiet — see [`Game::is_quiet`]).
+    pub fn draughts() -> Self {
+        SearchConfig {
+            pvs: true,
+            aspiration: true,
+            null_move: false,
+            lmr: true,
+            quiescence: true,
+            ..SearchConfig::default()
+        }
+    }
+
     /// Build a config from `WC_*` environment variables.
     ///
     /// `WC_PRESET` (`aggressive` | `safe` | `plain` | `default`) picks a base;
@@ -203,6 +231,7 @@ impl SearchConfig {
         env_num("WC_LMR_MIN", &mut c.lmr_min_depth);
         env_num("WC_LMR_FULL", &mut c.lmr_full_moves);
         env_num("WC_LMR_R", &mut c.lmr_reduction);
+        env_flag("WC_QUIESCENCE", &mut c.quiescence);
         c
     }
 
@@ -240,56 +269,30 @@ enum Bound {
     Upper,
 }
 
-/// One slot in the array-indexed transposition table.
-/// `depth == 0` is the empty/unoccupied sentinel.
-#[derive(Clone, Copy, Default)]
-struct TtSlot {
+/// One slot in the array-indexed transposition table, generic over the game's
+/// move type. `depth == 0` is the empty/unoccupied sentinel.
+///
+/// The state hash and the history/move-ordering index are now game methods
+/// ([`Game::hash`] / [`Game::move_order_index`]); for Wall Chess they reproduce
+/// the previously-deployed `state_hash` / `history_idx` byte-for-byte.
+#[derive(Clone, Copy)]
+struct TtSlot<M: Copy> {
     key: u64,  // state hash; 0 means empty
     depth: u8, // 0 means empty
     score: i32,
     bound: Bound,
-    best: Option<Move>,
+    best: Option<M>,
 }
 
-/// Fast 64-bit hash of a State for array-TT indexing.
-/// Mixes h_walls, v_walls, pawn positions, wall counts, and turn.
-/// Never returns 0 (0 is the empty-slot sentinel).
-#[inline]
-fn state_hash(s: &State) -> u64 {
-    let mut h = s.h_walls;
-    h ^= s.v_walls.wrapping_mul(0x9e3779b97f4a7c15u64);
-    h ^= (s.pawns[0].r as u64 * 10 + s.pawns[0].c as u64).wrapping_mul(0x517cc1b727220a95u64) << 32;
-    h ^= (s.pawns[1].r as u64 * 10 + s.pawns[1].c as u64).wrapping_mul(0xbf58476d1ce4e5b9u64) << 16;
-    h ^= (s.walls_left[0] as u64) << 56;
-    h ^= (s.walls_left[1] as u64) << 48;
-    h ^= (s.turn as u64) << 63;
-    // finalizer for good bit distribution
-    h ^= h >> 30;
-    h = h.wrapping_mul(0xbf58476d1ce4e5b9u64);
-    h ^= h >> 27;
-    if h == 0 {
-        1
-    } else {
-        h
-    }
-}
-
-// ── History index ─────────────────────────────────────────────────────────────
-
-/// Compact index into the history table.
-/// Pawn(to)       → 0..=153   (to.r * 16 + to.c)
-/// Wall(r,c,H)    → 256..=319
-/// Wall(r,c,V)    → 320..=383
-const HISTORY_SIZE: usize = 384;
-
-#[inline]
-fn history_idx(mv: Move) -> usize {
-    match mv {
-        Move::Pawn(c) => c.r as usize * 16 + c.c as usize,
-        Move::Wall(w) => match w.o {
-            Orientation::H => 256 + (w.r as usize - 1) * 8 + (w.c as usize - 1),
-            Orientation::V => 320 + (w.r as usize - 1) * 8 + (w.c as usize - 1),
-        },
+impl<M: Copy> Default for TtSlot<M> {
+    fn default() -> Self {
+        TtSlot {
+            key: 0,
+            depth: 0,
+            score: 0,
+            bound: Bound::default(),
+            best: None,
+        }
     }
 }
 
@@ -298,16 +301,19 @@ fn history_idx(mv: Move) -> usize {
 pub struct Search<'a, E: Evaluator> {
     eval: &'a E,
     config: SearchConfig,
-    tt: Vec<TtSlot>,
-    killers: [[Option<Move>; 2]; MAX_PLY],
-    history: [i32; HISTORY_SIZE],
+    tt: Vec<TtSlot<Mv<E>>>,
+    killers: [[Option<Mv<E>>; 2]; MAX_PLY],
+    // Heap-allocated (was a fixed stack array) because its size is the game's
+    // `MOVE_INDEX_SPACE` associated const — not nameable as an array length in a
+    // generic context. Values are identical, so search results are unchanged.
+    history: Vec<i32>,
     node_limit: Option<u64>,
     stopped: bool,
     pub nodes: u64,
 }
 
-pub struct SearchResult {
-    pub best: Option<Move>,
+pub struct SearchResult<M> {
+    pub best: Option<M>,
     /// Score from the side-to-move perspective at the root.
     pub score: i32,
     pub depth: u8,
@@ -328,7 +334,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
             config,
             tt: vec![TtSlot::default(); TT_SIZE],
             killers: [[None; 2]; MAX_PLY],
-            history: [0; HISTORY_SIZE],
+            history: vec![0; <Gm<E> as Game>::MOVE_INDEX_SPACE],
             node_limit: None,
             stopped: false,
             nodes: 0,
@@ -341,18 +347,18 @@ impl<'a, E: Evaluator> Search<'a, E> {
 
     /// Iterative deepening to `max_depth`. Returns the best root move and its
     /// score (side-to-move POV).
-    pub fn search(&mut self, state: &State, max_depth: u8) -> SearchResult {
+    pub fn search(&mut self, state: &St<E>, max_depth: u8) -> SearchResult<Mv<E>> {
         self.stopped = false;
         if max_depth == 0 {
             return SearchResult {
                 best: None,
-                score: self.eval.eval(state, state.turn),
+                score: self.eval.eval(state, <Gm<E> as Game>::turn(state)),
                 depth: 0,
                 nodes: self.nodes,
                 stopped: false,
             };
         }
-        if let Some(mv) = immediate_winning_move(state) {
+        if let Some(mv) = <Gm<E> as Game>::immediate_winning_move(state) {
             return SearchResult {
                 best: Some(mv),
                 score: WIN_SCORE,
@@ -361,7 +367,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
                 stopped: false,
             };
         }
-        let mut best: Option<Move> = None;
+        let mut best: Option<Mv<E>> = None;
         let mut score = 0;
         let mut reached = 0;
         for depth in 1..=max_depth {
@@ -389,10 +395,10 @@ impl<'a, E: Evaluator> Search<'a, E> {
     /// the middle of a depth, the previous completed depth is returned.
     pub fn search_with_node_limit(
         &mut self,
-        state: &State,
+        state: &St<E>,
         max_depth: u8,
         node_limit: u64,
-    ) -> SearchResult {
+    ) -> SearchResult<Mv<E>> {
         let old_limit = self.node_limit;
         self.node_limit = Some(self.nodes.saturating_add(node_limit));
         let result = self.search(state, max_depth);
@@ -404,11 +410,11 @@ impl<'a, E: Evaluator> Search<'a, E> {
     /// aspiration window centered on the previous iteration's score.
     fn search_root(
         &mut self,
-        state: &State,
+        state: &St<E>,
         depth: u8,
-        hint: Option<Move>,
+        hint: Option<Mv<E>>,
         prev_score: i32,
-    ) -> (i32, Option<Move>) {
+    ) -> (i32, Option<Mv<E>>) {
         const FULL: i32 = WIN_SCORE * 2;
         if !self.config.aspiration || depth < self.config.asp_min_depth {
             return self.root(state, depth, hint, -FULL, FULL);
@@ -439,16 +445,16 @@ impl<'a, E: Evaluator> Search<'a, E> {
 
     fn root(
         &mut self,
-        state: &State,
+        state: &St<E>,
         depth: u8,
-        hint: Option<Move>,
+        hint: Option<Mv<E>>,
         mut alpha: i32,
         beta: i32,
-    ) -> (i32, Option<Move>) {
+    ) -> (i32, Option<Mv<E>>) {
         let mut best_move = None;
         let mut best_score = -WIN_SCORE * 2;
         // Prefer the prior iteration's best move, then any TT move for this state.
-        let hash = state_hash(state);
+        let hash = <Gm<E> as Game>::hash(state);
         let tt_move = hint.or_else(|| {
             if self.config.tt {
                 let slot = self.tt[hash as usize & TT_MASK]; // Copy
@@ -463,7 +469,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
             .into_iter()
             .enumerate()
         {
-            let child = state.apply(mv);
+            let child = <Gm<E> as Game>::apply(state, mv);
             let s = if i == 0 || !self.config.pvs {
                 -self.negamax(&child, depth - 1, -beta, -alpha, 1, true, true)
             } else {
@@ -498,13 +504,13 @@ impl<'a, E: Evaluator> Search<'a, E> {
     ///
     /// Note: children are searched as PV nodes; with pruning flags enabled their
     /// scores become approximate (the default config keeps them exact).
-    pub fn ranked(&mut self, state: &State, depth: u8) -> Vec<(Move, i32)> {
+    pub fn ranked(&mut self, state: &St<E>, depth: u8) -> Vec<(Mv<E>, i32)> {
         let alpha = -WIN_SCORE * 2;
         let beta = WIN_SCORE * 2;
-        let mut out: Vec<(Move, i32)> = legal_moves(state)
+        let mut out: Vec<(Mv<E>, i32)> = <Gm<E> as Game>::legal_moves(state)
             .into_iter()
             .map(|mv| {
-                let child = state.apply(mv);
+                let child = <Gm<E> as Game>::apply(state, mv);
                 let s = -self.negamax(&child, depth.saturating_sub(1), -beta, -alpha, 1, true, true);
                 (mv, s)
             })
@@ -521,7 +527,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
     #[allow(clippy::too_many_arguments)]
     fn negamax(
         &mut self,
-        state: &State,
+        state: &St<E>,
         depth: u8,
         mut alpha: i32,
         beta: i32,
@@ -531,11 +537,11 @@ impl<'a, E: Evaluator> Search<'a, E> {
     ) -> i32 {
         if self.over_budget() {
             self.stopped = true;
-            return self.eval.eval(state, state.turn);
+            return self.eval.eval(state, <Gm<E> as Game>::turn(state));
         }
         self.nodes += 1;
         let alpha_orig = alpha;
-        let hash = state_hash(state);
+        let hash = <Gm<E> as Game>::hash(state);
         let idx = hash as usize & TT_MASK;
 
         let mut tt_move = None;
@@ -554,9 +560,18 @@ impl<'a, E: Evaluator> Search<'a, E> {
             }
         }
 
-        if state.winner.is_some() || depth == 0 {
+        if <Gm<E> as Game>::is_terminal(state) {
             // eval is from the side *to move* at this node — negamax convention.
-            return self.eval.eval(state, state.turn);
+            return self.eval.eval(state, <Gm<E> as Game>::turn(state));
+        }
+        if depth == 0 {
+            // Leaf: quiescence (when enabled) resolves pending forced captures so
+            // the static eval is never read mid-exchange; else the static eval.
+            return if self.config.quiescence {
+                self.qsearch(state, alpha, beta, ply)
+            } else {
+                self.eval.eval(state, <Gm<E> as Game>::turn(state))
+            };
         }
 
         // Static eval feeds the margin-based prunings; compute once, lazily.
@@ -566,7 +581,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
                 || self.config.null_move
                 || self.config.futility);
         let static_eval = if need_static {
-            self.eval.eval(state, state.turn)
+            self.eval.eval(state, <Gm<E> as Game>::turn(state))
         } else {
             0
         };
@@ -603,7 +618,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
             {
                 let r = self.config.nmp_reduction;
                 let reduced = depth.saturating_sub(1 + r);
-                let child = state.null_move();
+                let child = <Gm<E> as Game>::null_move(state);
                 let s = -self.negamax(&child, reduced, -beta, -beta + 1, ply + 1, false, false);
                 if self.stopped {
                     return alpha; // discarded by caller's stop check
@@ -625,9 +640,9 @@ impl<'a, E: Evaluator> Search<'a, E> {
             .into_iter()
             .enumerate()
         {
-            let is_wall = matches!(mv, Move::Wall(_));
+            let is_quiet = <Gm<E> as Game>::is_quiet(mv);
             let is_killer = self.is_killer(mv, safe_ply);
-            if is_wall {
+            if is_quiet {
                 quiets_seen += 1;
             }
             let have_fallback = best > -WIN_SCORE;
@@ -637,7 +652,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
             if self.config.lmp
                 && !is_pv
                 && have_fallback
-                && is_wall
+                && is_quiet
                 && !is_killer
                 && depth <= self.config.lmp_max_depth
                 && quiets_seen > self.config.lmp_base + self.config.lmp_factor * depth as u32
@@ -650,7 +665,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
             if self.config.futility
                 && !is_pv
                 && have_fallback
-                && is_wall
+                && is_quiet
                 && !is_killer
                 && move_idx > 0
                 && depth <= self.config.futility_max_depth
@@ -659,7 +674,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
                 continue;
             }
 
-            let child = state.apply(mv);
+            let child = <Gm<E> as Game>::apply(state, mv);
             let child_pv = is_pv && move_idx == 0;
             let new_depth = depth - 1;
 
@@ -667,7 +682,7 @@ impl<'a, E: Evaluator> Search<'a, E> {
             let reduced_depth = if self.config.lmr
                 && depth >= self.config.lmr_min_depth
                 && move_idx >= self.config.lmr_full_moves
-                && is_wall
+                && is_quiet
                 && !is_killer
             {
                 new_depth.saturating_sub(self.config.lmr_reduction)
@@ -717,8 +732,8 @@ impl<'a, E: Evaluator> Search<'a, E> {
             if alpha >= beta {
                 // Beta cutoff: update killers + history.
                 self.update_killers(mv, safe_ply);
-                self.history[history_idx(mv)] =
-                    self.history[history_idx(mv)].saturating_add((depth as i32) * (depth as i32));
+                self.history[<Gm<E> as Game>::move_order_index(mv)] =
+                    self.history[<Gm<E> as Game>::move_order_index(mv)].saturating_add((depth as i32) * (depth as i32));
                 break;
             }
         }
@@ -753,11 +768,11 @@ impl<'a, E: Evaluator> Search<'a, E> {
     // ── Killer helpers ────────────────────────────────────────────────────────
 
     #[inline]
-    fn is_killer(&self, mv: Move, ply: usize) -> bool {
+    fn is_killer(&self, mv: Mv<E>, ply: usize) -> bool {
         self.killers[ply][0] == Some(mv) || self.killers[ply][1] == Some(mv)
     }
 
-    fn update_killers(&mut self, mv: Move, ply: usize) {
+    fn update_killers(&mut self, mv: Mv<E>, ply: usize) {
         if self.killers[ply][0] != Some(mv) {
             self.killers[ply][1] = self.killers[ply][0];
             self.killers[ply][0] = Some(mv);
@@ -771,15 +786,15 @@ impl<'a, E: Evaluator> Search<'a, E> {
     /// Sorts in-place to avoid a second Vec allocation.
     fn order_moves(
         &self,
-        state: &State,
-        tt_move: Option<Move>,
+        state: &St<E>,
+        tt_move: Option<Mv<E>>,
         ply: usize,
         wide: bool,
-    ) -> Vec<Move> {
+    ) -> Vec<Mv<E>> {
         let mut moves = if wide {
-            search_moves_wide(state)
+            <Gm<E> as Game>::search_moves_wide(state)
         } else {
-            search_moves(state)
+            <Gm<E> as Game>::search_moves(state)
         };
         let k = &self.killers[ply];
         moves.sort_by_cached_key(|&mv| {
@@ -795,10 +810,10 @@ impl<'a, E: Evaluator> Search<'a, E> {
 
     fn move_order_score(
         &self,
-        _state: &State,
-        mv: Move,
-        tt_move: Option<Move>,
-        killers: &[Option<Move>; 2],
+        _state: &St<E>,
+        mv: Mv<E>,
+        tt_move: Option<Mv<E>>,
+        killers: &[Option<Mv<E>>; 2],
     ) -> i64 {
         if Some(mv) == tt_move {
             return 8_000_000_000;
@@ -808,23 +823,59 @@ impl<'a, E: Evaluator> Search<'a, E> {
             return 6_000_000_000;
         }
 
-        self.history[history_idx(mv)] as i64
+        self.history[<Gm<E> as Game>::move_order_index(mv)] as i64
     }
-}
 
-fn immediate_winning_move(state: &State) -> Option<Move> {
-    pawn_moves(state, state.turn)
-        .into_iter()
-        .find(|to| to.r == state.turn.goal_row())
-        .map(Move::Pawn)
+    /// Quiescence search: resolve pending forced captures before scoring a leaf,
+    /// so the static eval is never read in the middle of a capture exchange (the
+    /// horizon effect). Only entered when [`SearchConfig::quiescence`] is on.
+    ///
+    /// For mandatory-capture games (draughts) a capture cannot be declined, so
+    /// there is no "stand-pat" option while captures exist: a node with captures
+    /// must search them all; a node with none is quiet and returns its static
+    /// eval. Games with no captures ([`Game::capture_moves`] empty) return the
+    /// static eval immediately, so this is inert for Wall Chess.
+    fn qsearch(&mut self, state: &St<E>, mut alpha: i32, beta: i32, ply: usize) -> i32 {
+        if self.over_budget() {
+            self.stopped = true;
+            return self.eval.eval(state, <Gm<E> as Game>::turn(state));
+        }
+        self.nodes += 1;
+        if <Gm<E> as Game>::is_terminal(state) {
+            return self.eval.eval(state, <Gm<E> as Game>::turn(state));
+        }
+        let stand_pat = self.eval.eval(state, <Gm<E> as Game>::turn(state));
+        let caps = <Gm<E> as Game>::capture_moves(state);
+        if caps.is_empty() || ply >= MAX_PLY - 1 {
+            return stand_pat;
+        }
+        let mut best = -WIN_SCORE * 2;
+        for mv in caps {
+            let child = <Gm<E> as Game>::apply(state, mv);
+            let s = -self.qsearch(&child, -beta, -alpha, ply + 1);
+            if self.stopped {
+                return best.max(alpha);
+            }
+            if s > best {
+                best = s;
+            }
+            if s > alpha {
+                alpha = s;
+            }
+            if alpha >= beta {
+                break;
+            }
+        }
+        best
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::eval::Heuristic;
-    use crate::moves::is_legal;
-    use crate::state::{Cell, Side};
+    use crate::moves::{is_legal, legal_moves};
+    use crate::state::{Cell, Move, Side, State};
 
     /// Pseudo-random balanced-ish positions for cross-config comparisons.
     fn sample_states(count: usize) -> Vec<State> {

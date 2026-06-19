@@ -1,0 +1,977 @@
+{
+  "title": "gameboard-bot \u2014 Layered Architecture (merged)",
+  "subtitle": "Game-agnostic engine seam (Game/Evaluator/Encoder) shared by WallChess + Checkers; UI/CLI/wasm on top, offline training below. Dashed = deferred / not-yet-wired.",
+  "layers": [
+    {
+      "id": "L1",
+      "title": "UI / Entrypoints (webui, wasm bridge, CLI bins)",
+      "order": 0
+    },
+    {
+      "id": "L2",
+      "title": "Generic engine (game.rs seam, Search, arena, mcts/net)",
+      "order": 1
+    },
+    {
+      "id": "L3",
+      "title": "Per-game glue (impl Game / Evaluator / Encoder)",
+      "order": 2
+    },
+    {
+      "id": "L4",
+      "title": "Per-game rules (state, movegen, eval, features, books)",
+      "order": 3
+    },
+    {
+      "id": "L5",
+      "title": "Offline training + data (trainer, datasets, weights)",
+      "order": 4
+    }
+  ],
+  "nodes": [
+    {
+      "id": "webui-app",
+      "label": "WebUI (TanStack+React)\nWallChess only",
+      "layer": "L1",
+      "col": 0,
+      "role": "wallchess"
+    },
+    {
+      "id": "webui-route-game",
+      "label": "game route\nplay/friend/arena",
+      "layer": "L1",
+      "col": 1,
+      "role": "wallchess"
+    },
+    {
+      "id": "webui-api",
+      "label": "api.ts\nwasm caller / bot API",
+      "layer": "L1",
+      "col": 2,
+      "role": "wallchess"
+    },
+    {
+      "id": "webui-engine-ts",
+      "label": "engine.ts\nTS rules + bot fallback",
+      "layer": "L1",
+      "col": 3,
+      "role": "wallchess"
+    },
+    {
+      "id": "wasm-bridge",
+      "label": "wallchess-wasm crate\nwasm-bindgen DTOs",
+      "layer": "L1",
+      "col": 4,
+      "role": "wallchess"
+    },
+    {
+      "id": "wasm-bundle-engine",
+      "label": "WASM engine bundle\nchoose_move/analyze/graph",
+      "layer": "L1",
+      "col": 5,
+      "role": "wallchess"
+    },
+    {
+      "id": "wasm-bundle-net",
+      "label": "WASM net bundle\nNetBot (candle ~730KB)",
+      "layer": "L1",
+      "col": 6,
+      "role": "deferred"
+    },
+    {
+      "id": "bin-play",
+      "label": "play CLIs\nbestmove / arena",
+      "layer": "L1",
+      "col": 7,
+      "role": "generic"
+    },
+    {
+      "id": "bin-checkers-cli",
+      "label": "checkers CLI\nperft/bestmove/selfplay",
+      "layer": "L1",
+      "col": 8,
+      "role": "checkers"
+    },
+    {
+      "id": "bin-netplay",
+      "label": "net-play CLIs\nbestmove_net/net_arena",
+      "layer": "L1",
+      "col": 9,
+      "role": "wallchess"
+    },
+    {
+      "id": "bin-tuneeval",
+      "label": "tune/eval CLIs\ntune_arena/xmatch/bench",
+      "layer": "L1",
+      "col": 10,
+      "role": "wallchess"
+    },
+    {
+      "id": "bin-diag",
+      "label": "diag CLIs\ndiag/probe/rest_probe",
+      "layer": "L1",
+      "col": 11,
+      "role": "wallchess"
+    },
+    {
+      "id": "bin-graphbook",
+      "label": "graph/book CLIs\nopening_graph/endgame",
+      "layer": "L1",
+      "col": 12,
+      "role": "wallchess"
+    },
+    {
+      "id": "core-game-trait",
+      "label": "Game trait (the seam)\nState/Move + consts + rules",
+      "layer": "L2",
+      "col": 0,
+      "role": "generic"
+    },
+    {
+      "id": "core-evaluator-trait",
+      "label": "Evaluator trait\ntype G: Game",
+      "layer": "L2",
+      "col": 1,
+      "role": "generic"
+    },
+    {
+      "id": "core-encoder-trait",
+      "label": "Encoder trait\ntype G: Game (NN features)",
+      "layer": "L2",
+      "col": 2,
+      "role": "generic"
+    },
+    {
+      "id": "core-player",
+      "label": "Player enum\nP0 / P1",
+      "layer": "L2",
+      "col": 3,
+      "role": "generic"
+    },
+    {
+      "id": "core-score-consts",
+      "label": "WIN_SCORE /\nENDGAME_WIN",
+      "layer": "L2",
+      "col": 4,
+      "role": "generic"
+    },
+    {
+      "id": "core-search",
+      "label": "Search<E:Evaluator>\nnegamax+ab via E::G",
+      "layer": "L2",
+      "col": 5,
+      "role": "generic"
+    },
+    {
+      "id": "core-search-config",
+      "label": "SearchConfig\npresets (aggr/safe/draughts)",
+      "layer": "L2",
+      "col": 6,
+      "role": "generic"
+    },
+    {
+      "id": "core-search-internals",
+      "label": "TT + killers/history\n+ pruning bundle + qsearch",
+      "layer": "L2",
+      "col": 7,
+      "role": "generic"
+    },
+    {
+      "id": "core-arena",
+      "label": "arena\nplay_game/play_match/BotConfig",
+      "layer": "L2",
+      "col": 8,
+      "role": "generic"
+    },
+    {
+      "id": "core-outcome",
+      "label": "Outcome enum\nP0Win/P1Win/Draw",
+      "layer": "L2",
+      "col": 9,
+      "role": "generic"
+    },
+    {
+      "id": "core-graph",
+      "label": "analyze/top_moves/\ngenerate_graph (lib glue)",
+      "layer": "L2",
+      "col": 10,
+      "role": "wallchess"
+    },
+    {
+      "id": "core-mcts",
+      "label": "Mcts (PUCT)\n+ PolicyValue seam",
+      "layer": "L2",
+      "col": 11,
+      "role": "wallchess"
+    },
+    {
+      "id": "core-net-evaluator",
+      "label": "NetEvaluator\ncandle, feature=net",
+      "layer": "L2",
+      "col": 12,
+      "role": "wallchess"
+    },
+    {
+      "id": "core-mcts-generic-deferred",
+      "label": "MCTS/PolicyValue\ngenericize over Game",
+      "layer": "L2",
+      "col": 13,
+      "role": "deferred"
+    },
+    {
+      "id": "wallchess-glue",
+      "label": "WallChess\nimpl Game + Encoder",
+      "layer": "L3",
+      "col": 0,
+      "role": "wallchess"
+    },
+    {
+      "id": "wallchess-eval",
+      "label": "Heuristic\nimpl Evaluator (G=WallChess)",
+      "layer": "L3",
+      "col": 1,
+      "role": "wallchess"
+    },
+    {
+      "id": "checkers-glue",
+      "label": "Checkers\nimpl Game + Encoder",
+      "layer": "L3",
+      "col": 2,
+      "role": "checkers"
+    },
+    {
+      "id": "checkers-eval",
+      "label": "CheckersHeuristic\nimpl Evaluator (G=Checkers)",
+      "layer": "L3",
+      "col": 3,
+      "role": "checkers"
+    },
+    {
+      "id": "games-subdir-deferred",
+      "label": "games/ subdir nesting\n(phase-3 relocate)",
+      "layer": "L3",
+      "col": 4,
+      "role": "deferred"
+    },
+    {
+      "id": "wallchess-state",
+      "label": "wc state\n9x9 bit-packed",
+      "layer": "L4",
+      "col": 0,
+      "role": "wallchess"
+    },
+    {
+      "id": "wallchess-moves",
+      "label": "wc moves\nBFS movegen",
+      "layer": "L4",
+      "col": 1,
+      "role": "wallchess"
+    },
+    {
+      "id": "wallchess-eval-rules",
+      "label": "wc eval rules\nrace + wall stock",
+      "layer": "L4",
+      "col": 2,
+      "role": "wallchess"
+    },
+    {
+      "id": "wallchess-features",
+      "label": "wc features\nencode 300-f32",
+      "layer": "L4",
+      "col": 3,
+      "role": "wallchess"
+    },
+    {
+      "id": "wallchess-action",
+      "label": "wc action\n209 policy index",
+      "layer": "L4",
+      "col": 4,
+      "role": "wallchess"
+    },
+    {
+      "id": "wallchess-books",
+      "label": "wc books\nopening/endgame",
+      "layer": "L4",
+      "col": 5,
+      "role": "wallchess"
+    },
+    {
+      "id": "checkers-state",
+      "label": "ck state\nbitboard + apply",
+      "layer": "L4",
+      "col": 6,
+      "role": "checkers"
+    },
+    {
+      "id": "checkers-neighbor",
+      "label": "ck NEIGHBOR\ngeometry tables",
+      "layer": "L4",
+      "col": 7,
+      "role": "checkers"
+    },
+    {
+      "id": "checkers-movegen",
+      "label": "ck movegen\ncaptures/quiets/dedup",
+      "layer": "L4",
+      "col": 8,
+      "role": "checkers"
+    },
+    {
+      "id": "checkers-encoder-rules",
+      "label": "ck encoder (provisional)\n308-f32 + 2500 action",
+      "layer": "L4",
+      "col": 9,
+      "role": "checkers"
+    },
+    {
+      "id": "checkers-perft",
+      "label": "ck perft\nfidelity oracle",
+      "layer": "L4",
+      "col": 10,
+      "role": "checkers"
+    },
+    {
+      "id": "checkers-tests",
+      "label": "ck tests\nperft/rules/antisymmetry",
+      "layer": "L4",
+      "col": 11,
+      "role": "checkers"
+    },
+    {
+      "id": "datagen-bins",
+      "label": "data-gen CLIs\nselfplay/search/expert/rl",
+      "layer": "L5",
+      "col": 0,
+      "role": "wallchess"
+    },
+    {
+      "id": "datagen-counterbook",
+      "label": "counter_book\n-> served book",
+      "layer": "L5",
+      "col": 1,
+      "role": "wallchess"
+    },
+    {
+      "id": "data-jsonl",
+      "label": "data/*.jsonl\n{z,f,pi} datasets",
+      "layer": "L5",
+      "col": 2,
+      "role": "wallchess"
+    },
+    {
+      "id": "trainer-dataset",
+      "label": "dataset.py\nJSONL loader",
+      "layer": "L5",
+      "col": 3,
+      "role": "wallchess"
+    },
+    {
+      "id": "trainer-train",
+      "label": "train.py\nsupervised + selfplay",
+      "layer": "L5",
+      "col": 4,
+      "role": "wallchess"
+    },
+    {
+      "id": "trainer-distill",
+      "label": "distill.py\nResT teacher -> MLP",
+      "layer": "L5",
+      "col": 5,
+      "role": "wallchess"
+    },
+    {
+      "id": "trainer-model",
+      "label": "model.py\nWallNet/CNN/ResT",
+      "layer": "L5",
+      "col": 6,
+      "role": "wallchess"
+    },
+    {
+      "id": "trainer-encoding",
+      "label": "encoding.py\nparity constants",
+      "layer": "L5",
+      "col": 7,
+      "role": "wallchess"
+    },
+    {
+      "id": "trainer-parity",
+      "label": "parity_check.py\n+ rest_probe oracle",
+      "layer": "L5",
+      "col": 8,
+      "role": "wallchess"
+    },
+    {
+      "id": "root-safetensors",
+      "label": "*.safetensors\ncheckpoints (v6-512h)",
+      "layer": "L5",
+      "col": 9,
+      "role": "wallchess"
+    },
+    {
+      "id": "served-weights",
+      "label": "served weights+book\npublic/wallnet+counter",
+      "layer": "L5",
+      "col": 10,
+      "role": "wallchess"
+    },
+    {
+      "id": "pytorch",
+      "label": "PyTorch + safetensors\n(uv venv)",
+      "layer": "L5",
+      "col": 11,
+      "role": "external"
+    },
+    {
+      "id": "candle",
+      "label": "candle\nRust ML runtime",
+      "layer": "L5",
+      "col": 12,
+      "role": "external"
+    },
+    {
+      "id": "checkers-trainer-deferred",
+      "label": "Checkers trainer/webui/wasm\n(none yet)",
+      "layer": "L5",
+      "col": 13,
+      "role": "deferred"
+    }
+  ],
+  "edges": [
+    {
+      "from": "webui-route-game",
+      "to": "webui-api",
+      "label": "botMove/analyze",
+      "style": "solid"
+    },
+    {
+      "from": "webui-app",
+      "to": "webui-route-game",
+      "label": "mounts",
+      "style": "solid"
+    },
+    {
+      "from": "webui-route-game",
+      "to": "webui-engine-ts",
+      "label": "applyMove/rules",
+      "style": "solid"
+    },
+    {
+      "from": "webui-api",
+      "to": "webui-engine-ts",
+      "label": "TS fallback bot",
+      "style": "solid"
+    },
+    {
+      "from": "webui-api",
+      "to": "wasm-bundle-engine",
+      "label": "PLAY: choose_move/analyze",
+      "style": "solid"
+    },
+    {
+      "from": "webui-api",
+      "to": "wasm-bundle-net",
+      "label": "PLAY(net): NetBot.best_move",
+      "style": "dashed"
+    },
+    {
+      "from": "webui-api",
+      "to": "served-weights",
+      "label": "fetch weights + book",
+      "style": "solid"
+    },
+    {
+      "from": "wasm-bundle-engine",
+      "to": "wasm-bridge",
+      "label": "built from",
+      "style": "solid"
+    },
+    {
+      "from": "wasm-bundle-net",
+      "to": "wasm-bridge",
+      "label": "built from --features net",
+      "style": "dashed"
+    },
+    {
+      "from": "wasm-bridge",
+      "to": "core-graph",
+      "label": "analyze/top_moves/graph",
+      "style": "solid"
+    },
+    {
+      "from": "wasm-bridge",
+      "to": "core-search",
+      "label": "Heuristic + SearchConfig::aggressive (Gen-2)",
+      "style": "solid"
+    },
+    {
+      "from": "wasm-bundle-net",
+      "to": "core-net-evaluator",
+      "label": "wraps candle net",
+      "style": "dashed"
+    },
+    {
+      "from": "bin-play",
+      "to": "core-search",
+      "label": "Search + SearchConfig (env)",
+      "style": "solid"
+    },
+    {
+      "from": "bin-play",
+      "to": "core-arena",
+      "label": "play_game/BotConfig",
+      "style": "solid"
+    },
+    {
+      "from": "bin-checkers-cli",
+      "to": "checkers-glue",
+      "label": "Checkers/perft/legal",
+      "style": "solid"
+    },
+    {
+      "from": "bin-checkers-cli",
+      "to": "core-search",
+      "label": "Search + draughts preset",
+      "style": "solid"
+    },
+    {
+      "from": "bin-checkers-cli",
+      "to": "core-arena",
+      "label": "play_game",
+      "style": "solid"
+    },
+    {
+      "from": "bin-netplay",
+      "to": "core-mcts",
+      "label": "Mcts/MctsConfig",
+      "style": "solid"
+    },
+    {
+      "from": "bin-netplay",
+      "to": "core-net-evaluator",
+      "label": "NetEvaluator (net)",
+      "style": "solid"
+    },
+    {
+      "from": "bin-netplay",
+      "to": "core-search",
+      "label": "Search (heuristic side)",
+      "style": "solid"
+    },
+    {
+      "from": "bin-tuneeval",
+      "to": "core-search",
+      "label": "Search/bench",
+      "style": "solid"
+    },
+    {
+      "from": "bin-tuneeval",
+      "to": "core-arena",
+      "label": "tune_arena play_game",
+      "style": "solid"
+    },
+    {
+      "from": "bin-tuneeval",
+      "to": "bin-play",
+      "label": "xmatch spawns 2 engines",
+      "style": "solid"
+    },
+    {
+      "from": "bin-diag",
+      "to": "core-search",
+      "label": "search/ranked",
+      "style": "solid"
+    },
+    {
+      "from": "bin-graphbook",
+      "to": "core-graph",
+      "label": "top_moves/graph",
+      "style": "solid"
+    },
+    {
+      "from": "core-evaluator-trait",
+      "to": "core-game-trait",
+      "label": "type G: Game",
+      "style": "solid"
+    },
+    {
+      "from": "core-encoder-trait",
+      "to": "core-game-trait",
+      "label": "type G: Game",
+      "style": "solid"
+    },
+    {
+      "from": "core-search",
+      "to": "core-evaluator-trait",
+      "label": "param E: Evaluator",
+      "style": "solid"
+    },
+    {
+      "from": "core-search",
+      "to": "core-game-trait",
+      "label": "via E::G (apply/turn/hash/movegen)",
+      "style": "solid"
+    },
+    {
+      "from": "core-search",
+      "to": "core-search-config",
+      "label": "holds config",
+      "style": "solid"
+    },
+    {
+      "from": "core-search",
+      "to": "core-search-internals",
+      "label": "TT/ordering/pruning/qsearch",
+      "style": "solid"
+    },
+    {
+      "from": "core-search",
+      "to": "core-score-consts",
+      "label": "mate guards",
+      "style": "solid"
+    },
+    {
+      "from": "core-search-internals",
+      "to": "core-game-trait",
+      "label": "hash/MOVE_INDEX_SPACE/capture_moves",
+      "style": "solid"
+    },
+    {
+      "from": "core-arena",
+      "to": "core-search",
+      "label": "BotConfig.choose -> Search",
+      "style": "solid"
+    },
+    {
+      "from": "core-arena",
+      "to": "core-game-trait",
+      "label": "via E::G",
+      "style": "solid"
+    },
+    {
+      "from": "core-arena",
+      "to": "core-outcome",
+      "label": "returns",
+      "style": "solid"
+    },
+    {
+      "from": "core-arena",
+      "to": "core-player",
+      "label": "P0/P1 seating",
+      "style": "solid"
+    },
+    {
+      "from": "core-mcts",
+      "to": "core-mcts-generic-deferred",
+      "label": "genericize over Game",
+      "style": "dashed"
+    },
+    {
+      "from": "core-net-evaluator",
+      "to": "core-mcts",
+      "label": "impl PolicyValue (net)",
+      "style": "solid"
+    },
+    {
+      "from": "core-graph",
+      "to": "core-search",
+      "label": "BFS+TT facade",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-glue",
+      "to": "core-game-trait",
+      "label": "impl Game",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-glue",
+      "to": "core-encoder-trait",
+      "label": "impl Encoder",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-eval",
+      "to": "core-evaluator-trait",
+      "label": "impl Evaluator (G=WallChess)",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-glue",
+      "to": "core-game-trait",
+      "label": "impl Game",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-glue",
+      "to": "core-encoder-trait",
+      "label": "impl Encoder",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-eval",
+      "to": "core-evaluator-trait",
+      "label": "impl Evaluator (G=Checkers)",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-glue",
+      "to": "games-subdir-deferred",
+      "label": "phase-3 relocate",
+      "style": "dashed"
+    },
+    {
+      "from": "checkers-glue",
+      "to": "games-subdir-deferred",
+      "label": "phase-3 relocate",
+      "style": "dashed"
+    },
+    {
+      "from": "wallchess-glue",
+      "to": "wallchess-state",
+      "label": "State/Move/apply/hash",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-glue",
+      "to": "wallchess-moves",
+      "label": "legal/search_moves",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-glue",
+      "to": "wallchess-features",
+      "label": "encode/mirror",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-glue",
+      "to": "wallchess-action",
+      "label": "action_index",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-eval",
+      "to": "wallchess-eval-rules",
+      "label": "race/wall eval",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-moves",
+      "to": "wallchess-state",
+      "label": "is_blocked/apply",
+      "style": "solid"
+    },
+    {
+      "from": "wallchess-books",
+      "to": "wallchess-action",
+      "label": "index_to_move",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-glue",
+      "to": "checkers-state",
+      "label": "State/Move/apply/hash",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-glue",
+      "to": "checkers-movegen",
+      "label": "legal/capture_moves",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-glue",
+      "to": "checkers-encoder-rules",
+      "label": "encode/action",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-eval",
+      "to": "checkers-state",
+      "label": "white/black/kings",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-movegen",
+      "to": "checkers-neighbor",
+      "label": "NEIGHBOR",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-movegen",
+      "to": "checkers-state",
+      "label": "own/enemy/occ",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-perft",
+      "to": "checkers-movegen",
+      "label": "legal_moves oracle",
+      "style": "solid"
+    },
+    {
+      "from": "checkers-tests",
+      "to": "checkers-perft",
+      "label": "oracle assert",
+      "style": "solid"
+    },
+    {
+      "from": "datagen-bins",
+      "to": "core-search",
+      "label": "expert/search/rl: Search",
+      "style": "solid"
+    },
+    {
+      "from": "datagen-bins",
+      "to": "core-mcts",
+      "label": "selfplay/rl: Mcts",
+      "style": "solid"
+    },
+    {
+      "from": "datagen-bins",
+      "to": "data-jsonl",
+      "label": "TRAIN: emit {z,f,pi}",
+      "style": "solid"
+    },
+    {
+      "from": "datagen-bins",
+      "to": "wallchess-features",
+      "label": "encode/action_index",
+      "style": "solid"
+    },
+    {
+      "from": "datagen-counterbook",
+      "to": "served-weights",
+      "label": "writes counter-book",
+      "style": "solid"
+    },
+    {
+      "from": "data-jsonl",
+      "to": "trainer-dataset",
+      "label": "load {z,f,pi}",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-dataset",
+      "to": "trainer-train",
+      "label": "tensors",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-dataset",
+      "to": "trainer-distill",
+      "label": "tensors",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-dataset",
+      "to": "trainer-encoding",
+      "label": "FEATURE_LEN/ACTION_COUNT",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-train",
+      "to": "trainer-model",
+      "label": "WallNet/CNN/ResT",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-distill",
+      "to": "trainer-model",
+      "label": "teacher+student",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-train",
+      "to": "pytorch",
+      "label": "torch backend",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-train",
+      "to": "root-safetensors",
+      "label": "TRAIN: export weights",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-distill",
+      "to": "root-safetensors",
+      "label": "export MLP student",
+      "style": "solid"
+    },
+    {
+      "from": "root-safetensors",
+      "to": "served-weights",
+      "label": "copy v6-512h -> public",
+      "style": "solid"
+    },
+    {
+      "from": "root-safetensors",
+      "to": "core-net-evaluator",
+      "label": "load() native",
+      "style": "solid"
+    },
+    {
+      "from": "core-net-evaluator",
+      "to": "candle",
+      "label": "runs net",
+      "style": "solid"
+    },
+    {
+      "from": "served-weights",
+      "to": "core-net-evaluator",
+      "label": "from_buffer(bytes)",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-parity",
+      "to": "core-net-evaluator",
+      "label": "rest_probe uses",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-parity",
+      "to": "trainer-model",
+      "label": "PyTorch ResT parity",
+      "style": "solid"
+    },
+    {
+      "from": "trainer-encoding",
+      "to": "wallchess-features",
+      "label": "encoding parity Rust<->Py<->TS",
+      "style": "dashed"
+    },
+    {
+      "from": "checkers-trainer-deferred",
+      "to": "data-jsonl",
+      "label": "would train checkers net",
+      "style": "dashed"
+    },
+    {
+      "from": "checkers-trainer-deferred",
+      "to": "webui-api",
+      "label": "would expose checkers bot",
+      "style": "dashed"
+    }
+  ],
+  "legend": [
+    "generic = game-agnostic engine, shared by all games (game.rs seam, Search, arena, SearchConfig)",
+    "wallchess = Wall Chess specific (rules, eval, features, books, net, webui, wasm, trainer)",
+    "checkers = Checkers specific (state/movegen/eval/encoder/perft, checkers CLI)",
+    "shared = used by more than one game without being fully generic",
+    "external = third-party runtime/library (PyTorch, candle)",
+    "deferred = planned but not yet wired; all its edges are dashed"
+  ],
+  "notes": [
+    "DEDUP map (multiple subsystems referenced the same node under different ids): trait-game=core-game-trait; trait-evaluator=core-evaluator-trait; trait-encoder=core-encoder-trait; search-core=core-search; arena-core=core-arena; core-net / net-evaluator=core-net-evaluator; core-checkers=checkers-glue; core-books=wallchess-books; core-features=wallchess-features; wasm-crate=wasm-bridge; wasm-pkg=wasm-bundle-engine; core-lib re-exports folded into the L2 seam nodes.",
+    "TT + killers/history + pruning bundle + qsearch were merged into one L2 node (core-search-internals) to keep the engine band readable; in source they are all in core/src/search.rs gated by SearchConfig flags (Default = LMR+TT only = previously deployed engine).",
+    "THE SEAM: everything in L2 except core-graph/core-mcts/core-net-evaluator is generic over Game; Search keeps a single type param E:Evaluator and reaches its game via E::G. Proven by two games (WallChess + Checkers) sharing Search/arena with zero game-specific search code (bin/checkers.rs).",
+    "PLAY flow (top-down): webui game route -> api.ts -> WASM engine bundle (choose_move/analyze, Gen-2 = Heuristic::new(50,120,true)+SearchConfig::aggressive). Net path -> WASM net bundle NetBot (candle) is DASHED: off-by-default, not in the deployed 137KB bundle.",
+    "TRAIN flow (bottom band): data-gen CLIs -> data/*.jsonl -> dataset.py -> train.py/distill.py -> *.safetensors -> copied to public + loaded by NetEvaluator (candle). Deployed weight = wallnet-v6-512h (512-hidden MLP).",
+    "ENCODING PARITY is the load-bearing cross-language contract (dashed edge encoding.py -> wc features): Rust core/src/{action,features}.rs == trainer/encoding.py == TS api.ts index<->move. WallChess FEATURE_LEN=300, ACTION_COUNT=209 (trainer/README.md says 293 and is STALE).",
+    "DEFERRED (role:deferred, dashed edges): (1) MCTS/PolicyValue genericization over Game (core-mcts-generic-deferred) \u2014 Encoder is already generic, PolicyValue is not, deferred until checkers NN training begins; (2) games/ subdir nesting (phase-3 relocate, rules still flat at crate root); (3) WASM net bundle / NetBot in-browser (off-by-default net feature); (4) Checkers trainer + webui + wasm (checkers-trainer-deferred) \u2014 no checkers in trainer/, webui/, data/, or wasm DTOs.",
+    "STILL WALLCHESS-BOUND inside the generic engine band (not generic): core-mcts (mcts.rs PolicyValue+Mcts+HeuristicPolicy), core-net-evaluator (net.rs, feature=net), and core-graph (lib.rs analyze/top_moves/generate_graph glue predating the Game trait).",
+    "Checkers is a single flat file (core/src/checkers.rs) \u2014 split into L4 nodes (state/neighbor/movegen/encoder/perft) for the diagram; tests are the only nested child (core/src/checkers/tests.rs). Checkers has no books / no opening book / no immediate_winning_move and no interior move pruning (search_moves == legal_moves).",
+    "Crate is gameboard-core (lib gameboard_core); wasm package is still named wallchess-wasm (ground truth, not yet renamed). bestmove.rs defines the cross-binary 'bestmove protocol' consumed by xmatch as referee (enables new-vs-old search matches without rebuilding)."
+  ]
+}

@@ -17,9 +17,9 @@
 
 use std::io::{self, BufRead, Write};
 
-use wallchess_core::eval::Heuristic;
-use wallchess_core::search::{Search, SearchConfig};
-use wallchess_core::state::{Cell, Move, Orientation, Side, State};
+use gameboard_core::eval::Heuristic;
+use gameboard_core::search::{Search, SearchConfig};
+use gameboard_core::state::{Cell, Move, Orientation, Side, State};
 
 fn parse_state(line: &str) -> Option<State> {
     let f: Vec<&str> = line.split_whitespace().collect();

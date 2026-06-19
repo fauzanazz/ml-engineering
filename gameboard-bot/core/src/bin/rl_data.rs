@@ -17,7 +17,7 @@
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
-use wallchess_core::{
+use gameboard_core::{
     action_index, distance_to_goal, encode, eval::Heuristic, legal_moves, mirror_move, Mcts,
     MctsConfig, Move, PolicyValue, Search, Side, State,
 };
@@ -61,7 +61,7 @@ fn main() {
         let out_prefix = a.next().unwrap_or_else(|| "/tmp/rl".to_string());
         let hdepth: u8 = a.next().and_then(|s| s.parse().ok()).unwrap_or(3);
 
-        let net = wallchess_core::net::NetEvaluator::load(&net_path).expect("load net");
+        let net = gameboard_core::net::NetEvaluator::load(&net_path).expect("load net");
         let heuristic = Heuristic::default();
         let cfg = MctsConfig {
             sims,

@@ -1,4 +1,4 @@
-//! WASM bridge between the browser UI and the Rust `wallchess-core` engine.
+//! WASM bridge between the browser UI and the Rust `gameboard-core` engine.
 //!
 //! The UI speaks the TS `GameState` / `Move` JSON shapes (see
 //! webui/src/game/engine.ts). We deserialize those, run the real search, and
@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
-use wallchess_core::{
+use gameboard_core::{
     analyze, analyze_with_eval, analyze_with_node_limit, analyze_with_node_limit_eval,
     generate_graph, top_moves,
     state::{Cell, Orientation, Side, State},
@@ -246,12 +246,12 @@ fn to_core(js: StateJs) -> Result<State, String> {
     })
 }
 
-fn move_to_out(mv: wallchess_core::Move) -> MoveOut {
+fn move_to_out(mv: gameboard_core::Move) -> MoveOut {
     match mv {
-        wallchess_core::Move::Pawn(c) => MoveOut::Move {
+        gameboard_core::Move::Pawn(c) => MoveOut::Move {
             to: CellOut { r: c.r, c: c.c },
         },
-        wallchess_core::Move::Wall(w) => MoveOut::Wall {
+        gameboard_core::Move::Wall(w) => MoveOut::Wall {
             wall: WallOut {
                 r: w.r,
                 c: w.c,
@@ -468,7 +468,7 @@ pub fn choose_move_gen2(state: JsValue, depth: u8) -> Result<JsValue, JsValue> {
 #[cfg(feature = "net")]
 #[wasm_bindgen]
 pub struct NetBot {
-    eval: wallchess_core::net::NetEvaluator,
+    eval: gameboard_core::net::NetEvaluator,
 }
 
 #[cfg(feature = "net")]
@@ -478,7 +478,7 @@ impl NetBot {
     /// hands over the `Uint8Array`).
     #[wasm_bindgen(constructor)]
     pub fn new(weights: &[u8]) -> Result<NetBot, JsValue> {
-        let eval = wallchess_core::net::NetEvaluator::from_buffer(weights)
+        let eval = gameboard_core::net::NetEvaluator::from_buffer(weights)
             .map_err(|e| JsValue::from_str(&format!("load net: {e}")))?;
         Ok(NetBot { eval })
     }
@@ -487,7 +487,7 @@ impl NetBot {
     /// 0..100 SOUTH/NORTH win split (from the net's value head).
     #[wasm_bindgen]
     pub fn best_move(&self, state: JsValue, sims: u32) -> Result<JsValue, JsValue> {
-        use wallchess_core::{Mcts, MctsConfig, PolicyValue};
+        use gameboard_core::{Mcts, MctsConfig, PolicyValue};
         let js: StateJs = serde_wasm_bindgen::from_value(state)
             .map_err(|e| JsValue::from_str(&format!("bad state: {e}")))?;
         let core = to_core(js).map_err(|e| JsValue::from_str(&e))?;

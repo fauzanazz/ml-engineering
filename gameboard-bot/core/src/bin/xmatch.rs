@@ -12,9 +12,9 @@
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
-use wallchess_core::distance_to_goal;
-use wallchess_core::legal_moves;
-use wallchess_core::state::{Cell, Move, Orientation, Side, State, Wall};
+use gameboard_core::distance_to_goal;
+use gameboard_core::legal_moves;
+use gameboard_core::state::{Cell, Move, Orientation, Side, State, Wall};
 
 fn xorshift(rng: &mut u64) -> u64 {
     *rng ^= *rng << 13;
@@ -138,7 +138,7 @@ fn play(a: &mut Engine, b: &mut Engine, a_is_south: bool, start: State) -> Res {
             None => break,
         };
         // Referee trusts engine legality but guards against protocol drift.
-        if !wallchess_core::moves::is_legal(&state, mv) {
+        if !gameboard_core::moves::is_legal(&state, mv) {
             eprintln!("illegal move from {} engine: {:?}", if a_turn { "A" } else { "B" }, mv);
             break;
         }

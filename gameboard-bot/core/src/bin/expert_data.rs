@@ -13,7 +13,7 @@
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 
-use wallchess_core::{
+use gameboard_core::{
     action_index, distance_to_goal, encode, eval::Heuristic, mirror_move, parse_state_key, Search,
     Side, State,
 };

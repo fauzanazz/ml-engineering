@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
-use wallchess_core::{
+use gameboard_core::{
     action_index, distance_to_goal, eval::Heuristic, eval::WIN_SCORE, mirror_move, state_key,
     Evaluator, Move, Search, Side, State,
 };
@@ -242,7 +242,7 @@ fn leaf_score(state: &State, bot_side: Side, heuristic: &Heuristic) -> i32 {
         return score;
     }
     let race = race_score(state, bot_side) * 100;
-    race + heuristic.eval(state, bot_side) / 4
+    race + heuristic.eval(state, gameboard_core::wallchess::side_to_player(bot_side)) / 4
 }
 
 fn race_score(state: &State, side: Side) -> i32 {

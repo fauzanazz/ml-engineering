@@ -2,10 +2,10 @@
 //! with both pawns' shortest-path distance, to see WHY deeper search misplays.
 //! Usage: probe_game <southDepth> <northDepth> [max_plies]
 
-use wallchess_core::arena::BotConfig;
-use wallchess_core::eval::Heuristic;
-use wallchess_core::moves::distance_to_goal;
-use wallchess_core::state::{Move, Side, State};
+use gameboard_core::arena::BotConfig;
+use gameboard_core::eval::Heuristic;
+use gameboard_core::moves::distance_to_goal;
+use gameboard_core::state::{Move, Side, State};
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();

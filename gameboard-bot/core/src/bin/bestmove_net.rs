@@ -3,7 +3,7 @@
 //!
 //! Usage: bestmove_net <weights.safetensors> [sims]
 
-use wallchess_core::{net::NetEvaluator, Mcts, MctsConfig, State};
+use gameboard_core::{net::NetEvaluator, Mcts, MctsConfig, State};
 
 fn main() {
     let mut a = std::env::args().skip(1);

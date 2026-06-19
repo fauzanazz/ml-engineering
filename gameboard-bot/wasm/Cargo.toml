@@ -2,7 +2,7 @@
 name = "wallchess-wasm"
 version = "0.1.0"
 edition = "2021"
-description = "WASM bridge: browser bot powered by the Rust wallchess-core engine"
+description = "WASM bridge: browser bot powered by the Rust gameboard-core engine"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -10,10 +10,10 @@ crate-type = ["cdylib", "rlib"]
 [features]
 # Trained-net bot via candle. Off by default so the standard graph/engine wasm
 # bundle stays small and dependency-light.
-net = ["wallchess-core/net", "dep:getrandom"]
+net = ["gameboard-core/net", "dep:getrandom"]
 
 [dependencies]
-wallchess-core = { path = "../core" }
+gameboard-core = { path = "../core" }
 wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.6"

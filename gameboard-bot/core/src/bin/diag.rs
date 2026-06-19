@@ -1,7 +1,7 @@
 //! Search diagnostic: node counts and best move per depth from a fixed
 //! position. If node counts barely grow with depth, the search isn't recursing.
 
-use wallchess_core::{eval::Heuristic, search::Search, State};
+use gameboard_core::{eval::Heuristic, search::Search, State};
 
 fn main() {
     let state = State::initial();

@@ -1,14 +1,14 @@
-//! Leaf evaluation. `Evaluator` is the seam the ML model will later plug into:
-//! same search, swap the scoring of leaf states.
+//! Leaf evaluation. The [`Evaluator`] seam (defined in [`crate::game`]) is what
+//! the ML model later plugs into: same search, swap the scoring of leaf states.
 
+use crate::game::{Evaluator, Player};
 use crate::moves::distance_to_goal;
 use crate::state::{Side, State};
+use crate::wallchess::{player_to_side, WallChess};
 
-/// Score a state from the perspective of `side` (negamax convention: higher is
-/// better for `side`). Units are centi-steps; squash to 0..100 via `win_prob`.
-pub trait Evaluator {
-    fn eval(&self, state: &State, side: Side) -> i32;
-}
+// Re-exported here so the historical `crate::eval::{WIN_SCORE, ENDGAME_WIN}`
+// paths keep resolving; the canonical home is now `crate::game`.
+pub use crate::game::{ENDGAME_WIN, WIN_SCORE};
 
 /// Hand-tuned heuristic.
 ///
@@ -93,19 +93,7 @@ impl Heuristic {
     }
 }
 
-/// Large finite magnitude for terminal states (kept below i32 saturation so
-/// alpha-beta windows never overflow).
-pub const WIN_SCORE: i32 = 1_000_000;
 const UNREACHABLE: u16 = 1_000; // path blocked (shouldn't happen under rules)
-
-/// Decisive magnitude for a *provably resolved* (but not yet terminal) race.
-/// STRICTLY below `WIN_SCORE` so a real terminal win is always preferred (the
-/// engine still races to actually finish) and so the search's `score.abs() >=
-/// WIN_SCORE` iterative-deepening break and `mate_zone` (`beta >= WIN_SCORE`)
-/// pruning guards are NOT tripped by a resolved-but-non-terminal node. Far above
-/// the heuristic range (a few thousand centi-steps) so a resolved race always
-/// dominates positional scoring and the engine commits to the won/lost line.
-pub const ENDGAME_WIN: i32 = WIN_SCORE - 1000; // 999_000
 
 /// Exact pure-race endgame resolver. Returns `Some(definite winner)` iff the
 /// outcome is *provably* decided, else `None` (fall through to the heuristic).
@@ -159,7 +147,10 @@ fn race_outcome(
 }
 
 impl Evaluator for Heuristic {
-    fn eval(&self, state: &State, side: Side) -> i32 {
+    type G = WallChess;
+
+    fn eval(&self, state: &State, p: Player) -> i32 {
+        let side = player_to_side(p);
         if let Some(w) = state.winner {
             return if w == side { WIN_SCORE } else { -WIN_SCORE };
         }
@@ -221,8 +212,10 @@ pub fn win_prob(eval: i32, k: f64) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::game::Player;
     use crate::moves::{distance_to_goal, legal_moves};
     use crate::state::{Cell, State};
+    use crate::wallchess::side_to_player;
 
     /// A Heuristic with every Gen-2 term enabled — used to exercise the new
     /// code paths (lead bonus + exact endgame) in the antisymmetry guards.
@@ -267,8 +260,8 @@ mod tests {
                     break;
                 }
                 assert_eq!(
-                    h.eval(&state, Side::South),
-                    -h.eval(&state, Side::North),
+                    h.eval(&state, Player::P0),
+                    -h.eval(&state, Player::P1),
                     "non-antisymmetric eval at {state:?}"
                 );
                 let moves = legal_moves(&state);
@@ -295,8 +288,8 @@ mod tests {
                     break;
                 }
                 assert_eq!(
-                    h.eval(&state, Side::South),
-                    -h.eval(&state, Side::North),
+                    h.eval(&state, Player::P0),
+                    -h.eval(&state, Player::P1),
                     "non-antisymmetric (gen2) at {state:?}"
                 );
                 let moves = legal_moves(&state);
@@ -367,10 +360,10 @@ mod tests {
         };
         // South dist 2 from (7,5) -> graded score ENDGAME_WIN - 2; loser POV negates.
         let h = full_cfg();
-        assert_eq!(h.eval(&state, Side::South), ENDGAME_WIN - 2);
-        assert_eq!(h.eval(&state, Side::North), -(ENDGAME_WIN - 2));
+        assert_eq!(h.eval(&state, Player::P0), ENDGAME_WIN - 2);
+        assert_eq!(h.eval(&state, Player::P1), -(ENDGAME_WIN - 2));
         // Still firmly in the decisive band (race-to-finish gradient is tiny).
-        assert!(h.eval(&state, Side::South) > ENDGAME_WIN - 100);
+        assert!(h.eval(&state, Player::P0) > ENDGAME_WIN - 100);
     }
 
     /// A pure-race tie is won by the mover at margin 0, but the conservative
@@ -387,14 +380,14 @@ mod tests {
             winner: None,
         };
         let strict = full_cfg(); // margin 0: mover wins the tie
-        assert_eq!(strict.eval(&state, Side::South), ENDGAME_WIN - 2); // South dist 2
+        assert_eq!(strict.eval(&state, Player::P0), ENDGAME_WIN - 2); // South dist 2
 
         let conservative = Heuristic {
             endgame_margin: 1,
             ..full_cfg()
         };
         // Tie no longer claimed -> heuristic score, strictly below ENDGAME_WIN.
-        assert!(conservative.eval(&state, Side::South).abs() < ENDGAME_WIN);
+        assert!(conservative.eval(&state, Player::P0).abs() < ENDGAME_WIN);
     }
 
     /// The resolver must NOT fire while the racing loser still has walls — a
@@ -410,7 +403,7 @@ mod tests {
             winner: None,
         };
         let h = full_cfg();
-        assert!(h.eval(&state, Side::South).abs() < ENDGAME_WIN);
+        assert!(h.eval(&state, Player::P0).abs() < ENDGAME_WIN);
     }
 
     /// `Heuristic::default()` must reproduce the legacy eval byte-for-byte
@@ -435,7 +428,11 @@ mod tests {
                     let wall =
                         state.walls_left[side.idx()] as i32 - state.walls_left[opp.idx()] as i32;
                     let legacy = 50 * path + 100 * wall;
-                    assert_eq!(h.eval(&state, side), legacy, "default != legacy at {state:?}");
+                    assert_eq!(
+                        h.eval(&state, side_to_player(side)),
+                        legacy,
+                        "default != legacy at {state:?}"
+                    );
                 }
                 let moves = legal_moves(&state);
                 if moves.is_empty() {

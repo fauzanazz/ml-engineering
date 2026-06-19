@@ -17,7 +17,7 @@
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 
-use wallchess_core::{
+use gameboard_core::{
     action_index, distance_to_goal, encode, legal_moves, mirror_move, parse_state_key,
     HeuristicPolicy, Mcts, MctsConfig, Move, PolicyValue, Side, State,
 };
@@ -70,7 +70,7 @@ fn main() {
     match weights {
         #[cfg(feature = "net")]
         Some(path) => {
-            let net = wallchess_core::net::NetEvaluator::load(&path).expect("load net weights");
+            let net = gameboard_core::net::NetEvaluator::load(&path).expect("load net weights");
             eprintln!("self-play policy: net {path}");
             play_games(&net, games, cfg, &opening_states, &mut w, &out);
         }
@@ -304,7 +304,7 @@ fn write_record(w: &mut impl Write, z: f32, features: &[f32], policy: &[(usize, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wallchess_core::Cell;
+    use gameboard_core::Cell;
 
     #[test]
     fn parses_initial_state_key() {

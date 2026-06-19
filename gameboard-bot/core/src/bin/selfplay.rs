@@ -1,7 +1,7 @@
 //! Quick self-play smoke: heuristic engine vs itself, prints the 0..100 split
 //! each ply. Sanity check that search + rules terminate in a legal game.
 
-use wallchess_core::{analyze, moves::is_legal, Side, State};
+use gameboard_core::{analyze, moves::is_legal, Side, State};
 
 fn main() {
     let depth: u8 = std::env::args()

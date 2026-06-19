@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use wallchess_core::{top_moves, State};
+use gameboard_core::{top_moves, State};
 
 fn main() {
     let max_depth: usize = std::env::args()

@@ -6,9 +6,9 @@
 
 use std::time::Instant;
 
-use wallchess_core::eval::Heuristic;
-use wallchess_core::moves::{search_moves, search_moves_wide};
-use wallchess_core::{distance_to_goal, legal_moves, Move, Search, SearchConfig, Side, State};
+use gameboard_core::eval::Heuristic;
+use gameboard_core::moves::{search_moves, search_moves_wide};
+use gameboard_core::{distance_to_goal, legal_moves, Move, Search, SearchConfig, Side, State};
 
 #[derive(Clone, Copy)]
 struct Rng(u64);

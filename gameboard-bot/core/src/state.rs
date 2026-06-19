@@ -75,7 +75,7 @@ pub struct Wall {
     pub o: Orientation,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Move {
     Pawn(Cell),
     Wall(Wall),

@@ -9,23 +9,29 @@
 pub mod action;
 pub mod arena;
 pub mod books;
+pub mod checkers;
 pub mod eval;
 pub mod features;
+pub mod game;
 pub mod mcts;
 pub mod moves;
 #[cfg(feature = "net")]
 pub mod net;
 pub mod search;
 pub mod state;
+pub mod wallchess;
 
 pub use action::{action_index, index_to_move, ACTION_COUNT};
 pub use books::{EndgameBook, MoveBook};
-pub use eval::{win_prob, Evaluator, Heuristic};
+pub use eval::{win_prob, Heuristic};
 pub use features::{encode, mirror_move, FEATURE_LEN};
+pub use game::{Encoder, Evaluator, Game, Player, ENDGAME_WIN, WIN_SCORE};
 pub use mcts::{HeuristicPolicy, Mcts, MctsConfig, PolicyValue};
 pub use moves::{distance_to_goal, legal_moves, pawn_moves};
 pub use search::{Search, SearchConfig};
 pub use state::{Cell, Move, Orientation, Side, State, Wall};
+pub use checkers::{Checkers, CheckersHeuristic};
+pub use wallchess::WallChess;
 
 /// Pick the best move for the side to move and report the 0..100 win split.
 /// Returns `(best_move, south_score, north_score)` with the two scores summing

@@ -12,7 +12,7 @@ use std::collections::{HashSet, VecDeque};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
-use wallchess_core::{
+use gameboard_core::{
     action_index, encode, eval::Heuristic, legal_moves, mirror_move, state_key, Search, State,
     ACTION_COUNT, FEATURE_LEN,
 };
@@ -130,7 +130,7 @@ fn ranked_moves(
     rank_depth: u8,
     top_k: usize,
     margin: i32,
-) -> Vec<(wallchess_core::Move, i32)> {
+) -> Vec<(gameboard_core::Move, i32)> {
     let alpha = -1_000_000 * 2;
     let beta = 1_000_000 * 2;
     let mut ranked: Vec<_> = legal_moves(state)

@@ -241,6 +241,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "gameboard-core"
+version = "0.1.0"
+dependencies = [
+ "candle-core",
+ "candle-nn",
+]
+
+[[package]]
 name = "gemm"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1138,21 +1146,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "wallchess-core"
-version = "0.1.0"
-dependencies = [
- "candle-core",
- "candle-nn",
-]
-
-[[package]]
 name = "wallchess-wasm"
 version = "0.1.0"
 dependencies = [
+ "gameboard-core",
  "getrandom",
  "serde",
  "serde-wasm-bindgen",
- "wallchess-core",
  "wasm-bindgen",
 ]
 

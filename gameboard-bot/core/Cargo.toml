@@ -1,11 +1,11 @@
 [package]
-name = "wallchess-core"
+name = "gameboard-core"
 version = "0.1.0"
 edition = "2021"
-description = "Wall Chess (Quoridor) engine + search core"
+description = "gameboard-core: multi-game board engine + search (Wall Chess, International Draughts)"
 
 [lib]
-name = "wallchess_core"
+name = "gameboard_core"
 path = "src/lib.rs"
 
 [features]

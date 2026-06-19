@@ -1,9 +1,9 @@
 //! Diagnostic: load the u4kytv stuck position and print the engine's ranked
 //! moves (with scores) for North at depths 1..=4, to see why it oscillates.
 
-use wallchess_core::eval::Heuristic;
-use wallchess_core::search::Search;
-use wallchess_core::state::{Cell, Orientation::*, Side, State, Wall};
+use gameboard_core::eval::Heuristic;
+use gameboard_core::search::Search;
+use gameboard_core::state::{Cell, Orientation::*, Side, State};
 
 fn main() {
     let walls = [

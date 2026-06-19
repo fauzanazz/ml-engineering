@@ -6,7 +6,7 @@
 use std::fs;
 use std::time::{Duration, Instant};
 
-use wallchess_core::{
+use gameboard_core::{
     books::immediate_winning_move, distance_to_goal, eval::Heuristic, legal_moves,
     net::NetEvaluator, EndgameBook, Mcts, MctsConfig, Move, MoveBook, Search, Side, State,
 };

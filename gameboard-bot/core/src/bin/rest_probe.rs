@@ -5,7 +5,7 @@
 //!
 //! Usage: rest_probe <weights.safetensors>   (needs --features net)
 
-use wallchess_core::{encode, legal_moves, net::NetEvaluator, PolicyValue, State};
+use gameboard_core::{encode, legal_moves, net::NetEvaluator, PolicyValue, State};
 
 fn main() {
     let weights = std::env::args()

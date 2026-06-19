@@ -13,7 +13,7 @@
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 
-use wallchess_core::{
+use gameboard_core::{
     action_index, distance_to_goal, encode, eval::Heuristic, eval::WIN_SCORE, legal_moves,
     mirror_move, parse_state_key, Move, Search, State,
 };
@@ -189,7 +189,7 @@ fn score_to_value(score: i32, value_scale: f32) -> f32 {
 
 fn policy_target(
     state: &State,
-    ranked: &[(wallchess_core::Move, i32)],
+    ranked: &[(gameboard_core::Move, i32)],
     all_moves: &[Move],
     policy_scale: f32,
 ) -> Vec<(usize, f32)> {

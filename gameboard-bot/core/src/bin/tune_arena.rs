@@ -2,8 +2,8 @@
 //! baseline, alternating sides. A healthy eval makes the DEEPER bot win.
 //! Usage: tune_arena <depthA> <wpathA> <wwallA> <depthB> <wpathB> <wwallB> [games]
 
-use wallchess_core::arena::{play_game, BotConfig, Outcome};
-use wallchess_core::eval::Heuristic;
+use gameboard_core::arena::{play_game, BotConfig, Outcome};
+use gameboard_core::eval::Heuristic;
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();
@@ -39,8 +39,8 @@ fn main() {
         };
         let (outcome, _) = play_game(south, north, 200);
         match outcome {
-            Outcome::SouthWin if a_south => aw += 1,
-            Outcome::NorthWin if !a_south => aw += 1,
+            Outcome::P0Win if a_south => aw += 1,
+            Outcome::P1Win if !a_south => aw += 1,
             Outcome::Draw => draws += 1,
             _ => bw += 1,
         }
