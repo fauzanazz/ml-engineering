@@ -36,6 +36,38 @@ export function choose_move(state: any, depth: number): any;
 export function choose_move_gen2(state: any, depth: number): any;
 
 /**
+ * Run the Gen-1 bot (default eval + the draughts search preset: PVS +
+ * aspiration + LMR + quiescence) and return its best move plus the White/Black
+ * win split. `node_limit == 0` means a fixed-depth search; `> 0` budgets nodes
+ * for stable tail latency. `k` is the logistic squash for the win meter.
+ */
+export function ck_analyze(state: any, depth: number, node_limit: bigint, k: number): any;
+
+/**
+ * Apply a move. Validated against the legal set (so an illegal/forged move is
+ * rejected rather than silently mutating the board), then the engine relocates
+ * the piece, removes captures, crowns on promotion, and flips the side.
+ */
+export function ck_apply(state: any, mv: any): any;
+
+/**
+ * The starting position: 20 men per side, White to move.
+ */
+export function ck_initial(): any;
+
+/**
+ * Every legal move for the side to move. Captures are mandatory and maximal, so
+ * when any capture exists this returns *only* captures — the UI never needs to
+ * know the rule, it just offers what comes back.
+ */
+export function ck_legal_moves(state: any): any;
+
+/**
+ * Terminal / winner status for the position (game-over detection for the UI).
+ */
+export function ck_status(state: any): any;
+
+/**
  * Generate the whole pruned state graph from `state` in one call. BFS happens
  * entirely in Rust (one shared transposition table), so the UI makes a single
  * call instead of thousands of round-trips. `max_depth` controls how far ahead
@@ -61,6 +93,11 @@ export interface InitOutput {
     readonly analyze_state_gen2: (a: any, b: number, c: number) => [number, number, number];
     readonly choose_move: (a: any, b: number) => [number, number, number];
     readonly choose_move_gen2: (a: any, b: number) => [number, number, number];
+    readonly ck_analyze: (a: any, b: number, c: bigint, d: number) => [number, number, number];
+    readonly ck_apply: (a: any, b: any) => [number, number, number];
+    readonly ck_initial: () => [number, number, number];
+    readonly ck_legal_moves: (a: any) => [number, number, number];
+    readonly ck_status: (a: any) => [number, number, number];
     readonly generate_graph_js: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
     readonly top_moves_js: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;

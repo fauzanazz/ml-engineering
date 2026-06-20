@@ -7,6 +7,11 @@ export const analyze_state_budgeted_gen2: (a: any, b: number, c: bigint, d: numb
 export const analyze_state_gen2: (a: any, b: number, c: number) => [number, number, number];
 export const choose_move: (a: any, b: number) => [number, number, number];
 export const choose_move_gen2: (a: any, b: number) => [number, number, number];
+export const ck_analyze: (a: any, b: number, c: bigint, d: number) => [number, number, number];
+export const ck_apply: (a: any, b: any) => [number, number, number];
+export const ck_initial: () => [number, number, number];
+export const ck_legal_moves: (a: any) => [number, number, number];
+export const ck_status: (a: any) => [number, number, number];
 export const generate_graph_js: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number];
 export const top_moves_js: (a: any, b: number, c: number, d: number, e: number) => [number, number, number];
 export const __wbindgen_malloc: (a: number, b: number) => number;

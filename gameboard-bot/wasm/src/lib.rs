@@ -1,8 +1,12 @@
 //! WASM bridge between the browser UI and the Rust `gameboard-core` engine.
 //!
-//! The UI speaks the TS `GameState` / `Move` JSON shapes (see
+//! Wall Chess: the UI speaks the TS `GameState` / `Move` JSON shapes (see
 //! webui/src/game/engine.ts). We deserialize those, run the real search, and
 //! return the chosen move plus the 0..100 win split.
+//!
+//! International Draughts: the [`checkers`] submodule drives the full ruleset
+//! (move generation, application, terminal status) plus the bot from Rust — the
+//! browser has no parallel TS draughts engine.
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -12,6 +16,8 @@ use gameboard_core::{
     state::{Cell, Orientation, Side, State},
     Heuristic, SearchConfig,
 };
+
+mod checkers;
 
 /// The Gen-2 bot's evaluator: race + a richer wall valuation (stock priced at
 /// ~2.4 race-steps instead of 2.0) plus exact endgame race resolution.

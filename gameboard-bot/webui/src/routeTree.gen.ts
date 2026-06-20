@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlayRouteImport } from './routes/play'
 import { Route as GraphRouteImport } from './routes/graph'
 import { Route as GameRouteImport } from './routes/game'
+import { Route as CheckersRouteImport } from './routes/checkers'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -30,6 +31,11 @@ const GameRoute = GameRouteImport.update({
   path: '/game',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CheckersRoute = CheckersRouteImport.update({
+  id: '/checkers',
+  path: '/checkers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -44,6 +50,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/checkers': typeof CheckersRoute
   '/game': typeof GameRoute
   '/graph': typeof GraphRoute
   '/play': typeof PlayRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/checkers': typeof CheckersRoute
   '/game': typeof GameRoute
   '/graph': typeof GraphRoute
   '/play': typeof PlayRoute
@@ -59,21 +67,23 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/checkers': typeof CheckersRoute
   '/game': typeof GameRoute
   '/graph': typeof GraphRoute
   '/play': typeof PlayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/game' | '/graph' | '/play'
+  fullPaths: '/' | '/about' | '/checkers' | '/game' | '/graph' | '/play'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/game' | '/graph' | '/play'
-  id: '__root__' | '/' | '/about' | '/game' | '/graph' | '/play'
+  to: '/' | '/about' | '/checkers' | '/game' | '/graph' | '/play'
+  id: '__root__' | '/' | '/about' | '/checkers' | '/game' | '/graph' | '/play'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  CheckersRoute: typeof CheckersRoute
   GameRoute: typeof GameRoute
   GraphRoute: typeof GraphRoute
   PlayRoute: typeof PlayRoute
@@ -102,6 +112,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/checkers': {
+      id: '/checkers'
+      path: '/checkers'
+      fullPath: '/checkers'
+      preLoaderRoute: typeof CheckersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -122,6 +139,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  CheckersRoute: CheckersRoute,
   GameRoute: GameRoute,
   GraphRoute: GraphRoute,
   PlayRoute: PlayRoute,

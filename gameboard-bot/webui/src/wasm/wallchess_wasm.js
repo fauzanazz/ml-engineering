@@ -95,6 +95,81 @@ export function choose_move_gen2(state, depth) {
 }
 
 /**
+ * Run the Gen-1 bot (default eval + the draughts search preset: PVS +
+ * aspiration + LMR + quiescence) and return its best move plus the White/Black
+ * win split. `node_limit == 0` means a fixed-depth search; `> 0` budgets nodes
+ * for stable tail latency. `k` is the logistic squash for the win meter.
+ * @param {any} state
+ * @param {number} depth
+ * @param {bigint} node_limit
+ * @param {number} k
+ * @returns {any}
+ */
+export function ck_analyze(state, depth, node_limit, k) {
+    const ret = wasm.ck_analyze(state, depth, node_limit, k);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Apply a move. Validated against the legal set (so an illegal/forged move is
+ * rejected rather than silently mutating the board), then the engine relocates
+ * the piece, removes captures, crowns on promotion, and flips the side.
+ * @param {any} state
+ * @param {any} mv
+ * @returns {any}
+ */
+export function ck_apply(state, mv) {
+    const ret = wasm.ck_apply(state, mv);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * The starting position: 20 men per side, White to move.
+ * @returns {any}
+ */
+export function ck_initial() {
+    const ret = wasm.ck_initial();
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Every legal move for the side to move. Captures are mandatory and maximal, so
+ * when any capture exists this returns *only* captures — the UI never needs to
+ * know the rule, it just offers what comes back.
+ * @param {any} state
+ * @returns {any}
+ */
+export function ck_legal_moves(state) {
+    const ret = wasm.ck_legal_moves(state);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Terminal / winner status for the position (game-over detection for the UI).
+ * @param {any} state
+ * @returns {any}
+ */
+export function ck_status(state) {
+    const ret = wasm.ck_status(state);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * Generate the whole pruned state graph from `state` in one call. BFS happens
  * entirely in Rust (one shared transposition table), so the UI makes a single
  * call instead of thousands of round-trips. `max_depth` controls how far ahead
