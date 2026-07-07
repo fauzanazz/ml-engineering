@@ -24,7 +24,7 @@ Step 24 added production-like Docker Compose runtime.
 Step 25 added live API smoke testing.
 Step 26 added `production-release-summary`.
 Step 27 added the production patterns scope review and closure checklist.
-Later local-first goal work added generic lifecycle commands, model contract validation, local deployment demo testing, drift detection, continual-learning decisions, canary decision and traffic-splitting simulation, local scheduler runtime dry-run, and goal readiness audit.
+Later local-first goal work added generic lifecycle commands, model contract validation, local deployment demo testing, drift detection, continual-learning decisions, canary decision and traffic-splitting simulation, local scheduler runtime dry-run, selectable Airflow/Metaflow scaffold orchestration adapters, and goal readiness audit.
 
 This folder now owns pattern-level docs, operational runbooks, and thin wrappers around foundation workflows.
 
@@ -82,6 +82,13 @@ uv run production-scheduled-retrain \
   --output-path artifacts/reports/production-patterns/scheduled-retraining.json
 ```
 
+Orchestration samples:
+
+```bash
+python configs/production-patterns/airflow/retraining_dag.py
+python configs/production-patterns/metaflow/retraining_flow.py
+```
+
 Rollback:
 
 ```bash
@@ -123,7 +130,7 @@ Production pattern layer is current through Step 27:
 - quality gate blocks unsafe activation
 - monitoring loop checks serving health, metrics, and drift
 - scheduled retraining writes machine-readable reports
-- Airflow DAG skeleton imports safely without requiring scheduler runtime
+- Airflow and Metaflow orchestration skeletons import safely without requiring scheduler runtime
 - alert rules and runbooks document triage
 - rollback command restores known-good active model state
 - release checklist and release summary capture operational evidence

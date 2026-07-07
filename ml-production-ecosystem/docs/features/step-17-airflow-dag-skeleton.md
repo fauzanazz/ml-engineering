@@ -51,6 +51,8 @@ uv run production-monitor \
 - `docs/domains/production-patterns/retraining.md`
 - `docs/domains/production-patterns/monitoring-loop.md`
 
+Metaflow parity was added later as `configs/production-patterns/metaflow/retraining_flow.py`; it preserves the same validate → retrain → monitor shape without making Metaflow a required dependency.
+
 ## Pattern
 
 ```text
@@ -84,4 +86,4 @@ Airflow later
 
 ## Next Step
 
-Step 18 can add alerting rules/runbook or Airflow Docker runtime. This project chose alerting rules and an operational runbook next.
+Step 18 added alerting rules/runbook. Later work added a Metaflow skeleton beside the Airflow DAG; a real scheduler runtime is still intentionally separate from this local-first layer.

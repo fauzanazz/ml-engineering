@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 const QUICK_RULES = [
   {
@@ -48,23 +49,23 @@ export default function HowToPlay({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="island-shell rise-in relative w-full max-w-2xl rounded-[1.75rem] p-6 sm:p-9"
+        className="rise-in relative w-full max-w-2xl rounded-[1.75rem] border bg-card text-card-foreground shadow-sm p-6 sm:p-9"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-5 top-5 rounded-full p-2 text-[var(--sea-ink-soft)] transition hover:bg-[var(--link-bg-hover)] hover:text-[var(--sea-ink)]"
+          className="absolute right-5 top-5 rounded-full p-2 text-muted-foreground transition hover:bg-accent hover:text-foreground"
         >
           <X size={20} />
         </button>
 
         <p className="island-kicker mb-2">How to Play</p>
-        <h2 className="display-title mb-2 text-3xl font-bold text-[var(--sea-ink)]">
+        <h2 className="display-title mb-2 text-3xl font-bold text-foreground">
           Wall Chess in four rules
         </h2>
-        <p id="howtoplay-desc" className="mb-6 max-w-xl text-sm text-[var(--sea-ink-soft)]">
+        <p id="howtoplay-desc" className="mb-6 max-w-xl text-sm text-muted-foreground">
           Race your pawn to the far side. Each turn: move one step, or drop a
           wall to slow your opponent down.
         </p>
@@ -73,31 +74,31 @@ export default function HowToPlay({ onClose }: { onClose: () => void }) {
           {QUICK_RULES.map((r) => (
             <article
               key={r.n}
-              className="feature-card rounded-2xl p-4"
+              className="border bg-card text-card-foreground shadow-sm transition hover:-translate-y-px hover:border-foreground/25 rounded-2xl p-4"
             >
-              <span className="mb-1 block text-xs font-bold text-[var(--sea-ink-soft)]">
+              <span className="mb-1 block text-xs font-bold text-muted-foreground">
                 {r.n}
               </span>
-              <h3 className="mb-1 text-sm font-bold text-[var(--sea-ink)]">
+              <h3 className="mb-1 text-sm font-bold text-foreground">
                 {r.title}
               </h3>
-              <p className="m-0 text-sm leading-6 text-[var(--sea-ink-soft)]">
+              <p className="m-0 text-sm leading-6 text-muted-foreground">
                 {r.body}
               </p>
             </article>
           ))}
         </div>
 
-        <div className="mt-5 rounded-2xl border border-[var(--line)] p-4">
+        <div className="mt-5 rounded-2xl border border-border p-4">
           <p className="island-kicker mb-2">Wall Rules</p>
-          <ul className="m-0 space-y-1.5 text-sm text-[var(--sea-ink-soft)]">
+          <ul className="m-0 space-y-1.5 text-sm text-muted-foreground">
             {WALL_RULES.map(([kind, text]) => (
               <li key={text} className="flex gap-2">
                 <span
                   className={
                     kind === 'ok'
-                      ? 'font-bold text-[var(--palm)]'
-                      : 'font-bold text-[var(--danger)]'
+                      ? 'font-bold text-primary'
+                      : 'font-bold text-destructive'
                   }
                   aria-hidden="true"
                 >
@@ -109,7 +110,7 @@ export default function HowToPlay({ onClose }: { onClose: () => void }) {
           </ul>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-[var(--line)] p-4">
+        <div className="mt-5 rounded-2xl border border-border p-4">
           <p className="island-kicker mb-2">Keyboard shortcuts</p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:grid-cols-3">
             {([
@@ -120,22 +121,23 @@ export default function HowToPlay({ onClose }: { onClose: () => void }) {
               ['?', 'Toggle help'],
             ] as const).map(([key, label]) => (
               <div key={key} className="flex items-center gap-2">
-                <kbd className="rounded border border-[var(--line)] bg-[var(--chip-bg)] px-1.5 py-0.5 font-mono text-xs font-semibold text-[var(--sea-ink)] shadow-[var(--shadow-chip)]">
+                <kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-xs font-semibold text-foreground shadow-sm">
                   {key}
                 </kbd>
-                <span className="text-xs text-[var(--sea-ink-soft)]">{label}</span>
+                <span className="text-xs text-muted-foreground">{label}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <button
+        <Button
           type="button"
+          size="lg"
           onClick={onClose}
-          className="mt-6 w-full rounded-full border border-[var(--accent-border)] bg-[var(--icon-bg)] px-5 py-3 text-sm font-semibold text-[var(--accent-text)] transition hover:-translate-y-0.5 hover:bg-[var(--icon-bg-hover)]"
+          className="mt-6 w-full rounded-full"
         >
           Got it
-        </button>
+        </Button>
       </div>
     </div>
   )

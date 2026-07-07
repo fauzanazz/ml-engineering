@@ -22,7 +22,7 @@ Run `./scripts/validate-production-patterns.sh` from `ml-production-ecosystem` t
 
 ## When to run
 
-Run this before push when changing `production-patterns domain`, production CLIs, alert docs, deployment manifest metadata, or scheduler DAG skeleton.
+Run this before push when changing `production-patterns domain`, production CLIs, alert docs, deployment manifest metadata, or scheduler/orchestration skeletons.
 
 Run this before push when changing local lifecycle contracts, local lifecycle demo config, model contract manifests, provider-neutral platform plan validation, or provider boundary enforcement.
 
@@ -47,6 +47,7 @@ The script runs focused production patterns tests:
 - `tests/test_production_monitoring_loop.py`
 - `tests/test_scheduled_retraining.py`
 - `tests/test_airflow_retraining_dag.py`
+- `tests/test_metaflow_retraining_flow.py`
 - `tests/test_data_ingestion.py`
 - `tests/test_offline_validation.py`
 - `tests/test_approval.py`

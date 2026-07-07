@@ -58,14 +58,14 @@ This gives one-command deploy-ish path through production compose plus focused v
 - experiment/model tracking: covered by foundation experiment outputs, local registry, active model pointer, deployment manifest, and release summary evidence.
 - one-command deploy-ish path: covered locally by `docker compose -f docker-compose.production.yaml up --build foundation-api` plus smoke and monitor commands.
 - monitoring latency/drift: covered by `production-monitor`, `/metrics.json`, `/drift`, alert rules, and monitor reports.
-- scheduled retraining: covered by `production-scheduled-retrain` and Airflow DAG skeleton.
+- scheduled retraining: covered by `production-scheduled-retrain` plus import-safe Airflow and Metaflow orchestration skeletons.
 - release/rollback evidence: covered by release checklist, deployment manifest, live smoke test, rollback CLI, and `production-release-summary`.
 
 ## Known Gaps
 
 - The production compose runtime is local and single-service; it is not a real cloud deployment.
 - Drift is intentionally simple and based on prediction log overlap, not a statistically mature data drift system.
-- Scheduler integration is import-safe skeleton only; no live Airflow deployment is managed here.
+- Scheduler integration is import-safe skeleton only; no live Airflow or Metaflow deployment is managed here.
 - Alerting rules are static examples; no paging integration is configured.
 - Release summary is local JSON evidence; there is no approval workflow or artifact upload.
 - Secrets, credentials, and cloud identity are intentionally avoided.

@@ -6,7 +6,7 @@ import json
 
 import yaml
 
-from ml_production_ecosystem.shared.model_storage.registry import register_model_version, set_active_model
+from ml_production_ecosystem.shared.model_storage.registry import get_active_model, register_model_version, set_active_model
 from ml_production_ecosystem.recommendation.train import train_recommender_from_config
 from .quality_gate import evaluate_quality_gate
 from .training_adapters import TrainingAdapterError, run_training
@@ -31,6 +31,27 @@ def _registry_path_from_config(config_path: Path) -> Path | None:
     if registry_path is None:
         return None
     return Path(str(registry_path))
+
+
+def _with_active_baseline(
+    quality_gate: dict[str, object],
+    config_path: Path,
+    registry_path: Path | None,
+    model_name: str,
+) -> dict[str, object]:
+    if not bool(quality_gate.get("compare_to_active", False)):
+        return quality_gate
+
+    resolved_registry_path = registry_path or _registry_path_from_config(config_path)
+    if resolved_registry_path is None:
+        return quality_gate
+
+    active_model = get_active_model(resolved_registry_path, model_name)
+    metrics_uri = active_model.get("metrics_uri") if active_model else None
+    if metrics_uri is None:
+        return quality_gate
+
+    return {"baseline_metrics_path": str(metrics_uri), **quality_gate}
 
 def _run_training_from_config(config_path: Path) -> dict[str, object]:
     config = _load_config(config_path)
@@ -62,8 +83,12 @@ def run_retraining(
     quality_gate_result = {"passed": True, "failures": []}
     if require_quality_gate:
         quality_gate = config.get("quality_gate", {})
+        quality_gate_config = quality_gate if isinstance(quality_gate, dict) else {}
+        gate_model_name = model_name
+        if model_name == DEFAULT_MODEL_NAME and str(result["model_name"]) != DEFAULT_MODEL_NAME:
+            gate_model_name = str(result["model_name"])
         quality_gate_result = evaluate_quality_gate(
-            quality_gate if isinstance(quality_gate, dict) else {},
+            _with_active_baseline(quality_gate_config, config_path, registry_path, gate_model_name),
             base=config_path.parent,
         )
 
@@ -83,7 +108,13 @@ def run_retraining(
             artifact_uri=str(result["artifact_uri"]),
             metrics_uri=str(result["metrics_uri"]),
         )
-        set_active_model(resolved_registry_path, activation_model_name, str(result["version"]))
+        set_active_model(
+            resolved_registry_path,
+            activation_model_name,
+            str(result["version"]),
+            promotion_reason="quality_gate_passed" if require_quality_gate else "manual",
+            promotion_source="retraining",
+        )
         activated = True
     elif set_active and not quality_gate_result["passed"]:
         status = "failed_quality_gate"

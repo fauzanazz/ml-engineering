@@ -1,9 +1,25 @@
 project: {{project_name}}
 preset: served-model
+service:
+  health_endpoint: /health
+  prediction_endpoint: /predict
+  env:
+    host: HOST
+    port: PORT
+    log_level: LOG_LEVEL
+    service_name: SERVICE_NAME
+    model_name: MODEL_NAME
+    model_version: MODEL_VERSION
+    prediction_threshold: PREDICTION_THRESHOLD
 model_contract:
   inputs:
     - name: features
-      type: object
+      type: object<string, number>
+      required: true
   outputs:
     - name: prediction
-      type: number
+      type: boolean
+    - name: model_name
+      type: string
+    - name: model_version
+      type: string

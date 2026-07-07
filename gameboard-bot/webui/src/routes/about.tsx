@@ -9,11 +9,11 @@ function About() {
     <main className="page-wrap px-4 py-12">
       <section className="py-6 sm:py-8">
         <p className="island-kicker mb-2">About</p>
-        <h1 className="display-title mb-3 text-4xl font-bold text-[var(--sea-ink)] sm:text-5xl">
+        <h1 className="display-title mb-3 text-4xl font-bold text-foreground sm:text-5xl">
           A board game with a machine learning brain.
         </h1>
-        <div className="max-w-2xl space-y-4 text-base leading-8 text-[var(--sea-ink-soft)]">
-          <p className="text-[var(--sea-ink)]">
+        <div className="max-w-2xl space-y-4 text-base leading-8 text-muted-foreground">
+          <p className="text-foreground">
             Wall Chess is a two-player abstract strategy game on a 9×9 grid.
             Move your pawn toward the opposite side, or spend a wall to slow
             your opponent down. First to cross wins.

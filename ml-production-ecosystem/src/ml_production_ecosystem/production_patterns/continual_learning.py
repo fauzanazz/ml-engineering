@@ -7,6 +7,25 @@ from typing import Any
 
 DEFAULT_OUTPUT_PATH = Path("artifacts/reports/production-patterns/continual-learning-decision.json")
 DEFAULT_HISTORY_PATH = Path("artifacts/reports/production-patterns/continual-learning-history.jsonl")
+DEFAULT_RETRAINING_CONFIG_PATH = Path("configs/foundation-recommender.yaml")
+DEFAULT_RETRAINING_OUTPUT_PATH = Path("artifacts/reports/production-patterns/scheduled-retraining.json")
+
+
+def _retrain_recommendation(config_path: Path) -> dict[str, object]:
+    return {
+        "command": [
+            "uv",
+            "run",
+            "production-scheduled-retrain",
+            "--config",
+            str(config_path),
+            "--require-quality-gate",
+            "--output-path",
+            str(DEFAULT_RETRAINING_OUTPUT_PATH),
+        ],
+        "approval_required": True,
+        "reason": "run gated retraining; promote separately through the release checklist",
+    }
 
 
 def _read_report(path: Path | None) -> dict[str, Any]:
@@ -23,6 +42,7 @@ def build_continual_learning_decision(
     deployment_demo_path: Path | None = None,
     output_path: Path = DEFAULT_OUTPUT_PATH,
     history_path: Path | None = None,
+    retraining_config_path: Path = DEFAULT_RETRAINING_CONFIG_PATH,
 ) -> dict[str, object]:
     drift = _read_report(drift_report_path)
     demo = _read_report(deployment_demo_path)
@@ -38,8 +58,9 @@ def build_continual_learning_decision(
         decision = {
             "action": "retrain",
             "trigger": "drift",
-            "approved_for_retraining": True,
+            "approved_for_retraining": False,
             "reason": "drift threshold breached",
+            "recommendation": _retrain_recommendation(retraining_config_path),
         }
     else:
         decision = {
@@ -70,6 +91,7 @@ def main() -> None:
     parser.add_argument("--deployment-demo", type=Path)
     parser.add_argument("--output-path", type=Path, default=DEFAULT_OUTPUT_PATH)
     parser.add_argument("--history-path", type=Path, default=DEFAULT_HISTORY_PATH)
+    parser.add_argument("--retraining-config", type=Path, default=DEFAULT_RETRAINING_CONFIG_PATH)
     args = parser.parse_args()
 
     decision = build_continual_learning_decision(
@@ -77,6 +99,7 @@ def main() -> None:
         args.deployment_demo,
         args.output_path,
         args.history_path,
+        args.retraining_config,
     )
     print(json.dumps(decision, indent=2, sort_keys=True))
 

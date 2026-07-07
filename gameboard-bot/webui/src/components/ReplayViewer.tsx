@@ -5,6 +5,8 @@ import WinMeter from './WinMeter'
 import { type ReplayRecord, downloadReplay } from '../game/replay'
 import { applyMove } from '../game/engine'
 
+type TimerHandle = ReturnType<typeof setTimeout>
+
 type Props = {
   record: ReplayRecord
   onClose: () => void
@@ -15,7 +17,7 @@ export default function ReplayViewer({ record, onClose }: Props) {
   const [idx, setIdx] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(800)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timerRef = useRef<TimerHandle | undefined>(undefined)
 
   // state at position idx:
   //   0..total-1  → frames[idx].state  (before that ply's action)
@@ -47,7 +49,7 @@ export default function ReplayViewer({ record, onClose }: Props) {
       })
     }, speed)
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
+      clearTimeout(timerRef.current)
     }
   }, [playing, idx, speed, total])
 
@@ -75,16 +77,16 @@ export default function ReplayViewer({ record, onClose }: Props) {
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm">
       <div
-        className="island-shell rise-in relative flex w-full max-w-4xl flex-col gap-3 rounded-2xl p-4"
+        className="rise-in relative flex w-full max-w-4xl flex-col gap-3 rounded-2xl border bg-card text-card-foreground shadow-sm p-4"
         style={{ maxHeight: 'calc(100dvh - 2rem)' }}
       >
         {/* header */}
         <div className="flex flex-shrink-0 items-center justify-between">
           <div>
-            <span className="text-sm font-bold text-[var(--sea-ink)] capitalize">
+            <span className="text-sm font-bold text-foreground capitalize">
               {record.mode} replay
             </span>
-            <span className="ml-2 text-xs text-[var(--sea-ink-soft)]">
+            <span className="ml-2 text-xs text-muted-foreground">
               {record.started_at.slice(0, 10)} · {record.ply_count} plies
               {record.winner ? ` · ${record.winner} wins` : ''}
             </span>
@@ -93,14 +95,14 @@ export default function ReplayViewer({ record, onClose }: Props) {
             <button
               type="button"
               onClick={() => downloadReplay(record)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary"
             >
               <Download size={12} /> .jsonl
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-1.5 text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+              className="rounded-full border border-border bg-secondary p-1.5 text-foreground transition hover:border-primary"
             >
               <X size={14} />
             </button>
@@ -111,13 +113,13 @@ export default function ReplayViewer({ record, onClose }: Props) {
         <div className="flex min-h-0 flex-1 gap-3">
           {/* win meter */}
           <div className="hidden w-28 flex-shrink-0 flex-col gap-1 lg:flex">
-            <span className="text-center text-[0.6rem] font-semibold text-[var(--sea-ink-soft)]">
+            <span className="text-center text-[0.6rem] font-semibold text-muted-foreground">
               {northLabel}
             </span>
             <div className="min-h-0 flex-1">
               <WinMeter south={winProb} southLabel={southLabel} northLabel={northLabel} />
             </div>
-            <span className="text-center text-[0.6rem] font-semibold text-[var(--sea-ink-soft)]">
+            <span className="text-center text-[0.6rem] font-semibold text-muted-foreground">
               {southLabel}
             </span>
           </div>
@@ -142,19 +144,19 @@ export default function ReplayViewer({ record, onClose }: Props) {
 
           {/* frame info */}
           <div className="hidden w-28 flex-shrink-0 flex-col gap-2 pt-1 lg:flex">
-            <div className="island-shell rounded-xl p-3 text-xs">
-              <div className="mb-1 font-bold text-[var(--sea-ink)]">
+            <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-3 text-xs">
+              <div className="mb-1 font-bold text-foreground">
                 Ply {idx} / {total}
               </div>
               {frame ? (
                 <>
-                  <div className="text-[var(--sea-ink-soft)]">
+                  <div className="text-muted-foreground">
                     Turn: <span className="font-semibold">{frame.turn}</span>
                   </div>
-                  <div className="text-[var(--sea-ink-soft)]">
+                  <div className="text-muted-foreground">
                     Win: <span className="font-semibold">{Math.round(frame.win_prob_south)}%</span> S
                   </div>
-                  <div className="mt-1 font-mono text-[0.6rem] text-[var(--sea-ink-soft)]">
+                  <div className="mt-1 font-mono text-[0.6rem] text-muted-foreground">
                     {frame.action.type === 'move'
                       ? `→ r${frame.action.to.r}c${frame.action.to.c}`
                       : `⊞ r${frame.action.wall.r}c${frame.action.wall.c} ${frame.action.wall.o}`}
@@ -162,7 +164,7 @@ export default function ReplayViewer({ record, onClose }: Props) {
                 </>
               ) : (
                 record.winner && (
-                  <div className="font-bold capitalize text-[var(--sea-ink)]">
+                  <div className="font-bold capitalize text-foreground">
                     {record.winner} wins!
                   </div>
                 )
@@ -182,14 +184,14 @@ export default function ReplayViewer({ record, onClose }: Props) {
               setPlaying(false)
               setIdx(Number(e.target.value))
             }}
-            className="w-full accent-[var(--lagoon-deep)]"
+            className="w-full accent-primary"
           />
 
           <div className="flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => { setPlaying(false); setIdx(0) }}
-              className="text-sm text-[var(--sea-ink-soft)] transition hover:text-[var(--sea-ink)]"
+              className="text-sm text-muted-foreground transition hover:text-foreground"
               title="Go to start"
             >
               ⏮
@@ -198,14 +200,14 @@ export default function ReplayViewer({ record, onClose }: Props) {
               type="button"
               onClick={() => step(-1)}
               disabled={idx === 0}
-              className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-2 text-[var(--sea-ink)] transition hover:border-[var(--accent-text)] disabled:opacity-40"
+              className="rounded-full border border-border bg-secondary p-2 text-foreground transition hover:border-primary disabled:opacity-40"
             >
               <ChevronLeft size={14} />
             </button>
             <button
               type="button"
               onClick={togglePlay}
-              className="rounded-full bg-[var(--btn-primary-bg)] p-2 text-[var(--btn-primary-fg)] transition hover:opacity-90"
+              className="rounded-full bg-primary p-2 text-primary-foreground transition hover:opacity-90"
             >
               {playing ? <Pause size={14} /> : <Play size={14} />}
             </button>
@@ -213,14 +215,14 @@ export default function ReplayViewer({ record, onClose }: Props) {
               type="button"
               onClick={() => step(1)}
               disabled={idx >= total}
-              className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-2 text-[var(--sea-ink)] transition hover:border-[var(--accent-text)] disabled:opacity-40"
+              className="rounded-full border border-border bg-secondary p-2 text-foreground transition hover:border-primary disabled:opacity-40"
             >
               <ChevronRight size={14} />
             </button>
             <button
               type="button"
               onClick={() => { setPlaying(false); setIdx(total) }}
-              className="text-sm text-[var(--sea-ink-soft)] transition hover:text-[var(--sea-ink)]"
+              className="text-sm text-muted-foreground transition hover:text-foreground"
               title="Go to end"
             >
               ⏭
@@ -229,7 +231,7 @@ export default function ReplayViewer({ record, onClose }: Props) {
             <select
               value={speed}
               onChange={(e) => setSpeed(Number(e.target.value))}
-              className="ml-2 rounded border border-[var(--line)] bg-[var(--chip-bg)] px-2 py-1 text-xs text-[var(--sea-ink)]"
+              className="ml-2 rounded border border-border bg-secondary px-2 py-1 text-xs text-foreground"
             >
               <option value={300}>Fast</option>
               <option value={800}>Normal</option>

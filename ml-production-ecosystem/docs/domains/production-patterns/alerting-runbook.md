@@ -1,6 +1,6 @@
 # Alerting Runbook
 
-First alerting layer for [production-monitor](../production_patterns/monitoring_loop.py), [scheduled retraining](../production_patterns/scheduled_retraining.py), and the [Airflow DAG skeleton](../airflow/retraining_dag.py).
+First alerting layer for [production-monitor](../production_patterns/monitoring_loop.py), [scheduled retraining](../production_patterns/scheduled_retraining.py), and import-safe Airflow/Metaflow orchestration skeletons.
 
 ## Symptoms
 

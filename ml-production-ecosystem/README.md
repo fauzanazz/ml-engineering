@@ -47,7 +47,7 @@ uv run ml-struct explain
 Interactive wizard:
 
 ```bash
-uv run ml-struct new banking-asr --preset asr-served-model
+uv run ml-struct new
 ```
 
 Preset commands:
@@ -92,12 +92,13 @@ bunx create-ml-struct
 
 ## Modular Wizard
 
-`preset` is only starter shape. Real scaffold is composed from axes:
+`preset` is only starter shape. The wizard then asks for task, model type, backend, provider, and selectable components. Component dependencies are auto-added so generated projects do not miss required pieces.
 
 - `--task`: classification, regression, object-detection, segmentation, text-generation, recommendation, speech-to-text, nlp, computer-vision, forecasting, llm-post-training, batch-inference, existing-model
 - `--model-type`: sklearn, xgboost, pytorch, transformers, whisper, llm, rules, external
-- `--backend`: local, fastapi, batch, spark, airflow, kubernetes, serverless, external-command
-- `--infra`: repeatable checklist items: api, batch, registry, quality-gate, monitoring, drift, retraining, rollback, docker, kubernetes, secrets, ci
+- `--backend`: local, fastapi, batch, spark, airflow, metaflow, kubernetes, serverless, external-command
+- `--provider`: local, aws, gcp, azure
+- `--infra`: repeatable component flag: training, evaluation, api, deployment, batch, registry, quality-gate, monitoring, drift, retraining, rollback, docker, kubernetes, secrets, ci
 
 Example: wrap existing ASR repo without moving its code:
 

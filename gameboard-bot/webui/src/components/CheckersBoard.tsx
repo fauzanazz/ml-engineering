@@ -65,7 +65,7 @@ export default function CheckersBoard({
 
   return (
     <div
-      className="grid aspect-square w-full overflow-hidden rounded-xl border-2 shadow-[var(--shadow-btn)]"
+      className="grid aspect-square w-full overflow-hidden rounded-xl border-2 shadow-lg"
       style={{
         gridTemplateColumns: 'repeat(10, 1fr)',
         gridTemplateRows: 'repeat(10, 1fr)',
@@ -122,7 +122,7 @@ export default function CheckersBoard({
               {isCapture && !isWhite && !isBlack && (
                 <span
                   className="pointer-events-none absolute h-1/5 w-1/5 rounded-full"
-                  style={{ background: 'var(--danger)', opacity: 0.55 }}
+                  style={{ background: 'var(--destructive)', opacity: 0.55 }}
                 />
               )}
 
@@ -137,9 +137,7 @@ export default function CheckersBoard({
                     border: `2px solid ${
                       isWhite ? 'var(--pawn-south-edge)' : 'var(--pawn-north-edge)'
                     }`,
-                    boxShadow: isOrigin
-                      ? '0 0 0 3px var(--lagoon)'
-                      : '0 1px 3px rgba(26,21,16,0.35)',
+                    boxShadow: isOrigin ? '0 0 0 3px var(--primary)' : '0 1px 3px rgba(26,21,16,0.35)',
                   }}
                 >
                   {isKing && (
@@ -147,7 +145,7 @@ export default function CheckersBoard({
                       size={14}
                       strokeWidth={2.5}
                       style={{
-                        color: isWhite ? 'var(--lagoon-deep)' : 'var(--lagoon)',
+                        color: 'var(--primary)',
                       }}
                     />
                   )}
@@ -158,7 +156,7 @@ export default function CheckersBoard({
               {isTarget && !isWhite && !isBlack && (
                 <span
                   className="pointer-events-none absolute h-1/4 w-1/4 rounded-full"
-                  style={{ background: 'var(--lagoon)', opacity: 0.8 }}
+                  style={{ background: 'var(--primary)', opacity: 0.8 }}
                 />
               )}
             </button>

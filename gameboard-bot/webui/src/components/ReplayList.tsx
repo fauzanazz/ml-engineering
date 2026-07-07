@@ -18,27 +18,27 @@ export default function ReplayList({ onView, onClose }: Props) {
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm">
       <div
-        className="island-shell rise-in flex w-full max-w-lg flex-col gap-3 rounded-2xl p-4"
+        className="rise-in flex w-full max-w-lg flex-col gap-3 rounded-2xl border bg-card text-card-foreground shadow-sm p-4"
         style={{ maxHeight: 'calc(100dvh - 4rem)' }}
       >
         <div className="flex flex-shrink-0 items-center justify-between">
-          <h2 className="text-sm font-bold text-[var(--sea-ink)]">
+          <h2 className="text-sm font-bold text-foreground">
             Saved Replays
-            <span className="ml-2 text-xs font-normal text-[var(--sea-ink-soft)]">
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
               ({replays.length} / 30)
             </span>
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-1.5 text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+            className="rounded-full border border-border bg-secondary p-1.5 text-foreground transition hover:border-primary"
           >
             <X size={14} />
           </button>
         </div>
 
         {replays.length === 0 ? (
-          <p className="py-8 text-center text-sm text-[var(--sea-ink-soft)]">
+          <p className="py-8 text-center text-sm text-muted-foreground">
             No replays saved yet. Finish a game to record one.
           </p>
         ) : (
@@ -49,23 +49,23 @@ export default function ReplayList({ onView, onClose }: Props) {
             {replays.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-3 py-2"
+                className="flex items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs font-bold capitalize text-[var(--sea-ink)]">
+                    <span className="text-xs font-bold capitalize text-foreground">
                       {r.mode}
                     </span>
                     {r.winner && (
-                      <span className="rounded-full bg-[var(--icon-bg)] px-1.5 py-0.5 text-[0.6rem] font-semibold capitalize text-[var(--accent-text)]">
+                      <span className="rounded-full bg-accent px-1.5 py-0.5 text-[0.6rem] font-semibold capitalize text-primary">
                         {r.winner} wins
                       </span>
                     )}
-                    <span className="text-[0.65rem] text-[var(--sea-ink-soft)]">
+                    <span className="text-[0.65rem] text-muted-foreground">
                       {r.ply_count} plies
                     </span>
                   </div>
-                  <div className="text-[0.65rem] text-[var(--sea-ink-soft)]">
+                  <div className="text-[0.65rem] text-muted-foreground">
                     {r.started_at.slice(0, 16).replace('T', ' ')} ·{' '}
                     {r.engines.south} vs {r.engines.north}
                   </div>
@@ -74,7 +74,7 @@ export default function ReplayList({ onView, onClose }: Props) {
                 <button
                   type="button"
                   onClick={() => onView(r)}
-                  className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-1.5 text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+                  className="rounded-full border border-border bg-secondary p-1.5 text-foreground transition hover:border-primary"
                   title="View replay"
                 >
                   <Play size={12} />
@@ -82,7 +82,7 @@ export default function ReplayList({ onView, onClose }: Props) {
                 <button
                   type="button"
                   onClick={() => downloadReplay(r)}
-                  className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-1.5 text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+                  className="rounded-full border border-border bg-secondary p-1.5 text-foreground transition hover:border-primary"
                   title="Download .jsonl"
                 >
                   <Download size={12} />
@@ -90,7 +90,7 @@ export default function ReplayList({ onView, onClose }: Props) {
                 <button
                   type="button"
                   onClick={() => handleDelete(r.id)}
-                  className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] p-1.5 text-[var(--sea-ink)] transition hover:border-[var(--danger,#e53e3e)]"
+                  className="rounded-full border border-border bg-secondary p-1.5 text-foreground transition hover:border-destructive"
                   title="Delete"
                 >
                   <Trash2 size={12} />
@@ -100,7 +100,7 @@ export default function ReplayList({ onView, onClose }: Props) {
           </div>
         )}
 
-        <p className="flex-shrink-0 text-center text-[0.65rem] text-[var(--sea-ink-soft)]">
+        <p className="flex-shrink-0 text-center text-[0.65rem] text-muted-foreground">
           JSONL format: 1 line per ply — state, action, win%, outcome. Ready for bot training.
         </p>
       </div>

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import MiniBoard from '../components/MiniBoard'
+import { Button } from '@/components/ui/button'
 import ForceGraph, {
   type GraphEdge,
   type GraphNode,
@@ -63,7 +64,7 @@ function moveLabel(m: Move): string {
 // Colour a node by who it favours: SOUTH (lagoon) ↔ unknown (grey) ↔ NORTH.
 function nodeColor(south?: number): string {
   if (south == null) return '#8a8178'
-  return south >= 50 ? 'var(--lagoon)' : 'var(--pawn-north)'
+  return south >= 50 ? 'var(--primary)' : 'var(--pawn-north)'
 }
 
 function GraphTraveler() {
@@ -280,43 +281,46 @@ function GraphTraveler() {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="island-kicker mb-1">State graph</p>
-            <h1 className="display-title text-3xl font-bold text-[var(--sea-ink)]">
+            <h1 className="display-title text-3xl font-bold text-foreground">
               Graph Traveler
             </h1>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--sea-ink-soft)]">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <span>
               discovered{' '}
-              <span className="font-bold text-[var(--sea-ink)]">{discovered}</span>{' '}
+              <span className="font-bold text-foreground">{discovered}</span>{' '}
               / <span className="font-mono">{STATE_SPACE}</span> nodes
             </span>
-            <button
+            <Button
               type="button"
+              size="sm"
               onClick={generateFull}
               disabled={generating}
-              className="rounded-full bg-[var(--btn-primary-bg)] px-3 py-1.5 text-xs font-bold text-[var(--btn-primary-fg)] transition hover:opacity-90 disabled:opacity-50"
+              className="rounded-full"
             >
               {generating ? 'Generating…' : `Generate graph (depth ${SAFE_DEPTH})`}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={reset}
-              className="rounded-full border border-[var(--line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+              className="rounded-full"
             >
               Reset to root
-            </button>
+            </Button>
           </div>
         </div>
 
         {genInfo && (
-          <p className="mb-3 text-xs font-semibold text-[var(--sea-ink-soft)]">
+          <p className="mb-3 text-xs font-semibold text-muted-foreground">
             {genInfo}
           </p>
         )}
 
         <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
           {/* ── current node ── */}
-          <section className="island-shell rounded-2xl p-4">
+          <section className="rounded-2xl border bg-card text-card-foreground shadow-sm p-4">
             <p className="island-kicker mb-2">Current node</p>
             <MiniBoard state={current.state} size={220} />
             <dl className="mt-3 space-y-1 text-sm">
@@ -337,17 +341,17 @@ function GraphTraveler() {
             </dl>
             {/* win split */}
             <div className="mt-3">
-              <div className="mb-1 flex justify-between text-xs font-semibold text-[var(--sea-ink)]">
+              <div className="mb-1 flex justify-between text-xs font-semibold text-foreground">
                 <span>S {south ?? '…'}</span>
                 <span>N {south == null ? '…' : 100 - south}</span>
               </div>
-              <div className="flex h-3 overflow-hidden rounded-full border border-[var(--line)] bg-[var(--chip-bg)]">
+              <div className="flex h-3 overflow-hidden rounded-full border border-border bg-secondary">
                 <div
-                  className="h-full bg-[var(--lagoon)] transition-[width] duration-300"
+                  className="h-full bg-primary transition-[width] duration-300"
                   style={{ width: `${south ?? 50}%` }}
                 />
                 <div
-                  className="h-full bg-[var(--pawn-north)] transition-[width] duration-300"
+                  className="h-full bg-foreground transition-[width] duration-300"
                   style={{ width: `${south == null ? 50 : 100 - south}%` }}
                 />
               </div>
@@ -359,7 +363,7 @@ function GraphTraveler() {
             <section className="py-2">
               <div className="mb-2">
                 <p className="island-kicker">Galaxy view — force graph</p>
-                <p className="mt-1 text-xs text-[var(--sea-ink)]">
+                <p className="mt-1 text-xs text-foreground">
                   drag node · drag bg to orbit · wheel to zoom · click to fly
                 </p>
               </div>
@@ -377,7 +381,7 @@ function GraphTraveler() {
                 Connected nodes ({neighbors.length})
               </p>
               {current.state.winner ? (
-                <p className="text-sm text-[var(--sea-ink-soft)]">
+                <p className="text-sm text-muted-foreground">
                   Terminal node — {current.state.winner.toUpperCase()} has won. No
                   out-edges.
                 </p>
@@ -391,7 +395,7 @@ function GraphTraveler() {
                         key={n.key}
                         type="button"
                         onClick={() => travel(n.key)}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[var(--chip-bg)] px-3 py-2 text-left text-xs font-semibold text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+                        className="flex items-center justify-between gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-left text-xs font-semibold text-foreground transition hover:border-primary"
                       >
                         <span className="truncate">
                           {mv ? moveLabel(mv) : `node ${i}`}
@@ -417,8 +421,8 @@ function GraphTraveler() {
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex justify-between">
-      <dt className="text-[var(--sea-ink-soft)]">{k}</dt>
-      <dd className="font-semibold text-[var(--sea-ink)]">{v}</dd>
+      <dt className="text-muted-foreground">{k}</dt>
+      <dd className="font-semibold text-foreground">{v}</dd>
     </div>
   )
 }

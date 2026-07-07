@@ -78,7 +78,7 @@ export default function MiniBoard({ state, size = 220 }: Props) {
               width={cell * 2}
               height={wallW}
               rx={wallW / 2}
-              fill="var(--accent-text)"
+              fill="var(--primary)"
             />
           )
         }
@@ -91,7 +91,7 @@ export default function MiniBoard({ state, size = 220 }: Props) {
             width={wallW}
             height={cell * 2}
             rx={wallW / 2}
-            fill="var(--accent-text)"
+            fill="var(--primary)"
           />
         )
       })}

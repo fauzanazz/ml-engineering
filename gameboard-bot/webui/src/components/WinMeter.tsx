@@ -25,19 +25,19 @@ export default function WinMeter({
 
       <div className="flex min-h-0 flex-1 w-full items-stretch gap-3">
         {/* vertical bar */}
-        <div className="flex w-3.5 flex-col overflow-hidden rounded-full border border-[var(--line)] bg-[var(--chip-bg)]">
+        <div className="flex w-3.5 flex-col overflow-hidden rounded-full border border-border bg-secondary">
           <div
-            className="w-full bg-[var(--pawn-north)] transition-[height] duration-500 ease-out"
+            className="w-full bg-foreground transition-[height] duration-500 ease-out"
             style={{ height: `${n}%` }}
           />
           <div
-            className="w-full bg-[var(--lagoon)] transition-[height] duration-500 ease-out"
+            className="w-full bg-primary transition-[height] duration-500 ease-out"
             style={{ height: `${s}%` }}
           />
         </div>
 
         {/* percentages */}
-        <div className="flex flex-1 flex-col justify-between text-sm font-bold text-[var(--sea-ink)]">
+        <div className="flex flex-1 flex-col justify-between text-sm font-bold text-foreground">
           <span>{n}%</span>
           <span>{s}%</span>
         </div>

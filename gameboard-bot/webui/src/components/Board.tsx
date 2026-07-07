@@ -101,9 +101,9 @@ export default function Board({
   const hoverValid = hover ? canPlace(hover) : false
 
   return (
-    <div className="island-shell flex h-full flex-col rounded-[1.75rem] p-3">
+    <div className="border bg-card text-card-foreground shadow-sm flex h-full flex-col rounded-[1.75rem] p-3">
       {goalTopLabel && (
-        <p className="mb-1 flex-shrink-0 text-right text-[0.6rem] font-bold uppercase tracking-widest text-[var(--sea-ink-soft)] opacity-50">
+        <p className="mb-1 flex-shrink-0 text-right text-[0.6rem] font-bold uppercase tracking-widest text-muted-foreground opacity-50">
           {goalTopLabel} ↑
         </p>
       )}
@@ -148,7 +148,7 @@ export default function Board({
                     <span className="pointer-events-none absolute inset-0 bg-[var(--board-goal)]" />
                   )}
                   {isTarget && (
-                    <span className="pointer-events-none h-[34%] w-[34%] rounded-full bg-[var(--lagoon-deep)] opacity-70" />
+                    <span className="pointer-events-none h-[34%] w-[34%] rounded-full bg-primary opacity-70" />
                   )}
                   {isBestMoveDest && (
                     <span className="pointer-events-none absolute h-[78%] w-[78%] rounded-full ring-[3px] ring-[#16a34a] opacity-90" />
@@ -163,7 +163,7 @@ export default function Board({
                         (isSouth ? state.turn === 'south' : state.turn === 'north') &&
                         !state.winner
                           ? isSouth
-                            ? 'ring-2 ring-[var(--lagoon-deep)] ring-offset-1'
+                            ? 'ring-2 ring-primary ring-offset-1'
                             : 'ring-2 ring-white/80 ring-offset-1'
                           : '',
                       ].join(' ')}
@@ -230,7 +230,7 @@ export default function Board({
               className="absolute rounded-full"
               style={{
                 ...wallStyle(hover, WALL_TH),
-                background: hoverValid ? 'var(--lagoon-deep)' : 'var(--danger)',
+                background: hoverValid ? 'var(--primary)' : 'var(--destructive)',
                 opacity: 0.7,
               }}
             />
@@ -261,7 +261,7 @@ export default function Board({
         )}
       </div>
       {goalBottomLabel && (
-        <p className="mt-1 text-left text-[0.6rem] font-bold uppercase tracking-widest text-[var(--sea-ink-soft)] opacity-50">
+        <p className="mt-1 text-left text-[0.6rem] font-bold uppercase tracking-widest text-muted-foreground opacity-50">
           ↓ {goalBottomLabel}
         </p>
       )}

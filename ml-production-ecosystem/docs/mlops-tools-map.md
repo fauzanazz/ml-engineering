@@ -13,7 +13,7 @@ Dokumen ini mencatat kategori tool yang akan muncul sepanjang project. Tujuannya
 | Deployment | Membuat model bisa dipakai untuk prediction | local script | FastAPI, batch job, Kubernetes service |
 | Observability | Melihat behavior sistem saat berjalan | logs, simple metrics | OpenTelemetry, Prometheus, Grafana |
 | Monitoring | Mendeteksi masalah data, model, dan service | custom checks | Evidently, drift monitor, alerting |
-| Orchestration | Mengatur workflow multi-step | script runner | Airflow, Prefect, Kubeflow Pipelines |
+| Orchestration | Mengatur workflow multi-step | script runner | Airflow, Metaflow, Prefect, Kubeflow Pipelines |
 | Scaling | Menangani request volume besar | local benchmark | queue, cache, autoscaling, Kubernetes |
 
 ## Urutan Belajar

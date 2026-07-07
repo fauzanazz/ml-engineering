@@ -44,7 +44,7 @@ const FOV = 500  // perspective focal length
 
 function colorFor(south: number | undefined, css: (v: string) => string): string {
   if (south == null) return '#8a8178'
-  return south >= 50 ? css('--lagoon') : css('--pawn-north')
+  return south >= 50 ? css('--primary') : css('--pawn-north')
 }
 
 // Rotate by yaw (Y-axis) then pitch (X-axis), then perspective-project.
@@ -244,7 +244,7 @@ export default function ForceGraph({
         if (!a || !b) continue
         const pa = ps.get(e.a)!, pb = ps.get(e.b)!
         const hot = hk && (e.a === hk || e.b === hk)
-        c.strokeStyle = hot ? css('--accent-text') : css('--line') || '#333'
+        c.strokeStyle = hot ? css('--primary') : css('--border') || '#333'
         c.globalAlpha = hk ? (hot ? 0.9 : 0.15) : 0.45
         c.lineWidth = 1
         c.beginPath()
@@ -275,7 +275,7 @@ export default function ForceGraph({
         }
         if (isCur || isHover || (nbrs && nbrs.has(b.key))) {
           c.globalAlpha = 1
-          c.fillStyle = css('--sea-ink') || '#eee'
+          c.fillStyle = css('--foreground') || '#eee'
           c.font = `${Math.max(8, 12 * p.d)}px ui-sans-serif, system-ui`
           c.fillText(b.label ?? b.key.slice(0, 10), p.sx + r + 3, p.sy + 3)
         }
@@ -379,7 +379,7 @@ export default function ForceGraph({
       <button
         type="button"
         onClick={recenter}
-        className="absolute right-2 top-2 rounded-lg border border-[var(--line)] bg-[var(--chip-bg)] px-2 py-1 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-[var(--accent-text)]"
+        className="absolute right-2 top-2 rounded-lg border border-border bg-secondary px-2 py-1 text-xs font-semibold text-foreground transition hover:border-primary"
       >
         Recenter
       </button>

@@ -1,15 +1,20 @@
 from argparse import Namespace
 from pathlib import Path
 import importlib
+import importlib.util
 import json
 import subprocess
 import sys
 import tomllib
 
+from fastapi.testclient import TestClient
 import pytest
 
+from ml_production_ecosystem.production_patterns import orchestrator_cli
 from ml_production_ecosystem.production_patterns.orchestrator_cli import build_parser, run_new
 from ml_production_ecosystem.production_patterns.scaffold import (
+    PRESET_DEFAULTS,
+    SUPPORTED_INFRA,
     SUPPORTED_PRESETS,
     ScaffoldRequest,
     package_name_from_project,
@@ -97,6 +102,23 @@ def test_scaffold_project_writes_modular_axes(tmp_path: Path) -> None:
     assert "model_type: whisper" in config
     assert "backend: external-command" in config
     assert "- [ ] registry" in checklist
+
+
+def test_scaffold_project_applies_provider_flag_and_writes_ml_struct_yaml(tmp_path: Path) -> None:
+    target = tmp_path / "provider-aws"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Provider AWS",
+            target=target,
+            provider="aws",
+        )
+    )
+
+    struct_lines = (target / "ml-struct.yaml").read_text().splitlines()
+    assert result.provider == "aws"
+    assert "provider: aws" in struct_lines
 
 
 def test_scaffold_project_writes_pypi_safe_package_name_in_pyproject(tmp_path: Path) -> None:
@@ -287,6 +309,57 @@ def test_served_model_scaffold_includes_api_and_dockerfile(tmp_path: Path) -> No
     assert (target / "churn_api" / "api.py").exists()
     assert "uvicorn" in (target / "Dockerfile").read_text()
 
+
+def test_served_model_scaffold_generates_a_working_health_and_predict_api(tmp_path: Path, monkeypatch) -> None:
+    target = tmp_path / "served-live"
+
+    scaffold_project(
+        ScaffoldRequest(
+            preset="served-model",
+            name="Churn API",
+            target=target,
+        )
+    )
+    monkeypatch.syspath_prepend(str(target))
+
+    api = importlib.import_module("churn_api.api")
+    client = TestClient(api.app)
+
+    health_response = client.get("/health")
+    assert health_response.status_code == 200
+    health_body = health_response.json()
+    assert health_body["status"] == "ok"
+
+    predict_response = client.post("/predict", json={"features": {"a": 1.0, "b": 2.0}})
+    assert predict_response.status_code == 200
+    predict_body = predict_response.json()
+    assert isinstance(predict_body["prediction"], bool)
+    assert predict_body["model_name"] == health_body["model_name"]
+    assert predict_body["model_version"] == health_body["model_version"]
+
+    rejected = client.post("/predict", json={})
+    assert rejected.status_code == 422
+
+
+def test_served_model_scaffold_dockerfile_cmd_starts_uvicorn_not_pytest(tmp_path: Path) -> None:
+    target = tmp_path / "served-docker"
+
+    scaffold_project(
+        ScaffoldRequest(
+            preset="served-model",
+            name="Churn API",
+            target=target,
+        )
+    )
+
+    dockerfile_lines = (target / "Dockerfile").read_text().splitlines()
+    cmd_lines = [line for line in dockerfile_lines if line.strip().startswith("CMD")]
+
+    assert len(cmd_lines) == 1
+    assert "uvicorn" in cmd_lines[0]
+    assert "churn_api.api:app" in cmd_lines[0]
+    assert "pytest" not in cmd_lines[0]
+
 def test_asr_served_model_scaffold_includes_contract_and_api(tmp_path: Path) -> None:
     target = tmp_path / "banking-asr"
 
@@ -374,6 +447,313 @@ def test_enterprise_pipeline_scaffold_includes_quality_gate(tmp_path: Path) -> N
     assert (target / "fraud_pipeline" / "quality_gate.py").exists()
 
 
+def test_scaffold_project_resolves_retraining_dependencies(tmp_path: Path) -> None:
+    target = tmp_path / "retraining-deps"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Retraining Deps",
+            target=target,
+            infra=("retraining",),
+        )
+    )
+
+    assert set(result.dependency_additions) == {
+        "training",
+        "evaluation",
+        "deployment",
+        "registry",
+        "quality-gate",
+        "monitoring",
+    }
+    for component in result.dependency_additions + ("retraining",):
+        assert component in result.infra
+
+
+def test_scaffold_project_writes_component_files_for_selected_infra(tmp_path: Path) -> None:
+    target = tmp_path / "component-files"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Component Files",
+            target=target,
+            infra=("ci", "retraining"),
+        )
+    )
+
+    package_dir = target / result.package_name
+    assert (target / ".github" / "workflows" / "ci.yml").exists()
+    assert (package_dir / "deployment.py").exists()
+    assert (target / "tests" / "test_deployment.py").exists()
+    assert (package_dir / "evaluate.py").exists()
+    assert (target / "tests" / "test_evaluate.py").exists()
+    assert (target / "orchestration" / "monitoring_job.py").exists()
+    assert (target / "orchestration" / "retraining_job.py").exists()
+
+
+def test_scaffold_project_accepts_metaflow_backend(tmp_path: Path) -> None:
+    target = tmp_path / "metaflow-pipeline"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Metaflow Pipeline",
+            target=target,
+            backend="metaflow",
+            infra=("retraining",),
+        )
+    )
+
+    assert result.backend == "metaflow"
+    assert "retraining" in result.infra
+    assert "training" in result.infra
+
+
+def test_scaffold_project_writes_metaflow_backend_into_ml_struct_yaml(tmp_path: Path) -> None:
+    target = tmp_path / "metaflow-struct"
+
+    scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Metaflow Pipeline",
+            target=target,
+            backend="metaflow",
+            infra=("retraining",),
+        )
+    )
+
+    struct_lines = (target / "ml-struct.yaml").read_text().splitlines()
+    assert "backend: metaflow" in struct_lines
+
+
+def test_scaffold_project_writes_metaflow_orchestration_adapter_skeleton(tmp_path: Path) -> None:
+    target = tmp_path / "metaflow-adapter"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Metaflow Pipeline",
+            target=target,
+            backend="metaflow",
+            infra=("retraining",),
+        )
+    )
+
+    adapter_path = target / "orchestration" / "metaflow_retraining_flow.py"
+    assert adapter_path.exists()
+    assert adapter_path in result.written_paths
+
+    source = adapter_path.read_text()
+    assert "FlowSpec" in source
+    assert "orchestration/retraining_job.py" in source
+    assert "orchestration/monitoring_job.py" in source
+    assert "production-scheduled-retrain" not in source
+    assert "production-monitor" not in source
+
+    # Import-safety: the skeleton must load even though metaflow is not
+    # installed in this environment, mirroring the Airflow DAG skeleton.
+    spec = importlib.util.spec_from_file_location("metaflow_retraining_flow", adapter_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+
+def test_scaffold_project_metaflow_backend_skips_airflow_adapter(tmp_path: Path) -> None:
+    target = tmp_path / "metaflow-only"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Metaflow Only",
+            target=target,
+            backend="metaflow",
+            infra=("retraining",),
+        )
+    )
+
+    assert result.backend == "metaflow"
+    assert (target / "orchestration" / "metaflow_retraining_flow.py").exists()
+    assert not (target / "orchestration" / "airflow_retraining_dag.py").exists()
+
+
+def test_scaffold_metaflow_orchestration_jobs_run_standalone_and_write_json_reports(tmp_path: Path) -> None:
+    target = tmp_path / "metaflow-jobs"
+
+    scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Metaflow Jobs",
+            target=target,
+            backend="metaflow",
+            infra=("retraining",),
+        )
+    )
+
+    retraining_job = target / "orchestration" / "retraining_job.py"
+    monitoring_job = target / "orchestration" / "monitoring_job.py"
+    assert retraining_job.exists()
+    assert monitoring_job.exists()
+
+    config_path = target / "configs" / "project.yaml"
+    retraining_report_path = target / "artifacts" / "reports" / "scheduled-retraining.json"
+    retraining_result = subprocess.run(
+        [
+            sys.executable,
+            str(retraining_job),
+            "--config",
+            str(config_path),
+            "--output-path",
+            str(retraining_report_path),
+            "--set-active",
+            "--require-quality-gate",
+        ],
+        cwd=target,
+        capture_output=True,
+        text=True,
+    )
+    assert retraining_result.returncode == 0, retraining_result.stderr
+    assert "metaflow" not in retraining_result.stderr.lower()
+    assert "airflow" not in retraining_result.stderr.lower()
+    retraining_report = json.loads(retraining_report_path.read_text())
+    assert retraining_report["status"] == "completed"
+    assert retraining_report["set_active"] is True
+
+    monitoring_report_path = target / "artifacts" / "reports" / "monitoring.json"
+    monitoring_result = subprocess.run(
+        [
+            sys.executable,
+            str(monitoring_job),
+            "--input-path",
+            str(retraining_report_path),
+            "--output-path",
+            str(monitoring_report_path),
+        ],
+        cwd=target,
+        capture_output=True,
+        text=True,
+    )
+    assert monitoring_result.returncode == 0, monitoring_result.stderr
+    monitoring_report = json.loads(monitoring_report_path.read_text())
+    assert monitoring_report["status"] == "healthy"
+    assert all(check["passed"] for check in monitoring_report["checks"])
+
+
+def test_scaffold_metaflow_retraining_job_promotes_active_model_after_local_training(tmp_path: Path) -> None:
+    target = tmp_path / "metaflow-retraining"
+    package_name = package_name_from_project("Metaflow Retraining")
+
+    scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Metaflow Retraining",
+            target=target,
+            backend="metaflow",
+            infra=("retraining",),
+        )
+    )
+
+    retraining_job = target / "orchestration" / "retraining_job.py"
+    config_path = target / "configs" / "project.yaml"
+    report_path = target / "artifacts" / "reports" / "scheduled-retraining.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(retraining_job),
+            "--config",
+            str(config_path),
+            "--output-path",
+            str(report_path),
+            "--set-active",
+            "--require-quality-gate",
+        ],
+        cwd=target,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(report_path.read_text())
+    assert report["status"] == "completed"
+    assert report["model_name"] == package_name
+    assert report["artifact_uri"] == "models/local-dev"
+    assert report["metrics_uri"] == "reports/metrics.json"
+    assert report["quality_gate"]["status"] == "passed"
+    assert report["quality_gate"]["failures"] == []
+    assert report["quality_gate"]["metrics"]["accuracy"] == 1.0
+    assert report["active_model_uri"] == "artifacts/active-model.json"
+
+    active_model_path = target / "artifacts" / "active-model.json"
+    assert active_model_path.exists()
+    active_model = json.loads(active_model_path.read_text())
+    assert active_model["model_name"] == package_name
+    assert active_model["artifact_uri"] == "models/local-dev"
+
+
+def test_scaffold_metaflow_retraining_job_fails_and_skips_promotion_on_quality_gate_breach(tmp_path: Path) -> None:
+    target = tmp_path / "metaflow-retraining-fail"
+
+    scaffold_project(
+        ScaffoldRequest(
+            preset="generic-classifier",
+            name="Metaflow Retraining Fail",
+            target=target,
+            backend="metaflow",
+            infra=("retraining",),
+        )
+    )
+
+    config_path = target / "configs" / "project.yaml"
+    config_text = config_path.read_text()
+    assert "accuracy: 0.8" in config_text
+    config_path.write_text(config_text.replace("accuracy: 0.8", "accuracy: 1.5"))
+
+    retraining_job = target / "orchestration" / "retraining_job.py"
+    report_path = target / "artifacts" / "reports" / "scheduled-retraining.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(retraining_job),
+            "--config",
+            str(config_path),
+            "--output-path",
+            str(report_path),
+            "--set-active",
+            "--require-quality-gate",
+        ],
+        cwd=target,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    report = json.loads(report_path.read_text())
+    assert report["status"] == "failed_quality_gate"
+    assert report["quality_gate"]["status"] == "failed"
+    assert report["quality_gate"]["failures"] == ["accuracy=1.0 below minimum 1.5"]
+    assert "active_model_uri" not in report
+    assert not (target / "artifacts" / "active-model.json").exists()
+
+
+def test_enterprise_pipeline_default_airflow_backend_skips_metaflow_adapter(tmp_path: Path) -> None:
+    target = tmp_path / "enterprise-airflow"
+
+    result = scaffold_project(
+        ScaffoldRequest(
+            preset="enterprise-pipeline",
+            name="Fraud Pipeline",
+            target=target,
+        )
+    )
+
+    assert result.backend == "airflow"
+    assert "retraining" in result.infra
+    airflow_adapter = target / "orchestration" / "airflow_retraining_dag.py"
+    assert airflow_adapter.exists()
+    assert "FlowSpec" not in airflow_adapter.read_text()
+    assert not (target / "orchestration" / "metaflow_retraining_flow.py").exists()
+
+
 def test_parser_registers_new_command(tmp_path: Path) -> None:
     args = build_parser().parse_args(
         [
@@ -408,6 +788,36 @@ def test_parser_accepts_positional_project_name() -> None:
     assert args.preset == "asr-served-model"
 
 
+def test_parser_accepts_metaflow_backend() -> None:
+    args = build_parser().parse_args(
+        [
+            "new",
+            "metaflow-project",
+            "--preset",
+            "generic-classifier",
+            "--backend",
+            "metaflow",
+        ]
+    )
+
+    assert args.backend == "metaflow"
+
+
+def test_parser_accepts_provider_flag() -> None:
+    args = build_parser().parse_args(
+        [
+            "new",
+            "provider-project",
+            "--preset",
+            "generic-classifier",
+            "--provider",
+            "gcp",
+        ]
+    )
+
+    assert args.provider == "gcp"
+
+
 def test_parser_accepts_no_input_and_list_presets() -> None:
     no_input_args = build_parser().parse_args(["new", "banking-asr", "--preset", "asr-served-model", "--no-input"])
     list_args = build_parser().parse_args(["new", "--list-presets"])
@@ -424,6 +834,7 @@ def test_run_new_prints_next_command(tmp_path: Path, capsys) -> None:
             preset="kaggle",
             name="House Prices",
             target=target,
+            no_input=True,
             force=False,
         )
     )
@@ -437,7 +848,7 @@ def test_run_new_prints_next_command(tmp_path: Path, capsys) -> None:
 
 def test_run_new_prompts_for_missing_values(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    answers = iter(["served-model", "Churn API", "churn-api", "", "", "", ""])
+    answers = iter(["served-model", "Churn API", "", "", "", "", *([""] * len(SUPPORTED_INFRA))])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
 
     result = run_new(
@@ -451,12 +862,82 @@ def test_run_new_prompts_for_missing_values(tmp_path: Path, monkeypatch, capsys)
 
     output = capsys.readouterr().out
     assert result == 0
+    for label in ("Task options:", "Model type options:", "Backend options:", "Provider options:", "Components:"):
+        assert label in output
+    _, _, default_backend, _ = PRESET_DEFAULTS["served-model"]
     assert "Preset: served-model" in output
+    assert f"Backend: {default_backend}" in output
     assert (tmp_path / "churn-api" / "churn_api" / "api.py").exists()
+
+
+class _FakeAsk:
+    """Mimics questionary's Question object: .ask() returns a fixed value."""
+
+    def __init__(self, answer):
+        self._answer = answer
+
+    def ask(self):
+        return self._answer
+
+
+def _forbidden(name):
+    def _raise(*_args, **_kwargs):
+        raise AssertionError(f"questionary.{name} must not be called")
+
+    return _raise
+
+
+def test_run_new_uses_questionary_prompts_when_tty(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(orchestrator_cli, "_has_tui", lambda: True)
+    monkeypatch.setattr(orchestrator_cli.questionary, "text", lambda label: _FakeAsk("Churn API"))
+
+    def fake_select(label, choices, default):
+        chosen = {"Project type": "served-model", "Task": "regression", "Provider": "gcp"}
+        return _FakeAsk(chosen.get(label, default))
+
+    monkeypatch.setattr(orchestrator_cli.questionary, "select", fake_select)
+    monkeypatch.setattr(
+        orchestrator_cli.questionary, "checkbox", lambda label, choices: _FakeAsk(["registry"])
+    )
+
+    result = run_new(Namespace(preset=None, name=None, target=None, force=False))
+
+    output = capsys.readouterr().out
+    assert result == 0
+    assert "Task: regression" in output
+    assert "Provider: gcp" in output
+    components_line = next(line for line in output.splitlines() if line.startswith("Components:"))
+    assert "registry" in components_line
+    assert "docker" not in components_line
+    assert (tmp_path / "churn-api" / "churn_api" / "api.py").exists()
+
+
+def test_run_new_no_input_never_invokes_any_prompt(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(orchestrator_cli.questionary, "select", _forbidden("select"))
+    monkeypatch.setattr(orchestrator_cli.questionary, "checkbox", _forbidden("checkbox"))
+    monkeypatch.setattr(orchestrator_cli.questionary, "text", _forbidden("text"))
+    monkeypatch.setattr("builtins.input", _forbidden("input"))
+
+    result = run_new(
+        Namespace(
+            preset="served-model",
+            name="Churn API",
+            target=None,
+            no_input=True,
+            list_presets=False,
+            force=False,
+        )
+    )
+
+    assert result == 0
+    assert (tmp_path / "churn-api" / "churn_api" / "api.py").exists()
+
 
 def test_run_new_uses_safe_default_directory(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    answers = iter(["asr-served-model", "Banking ASR", "", "", "", "", ""])
+    answers = iter(["asr-served-model", "Banking ASR", "", "", "", "", *([""] * len(SUPPORTED_INFRA))])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
 
     result = run_new(
@@ -472,7 +953,7 @@ def test_run_new_uses_safe_default_directory(tmp_path: Path, monkeypatch) -> Non
     assert (tmp_path / "banking-asr" / "banking_asr" / "api.py").exists()
 
 
-def test_run_new_uses_positional_name_and_default_target(tmp_path: Path, monkeypatch) -> None:
+def test_run_new_uses_positional_name_and_default_target(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 
     result = run_new(
@@ -487,7 +968,11 @@ def test_run_new_uses_positional_name_and_default_target(tmp_path: Path, monkeyp
         )
     )
 
+    output = capsys.readouterr().out
     assert result == 0
+    default_task, _, default_backend, _ = PRESET_DEFAULTS["asr-served-model"]
+    assert f"Task: {default_task}" in output
+    assert f"Backend: {default_backend}" in output
     assert (tmp_path / "banking-asr" / "banking_asr" / "api.py").exists()
 
 

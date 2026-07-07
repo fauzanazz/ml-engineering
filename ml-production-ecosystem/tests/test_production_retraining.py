@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 import json
 import subprocess
@@ -6,7 +7,12 @@ import sys
 import pytest
 
 from ml_production_ecosystem.production_patterns.retraining import run_retraining
-from ml_production_ecosystem.recommendation.train import get_active_model
+from ml_production_ecosystem.recommendation.train import (
+    get_active_model,
+    get_model_version,
+    register_model_version,
+    set_active_model,
+)
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "recommendation"
 
@@ -370,3 +376,133 @@ def test_production_retrain_cli_prints_summary(tmp_path: Path) -> None:
     assert summary["model_name"] == "movielens-popularity"
     assert summary["version"] == "foundation-config-v1"
     assert summary["set_active"] is True
+
+
+def test_run_retraining_compare_to_active_uses_champion_metrics_as_baseline(tmp_path: Path) -> None:
+    registry_path = tmp_path / "registry" / "models.json"
+    champion_metrics_path = tmp_path / "champion-metrics.json"
+    champion_metrics_path.write_text(json.dumps({"candidate_count": 1.0}))
+    register_model_version(
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        version="champion-v0",
+        artifact_uri=str(tmp_path / "champion-artifact"),
+        metrics_uri=str(champion_metrics_path),
+    )
+    set_active_model(registry_path, "movielens-popularity", "champion-v0")
+
+    metrics_path = tmp_path / "artifacts" / "recommendation" / "foundation-config-v1" / "metrics.json"
+    config_path = _write_retraining_config(
+        tmp_path,
+        registry_path,
+        quality_gate_block=f"""
+
+quality_gate:
+  enabled: true
+  metrics_path: {metrics_path}
+  compare_to_active: true
+  minimum_deltas:
+    candidate_count: 1.0
+""".rstrip(),
+    )
+
+    summary = run_retraining(
+        config_path,
+        set_active=True,
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        require_quality_gate=True,
+    )
+
+    assert summary["quality_gate"] == {"passed": True, "failures": []}
+    assert summary["status"] == "completed"
+    active = get_active_model(registry_path, "movielens-popularity")
+    assert active["version"] == "foundation-config-v1"
+
+
+def test_run_retraining_compare_to_active_fails_and_keeps_champion_active(tmp_path: Path) -> None:
+    registry_path = tmp_path / "registry" / "models.json"
+    champion_metrics_path = tmp_path / "champion-metrics.json"
+    champion_metrics_path.write_text(json.dumps({"candidate_count": 100.0}))
+    register_model_version(
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        version="champion-v0",
+        artifact_uri=str(tmp_path / "champion-artifact"),
+        metrics_uri=str(champion_metrics_path),
+    )
+    set_active_model(registry_path, "movielens-popularity", "champion-v0")
+
+    metrics_path = tmp_path / "artifacts" / "recommendation" / "foundation-config-v1" / "metrics.json"
+    config_path = _write_retraining_config(
+        tmp_path,
+        registry_path,
+        quality_gate_block=f"""
+
+quality_gate:
+  enabled: true
+  metrics_path: {metrics_path}
+  compare_to_active: true
+  minimum_deltas:
+    candidate_count: 1.0
+""".rstrip(),
+    )
+
+    summary = run_retraining(
+        config_path,
+        set_active=True,
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        require_quality_gate=True,
+    )
+
+    assert summary["status"] == "failed_quality_gate"
+    assert summary["set_active"] is False
+    assert summary["quality_gate"]["passed"] is False
+    assert "candidate_count" in summary["quality_gate"]["failures"][0]
+    active = get_active_model(registry_path, "movielens-popularity")
+    assert active["version"] == "champion-v0"
+
+
+def test_run_retraining_records_promotion_metadata_from_quality_gate(tmp_path: Path) -> None:
+    registry_path = tmp_path / "registry" / "models.json"
+    metrics_path = tmp_path / "artifacts" / "recommendation" / "foundation-config-v1" / "metrics.json"
+    config_path = _write_retraining_config(
+        tmp_path,
+        registry_path,
+        quality_gate_block=f"""
+
+quality_gate:
+  enabled: true
+  metrics_path: {metrics_path}
+  minimums:
+    candidate_count: 1
+""".rstrip(),
+    )
+
+    run_retraining(
+        config_path,
+        set_active=True,
+        registry_path=registry_path,
+        model_name="movielens-popularity",
+        require_quality_gate=True,
+    )
+
+    entry = get_model_version(registry_path, "movielens-popularity", "foundation-config-v1")
+    assert entry["promotion_reason"] == "quality_gate_passed"
+    assert entry["promotion_source"] == "retraining"
+    datetime.fromisoformat(entry["promoted_at"])
+
+    raw_registry = json.loads(registry_path.read_text())
+    assert raw_registry["active"]["movielens-popularity"] == "foundation-config-v1"
+
+
+def test_run_retraining_records_manual_promotion_reason_without_quality_gate(tmp_path: Path) -> None:
+    registry_path = tmp_path / "registry" / "models.json"
+    config_path = _write_retraining_config(tmp_path, registry_path)
+
+    run_retraining(config_path, set_active=True, registry_path=registry_path, model_name="movielens-popularity")
+
+    entry = get_model_version(registry_path, "movielens-popularity", "foundation-config-v1")
+    assert entry["promotion_reason"] == "manual"
+    assert entry["promotion_source"] == "retraining"

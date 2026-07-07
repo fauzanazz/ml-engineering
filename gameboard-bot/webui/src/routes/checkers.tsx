@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { RotateCcw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import CheckersBoard from '../components/CheckersBoard'
 import WinMeter from '../components/WinMeter'
 import {
@@ -142,7 +143,7 @@ function Checkers() {
     <main className="page-wrap flex min-h-[calc(100vh-var(--navbar-h))] flex-col items-center px-4 py-6">
       <div className="mb-4 text-center">
         <p className="island-kicker mb-1">International Draughts</p>
-        <h1 className="display-title text-3xl font-bold text-[var(--sea-ink)] sm:text-4xl">
+        <h1 className="display-title text-3xl font-bold text-foreground sm:text-4xl">
           {banner}
         </h1>
       </div>
@@ -162,7 +163,7 @@ function Checkers() {
         </div>
 
         <aside className="flex shrink-0 flex-col gap-4 sm:w-56">
-          <div className="island-shell flex h-28 rounded-xl p-3">
+          <div className="flex h-28 rounded-xl border bg-card text-card-foreground shadow-sm p-3">
             <WinMeter
               south={whitePct}
               southLabel="White"
@@ -171,7 +172,7 @@ function Checkers() {
             />
           </div>
 
-          <div className="island-shell rounded-xl p-3">
+          <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-3">
             <p className="island-kicker mb-2 text-[0.6rem]">You play</p>
             <div className="flex gap-2">
               {(['white', 'black'] as const).map((color) => (
@@ -185,10 +186,10 @@ function Checkers() {
                   }}
                   className="flex-1 rounded-lg border px-2 py-1.5 text-sm font-semibold capitalize transition"
                   style={{
-                    borderColor: 'var(--line)',
+                    borderColor: 'var(--border)',
                     background:
-                      color === humanColor ? 'var(--selection)' : 'var(--chip-bg)',
-                    color: 'var(--sea-ink)',
+                      color === humanColor ? 'var(--selection)' : 'var(--secondary)',
+                    color: 'var(--foreground)',
                   }}
                 >
                   {color}
@@ -197,7 +198,7 @@ function Checkers() {
             </div>
           </div>
 
-          <div className="island-shell rounded-xl p-3">
+          <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-3">
             <p className="island-kicker mb-2 text-[0.6rem]">Difficulty</p>
             <div className="flex flex-col gap-1.5">
               {(Object.keys(DIFFICULTY) as DifficultyKey[]).map((key) => (
@@ -211,10 +212,10 @@ function Checkers() {
                   }}
                   className="rounded-lg border px-2 py-1.5 text-sm font-semibold transition"
                   style={{
-                    borderColor: 'var(--line)',
+                    borderColor: 'var(--border)',
                     background:
-                      key === difficulty ? 'var(--selection)' : 'var(--chip-bg)',
-                    color: 'var(--sea-ink)',
+                      key === difficulty ? 'var(--selection)' : 'var(--secondary)',
+                    color: 'var(--foreground)',
                   }}
                 >
                   {DIFFICULTY[key].label}
@@ -223,18 +224,19 @@ function Checkers() {
             </div>
           </div>
 
-          <button
+          <Button
             type="button"
             onClick={newGame}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--btn-primary-bg)] px-5 py-2.5 text-sm font-bold text-[var(--btn-primary-fg)] shadow-[var(--shadow-btn)] transition hover:-translate-y-0.5 hover:opacity-90"
+            size="sm"
+            className="rounded-full gap-2 px-5 py-2.5 text-sm font-bold shadow-lg transition hover:-translate-y-0.5 hover:opacity-90"
           >
             <RotateCcw size={16} />
             New Game
-          </button>
+          </Button>
 
           <Link
             to="/"
-            className="text-center text-sm font-semibold text-[var(--sea-ink-soft)]"
+            className="text-center text-sm font-semibold text-muted-foreground"
           >
             ← Back
           </Link>

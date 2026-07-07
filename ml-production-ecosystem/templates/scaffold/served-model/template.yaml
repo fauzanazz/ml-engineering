@@ -6,7 +6,10 @@ contract:
     - package_name
     - preset
   entrypoints:
+    serve: uv run serve
     test: uv run pytest
+    build: uv build
+    docker_build: docker build -t {{package_name}} .
   generated_paths:
     - README.md
     - pyproject.toml

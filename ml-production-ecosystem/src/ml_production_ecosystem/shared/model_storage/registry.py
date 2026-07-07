@@ -29,6 +29,8 @@ def register_model_version(
     metrics_uri: str,
     stage: str = "candidate",
     set_active: bool = False,
+    promotion_reason: str | None = None,
+    promotion_source: str | None = None,
 ) -> dict[str, Any]:
     registry = _load(registry_path)
     models = registry["models"]
@@ -37,14 +39,19 @@ def register_model_version(
         for model in models
         if not (model.get("model_name") == model_name and model.get("version") == version)
     ]
+    created_at = datetime.now(UTC).isoformat()
     entry = {
         "model_name": model_name,
         "version": version,
         "artifact_uri": artifact_uri,
         "metrics_uri": metrics_uri,
         "stage": stage,
-        "created_at": datetime.now(UTC).isoformat(),
+        "created_at": created_at,
     }
+    if set_active and (promotion_reason is not None or promotion_source is not None):
+        entry["promoted_at"] = created_at
+        entry["promotion_reason"] = promotion_reason or "manual"
+        entry["promotion_source"] = promotion_source or "manual"
     models.append(entry)
     if set_active:
         registry["active"][model_name] = version
@@ -80,12 +87,25 @@ def get_active_model(registry_path: Path, model_name: str) -> dict[str, Any] | N
 
 
 def set_active_model(
-    registry_path: Path, model_name: str, version: str
+    registry_path: Path,
+    model_name: str,
+    version: str,
+    promotion_reason: str | None = None,
+    promotion_source: str | None = None,
 ) -> dict[str, Any]:
     model = get_model_version(registry_path, model_name, version)
     if model is None:
         raise ValueError(f"model version not found: {model_name}:{version}")
     registry = _load(registry_path)
+    promoted_at = datetime.now(UTC).isoformat()
     registry["active"][model_name] = version
+    for entry in registry["models"]:
+        if entry.get("model_name") == model_name and entry.get("version") == version:
+            if promotion_reason is not None or promotion_source is not None:
+                entry["promoted_at"] = promoted_at
+                entry["promotion_reason"] = promotion_reason or "manual"
+                entry["promotion_source"] = promotion_source or "manual"
+            model = entry
+            break
     _write(registry_path, registry)
     return model
