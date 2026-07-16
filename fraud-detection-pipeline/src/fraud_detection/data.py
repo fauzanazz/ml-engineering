@@ -13,7 +13,7 @@ def load_time_split_batch(path, batch_size: int, target_column: str = "Class", t
     if not 0 < test_size < 1:
         raise ValueError("test_size must satisfy 0 < test_size < 1")
 
-    batch = pd.read_csv(path, nrows=batch_size).sort_values("Time")
+    batch = pd.read_csv(path, nrows=batch_size).sort_values("Time", kind="mergesort")
     feature_cols = [c for c in batch.columns if c != target_column]
 
     split_index = int(len(batch) * (1 - test_size))
@@ -45,7 +45,7 @@ def load_three_way_split(
             "val_size and test_size must each be in (0, 1) and sum to less than 1"
         )
 
-    df = pd.read_csv(path, nrows=batch_size).sort_values("Time")
+    df = pd.read_csv(path, nrows=batch_size).sort_values("Time", kind="mergesort")
     feature_cols = [c for c in df.columns if c != target_column]
 
     n = len(df)

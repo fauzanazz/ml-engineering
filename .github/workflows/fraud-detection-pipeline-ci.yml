@@ -1,0 +1,36 @@
+name: Fraud Detection CI
+
+on:
+  push:
+    paths:
+      - 'fraud-detection-pipeline/**'
+      - '.github/workflows/fraud-detection-pipeline-ci.yml'
+  pull_request:
+    paths:
+      - 'fraud-detection-pipeline/**'
+      - '.github/workflows/fraud-detection-pipeline-ci.yml'
+
+jobs:
+  test:
+    name: Test fraud detection pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install locked dependencies
+        working-directory: fraud-detection-pipeline
+        run: uv sync --locked
+
+      - name: Run tests
+        working-directory: fraud-detection-pipeline
+        run: uv run pytest -q

@@ -1,21 +1,40 @@
 # Artifact Security
 
-## joblib model files (`model.joblib`)
+## Trust boundary
 
-`joblib.load` deserialises Python objects using `pickle` internally.
-**Loading a `.joblib` file from an untrusted source can execute arbitrary code.**
+`bundle.joblib` contains the fitted estimator and `FeaturePipeline`. Joblib uses Python pickle internally; loading it can execute arbitrary code. Only load a bundle produced by a trusted run in a trusted environment.
 
-Rules:
-- Only load `model.joblib` files produced by this pipeline from a trusted source (your own CI, a verified artifact store).
-- Never load a `.joblib` received over an unauthenticated channel.
-- When a `.joblib` is written, `metrics.json` will contain a `model_artifact_warning` field as a reminder.
+The scoring CLI requires an explicit acknowledgement:
 
-## LightGBM model files (`model.txt`)
+```bash
+uv run fraud-detect-score \
+  --run-dir artifacts/runs/<run-id> \
+  --input-path examples/transaction.json \
+  --trust-artifact
+```
 
-LightGBM's native text format is not a deserialisation format and does not execute code on load.
-No special trust requirement beyond data integrity.
+The Python API applies the same boundary:
 
-## Stable artifact manifest
+```python
+bundle = load_bundle(run_dir, trusted=True)
+```
 
-`config.json` for each run includes a `model_artifact` field with the filename (`model.txt` or `model.joblib`).
-Consumers should read `config["model_artifact"]` to locate the model file rather than hard-coding the name.
+Without `trusted=True`, loading fails with `Refusing to load pickle-based artifact without trusted=True`.
+
+## Integrity verification
+
+Schema-version-1 `config.json` records a SHA-256 manifest for `bundle.joblib`. `load_bundle` verifies that digest before calling `joblib.load`; a mismatch fails before deserialization. This detects accidental corruption or substitution relative to the trusted manifest.
+
+SHA-256 is an integrity check, not a sandbox, signature, or proof that the original producer was trustworthy. A malicious actor able to replace both the bundle and manifest can still supply executable pickle content.
+
+`evaluation.npz` has a separate SHA-256 manifest. Report generation verifies it and reads only held-out labels and scores; it never loads `bundle.joblib`.
+
+## Repository policy
+
+- Do not commit or distribute `bundle.joblib` from local runs.
+- Do not commit `evaluation.npz`, raw CSV data, or row-level predictions.
+- Publish the generated Markdown report and SVG plots instead.
+- Preserve `config.json` and `metrics.json` locally when auditing a run, but treat them as run evidence rather than a trust signature.
+- Recreate a bundle from locked source and a verified dataset when provenance is uncertain.
+
+The legacy `model.txt`/`model.joblib` split described in early step documentation is no longer the current artifact contract. See the [README artifact contract](../README.md#artifact-contract-and-trust).

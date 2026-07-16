@@ -29,6 +29,7 @@ artifacts/
 # uv
 .uv/
 uv.lock
+!fraud-detection-pipeline/uv.lock
 
 # AI harness / local agent config
 .claude/

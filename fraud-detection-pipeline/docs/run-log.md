@@ -179,7 +179,7 @@ uv run fraud-detect-train --data-path data/creditcard.csv --batch-size 10000 \
 | LightGBM | 0.9997 | 0.8667 | **1.0000** | 0.9286 | 0.9897 | 0.9999 | **0.000319167s** |
 | XGBoost | **0.9998** | 0.8571 | 0.9231 | 0.8889 | 0.9757 | 0.9998 | 0.000534916s |
 
-**Best model by held-out test metrics**
+**Historical best model for this dated 10,000-row experiment**
 
 ```text
 Random Forest
@@ -201,6 +201,6 @@ LightGBM keeps perfect recall (`1.0000`) with much lower single-row latency (`0.
 
 **Interpretasi**
 
-Random Forest is the current winner for this `batch_size=10000` research batch because it reaches perfect precision, recall, F1, PR AUC, and ROC AUC on held-out test. The result is promising but should be verified on a bigger batch or full dataset because perfect scores on a small fraud slice can be unstable.
+Random Forest led this dated `batch_size=10000` research comparison, but the perfect small-slice metrics are not the current benchmark. The canonical predeclared 284,807-row result is reported in [`full-dataset-benchmark.md`](full-dataset-benchmark.md); it was not selected by comparing held-out test results.
 
 **See:** [docs/features/step-7-hyperparameter-tuning.md](features/step-7-hyperparameter-tuning.md)

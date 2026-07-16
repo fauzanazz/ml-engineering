@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.metrics import f1_score, precision_recall_curve, precision_score, recall_score
 
 _DEFAULT_SWEEP = [0.05, 0.10, 0.20, 0.30, 0.50, 0.70, 0.80, 0.90, 0.95]
 _VALID_OBJECTIVES = {"f1", "target-recall"}
@@ -33,18 +33,16 @@ def sweep_thresholds(
     thresholds: list[float] = _DEFAULT_SWEEP,
 ) -> list[ThresholdRow]:
     rows = []
-    for t in thresholds:
-        preds = apply_threshold(scores, threshold=t)
-        fp = int(((labels == 0) & (preds == 1)).sum())
-        fn = int(((labels == 1) & (preds == 0)).sum())
+    for threshold in thresholds:
+        predictions = apply_threshold(scores, threshold=threshold)
         rows.append(
             ThresholdRow(
-                threshold=t,
-                precision=float(precision_score(labels, preds, zero_division=0)),
-                recall=float(recall_score(labels, preds, zero_division=0)),
-                f1=float(f1_score(labels, preds, zero_division=0)),
-                false_positives=fp,
-                false_negatives=fn,
+                threshold=threshold,
+                precision=float(precision_score(labels, predictions, zero_division=0)),
+                recall=float(recall_score(labels, predictions, zero_division=0)),
+                f1=float(f1_score(labels, predictions, zero_division=0)),
+                false_positives=int(((labels == 0) & (predictions == 1)).sum()),
+                false_negatives=int(((labels == 1) & (predictions == 0)).sum()),
             )
         )
     return rows
@@ -57,45 +55,48 @@ def select_threshold_on_validation(
     target_recall: float = 0.95,
     thresholds: list[float] | None = None,
 ) -> ThresholdRow:
-    """Select best threshold from validation sweep.
-
-    objective='f1'           → row with highest F1; tie-break: higher threshold.
-    objective='target-recall' → among rows with recall >= target_recall, pick
-                                highest precision; tie-break: higher recall,
-                                then higher threshold.
-                                Fallback when none qualify: max F1 row
-                                (same tie-break as f1 mode).
-
-    Args:
-        labels: ground-truth binary labels.
-        scores: predicted probabilities.
-        objective: 'f1' or 'target-recall'.
-        target_recall: required recall floor; only used when objective='target-recall'.
-        thresholds: custom threshold list; defaults to _DEFAULT_SWEEP.
-
-    Returns:
-        ThresholdRow with selected threshold and its metrics.
-
-    Raises:
-        ValueError: objective not in {'f1','target-recall'} or target_recall not in [0,1].
-    """
     if objective not in _VALID_OBJECTIVES:
         raise ValueError(f"objective must be one of {_VALID_OBJECTIVES}, got {objective!r}")
     if not (0.0 <= target_recall <= 1.0):
         raise ValueError(f"target_recall must satisfy 0 <= target_recall <= 1, got {target_recall}")
 
-    rows = sweep_thresholds(labels, scores, thresholds=thresholds or _DEFAULT_SWEEP)
+    if thresholds is not None:
+        rows = sweep_thresholds(labels, scores, thresholds=thresholds)
+        def f1_key(row: ThresholdRow) -> tuple[float, float]:
+            return row.f1, row.threshold
+        if objective == "f1":
+            return max(rows, key=f1_key)
+        qualifying = [row for row in rows if row.recall >= target_recall]
+        return (
+            max(qualifying, key=lambda row: (row.precision, row.recall, row.threshold))
+            if qualifying
+            else max(rows, key=f1_key)
+        )
 
-    def _f1_key(row: ThresholdRow) -> tuple:
-        return (row.f1, row.threshold)
+    precision, recall, candidates = precision_recall_curve(labels, scores)
+    usable = (candidates > 0) & (candidates < 1)
+    if not usable.any():
+        raise ValueError("validation scores do not contain a usable threshold in (0, 1)")
 
-    if objective == "f1":
-        return max(rows, key=_f1_key)
+    candidates = candidates[usable]
+    precision = precision[:-1][usable]
+    recall = recall[:-1][usable]
+    denominators = precision + recall
+    f1 = np.divide(2 * precision * recall, denominators, out=np.zeros_like(denominators), where=denominators != 0)
 
-    # objective == 'target-recall'
-    qualifying = [r for r in rows if r.recall >= target_recall]
-    if qualifying:
-        return max(qualifying, key=lambda r: (r.precision, r.recall, r.threshold))
+    if objective == "target-recall" and np.any(recall >= target_recall):
+        eligible = np.flatnonzero(recall >= target_recall)
+        winner = eligible[np.lexsort((candidates[eligible], recall[eligible], precision[eligible]))[-1]]
+    else:
+        winner = int(np.lexsort((candidates, f1))[-1])
 
-    # fallback: no threshold meets target — pick max F1 (documented behaviour)
-    return max(rows, key=_f1_key)
+    threshold = float(candidates[winner])
+    predictions = apply_threshold(scores, threshold=threshold)
+    return ThresholdRow(
+        threshold=threshold,
+        precision=float(precision[winner]),
+        recall=float(recall[winner]),
+        f1=float(f1[winner]),
+        false_positives=int(((labels == 0) & (predictions == 1)).sum()),
+        false_negatives=int(((labels == 1) & (predictions == 0)).sum()),
+    )

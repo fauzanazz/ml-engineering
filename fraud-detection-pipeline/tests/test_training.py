@@ -259,8 +259,6 @@ def test_train_one_batch_result_has_latency_fields(tmp_path):
     assert result.predict_proba_latency_s >= 0.0
     assert result.predict_proba_latency_per_row_s is not None
     assert result.predict_proba_latency_per_row_s >= 0.0
-    # alias backward compat
-    assert result.inference_latency_s == result.predict_proba_latency_s
 
 
 def test_train_one_batch_with_val_size_result_has_latency_fields(tmp_path):
@@ -276,7 +274,6 @@ def test_train_one_batch_with_val_size_result_has_latency_fields(tmp_path):
     assert result.predict_proba_latency_s >= 0.0
     assert result.predict_proba_latency_per_row_s is not None
     assert result.predict_proba_latency_per_row_s >= 0.0
-    assert result.inference_latency_s == result.predict_proba_latency_s
 
 
 def test_predict_proba_latency_per_row_s_equals_batch_divided_by_rows(tmp_path):
@@ -383,3 +380,54 @@ def test_custom_factory_receives_scale_pos_weight_not_ignored(tmp_path):
 
     assert recording_factory._received_scale_pos_weight is not None
     assert recording_factory._received_scale_pos_weight > 0
+
+
+def test_training_result_retains_train_only_preprocessing_and_audit(tmp_path):
+    result = train_one_batch(
+        data_path=_minimal_csv(tmp_path),
+        model_factory=LightGbmFactory(),
+        batch_size=6,
+        test_size=0.5,
+    )
+
+    assert result.feature_pipeline.transform is not None
+    assert result.input_columns == ("Time", "V1", "V2", "Amount")
+    assert result.effective_threshold == pytest.approx(0.5)
+    assert result.split_audit.train.rows == 3
+    assert result.split_audit.test.rows == 3
+    assert result.split_audit.val is None
+    assert result.split_audit.train.positives == 1
+    assert result.split_audit.train.negatives == 2
+    assert result.split_audit.train.time_min == 1.0
+    assert result.split_audit.train.time_max == 3.0
+
+
+def test_training_rejects_empty_train_split(tmp_path):
+    path = tmp_path / "one.csv"
+    pd.DataFrame(
+        {"Time": [1], "V1": [0.0], "Amount": [1.0], "Class": [0]}
+    ).to_csv(path, index=False)
+
+    with pytest.raises(ValueError, match="^train split is empty$"):
+        train_one_batch(path, LightGbmFactory(), batch_size=1, test_size=0.5)
+
+
+def test_training_rejects_empty_validation_split(tmp_path):
+    path = tmp_path / "two.csv"
+    pd.DataFrame(
+        {
+            "Time": [1, 2],
+            "V1": [0.0, 1.0],
+            "Amount": [1.0, 2.0],
+            "Class": [0, 1],
+        }
+    ).to_csv(path, index=False)
+
+    with pytest.raises(ValueError, match="^validation split is empty$"):
+        train_one_batch(
+            path,
+            LightGbmFactory(),
+            batch_size=2,
+            val_size=0.2,
+            test_size=0.2,
+        )

@@ -28,8 +28,11 @@ def _class_weight(scale_pos_weight: float | None) -> dict | None:
 
 
 class LightGbmFactory:
-    def __init__(self, scale_pos_weight: float | None = None) -> None:
+    def __init__(
+        self, scale_pos_weight: float | None = None, random_state: int = 42
+    ) -> None:
         self._scale_pos_weight = scale_pos_weight
+        self._random_state = random_state
 
     def create(self, scale_pos_weight: float | None = None) -> LGBMClassifier:
         resolved = scale_pos_weight if scale_pos_weight is not None else self._scale_pos_weight
@@ -38,53 +41,65 @@ class LightGbmFactory:
             n_estimators=20,
             num_leaves=4,
             min_child_samples=1,
-            random_state=42,
+            random_state=self._random_state,
             verbose=-1,
             **extra,
         )
 
 
 class LogisticRegressionFactory:
+    def __init__(self, random_state: int = 42) -> None:
+        self._random_state = random_state
+
     def create(self, scale_pos_weight: float | None = None) -> LogisticRegression:
         return LogisticRegression(
             max_iter=1000,
-            random_state=42,
+            random_state=self._random_state,
             class_weight=_class_weight(scale_pos_weight),
         )
 
 
 class DecisionTreeFactory:
+    def __init__(self, random_state: int = 42) -> None:
+        self._random_state = random_state
+
     def create(self, scale_pos_weight: float | None = None) -> DecisionTreeClassifier:
         return DecisionTreeClassifier(
             max_depth=2,
-            random_state=42,
+            random_state=self._random_state,
             class_weight=_class_weight(scale_pos_weight),
         )
 
 
 class RandomForestFactory:
+    def __init__(self, random_state: int = 42) -> None:
+        self._random_state = random_state
+
     def create(self, scale_pos_weight: float | None = None) -> RandomForestClassifier:
         return RandomForestClassifier(
             n_estimators=20,
-            random_state=42,
+            random_state=self._random_state,
             class_weight=_class_weight(scale_pos_weight),
         )
 
 
 class XGBoostFactory:
+    def __init__(self, random_state: int = 42) -> None:
+        self._random_state = random_state
+
     def create(self, scale_pos_weight: float | None = None) -> XGBClassifier:
         extra: dict = {} if scale_pos_weight is None else {"scale_pos_weight": scale_pos_weight}
         return XGBClassifier(
             n_estimators=20,
             max_depth=4,
-            random_state=42,
+            random_state=self._random_state,
             eval_metric="logloss",
             verbosity=0,
             **extra,
         )
 
 
-FACTORY_MAP: dict[str, Callable[[], ModelFactory]] = {
+FACTORY_MAP: dict[str, Callable[..., ModelFactory]] = {
     "lightgbm": LightGbmFactory,
     "logistic-regression": LogisticRegressionFactory,
     "decision-tree": DecisionTreeFactory,

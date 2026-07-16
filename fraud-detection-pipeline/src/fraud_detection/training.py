@@ -6,19 +6,30 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
-from fraud_detection.data import load_time_split_batch
+from fraud_detection.data import load_three_way_split, load_time_split_batch
+from fraud_detection.features import FeaturePipeline
 from fraud_detection.metrics import ClassificationMetrics, MetricsAdapter, SklearnMetricsAdapter
 from fraud_detection.models import ModelFactory
+from fraud_detection.thresholds import apply_threshold, select_threshold_on_validation, validate_threshold
 
 ImbalanceStrategy = Literal["none", "scale-pos-weight"]
 ThresholdObjective = Literal["f1", "target-recall"]
 
 
 @dataclass(frozen=True)
-class SplitCounts:
-    train: int
-    test: int
-    val: int | None = None
+class PartitionAudit:
+    rows: int
+    positives: int
+    negatives: int
+    time_min: float
+    time_max: float
+
+
+@dataclass(frozen=True)
+class SplitAudit:
+    train: PartitionAudit
+    test: PartitionAudit
+    val: PartitionAudit | None = None
 
 
 @dataclass(frozen=True)
@@ -27,40 +38,33 @@ class TrainingResult:
     training_accuracy: float
     test_accuracy: float
     metrics: ClassificationMetrics
+    model: Any = field(compare=False)
+    feature_pipeline: FeaturePipeline = field(compare=False)
+    input_columns: tuple[str, ...]
+    effective_threshold: float
+    threshold_target_met: bool | None
+    threshold_fallback_used: bool
+    split_audit: SplitAudit
     test_labels: np.ndarray = field(default_factory=lambda: np.array([]), compare=False)
     test_scores: np.ndarray = field(default_factory=lambda: np.array([]), compare=False)
-    model: Any = field(default=None, compare=False)
     val_threshold: float | None = field(default=None, compare=False)
     val_metrics: ClassificationMetrics | None = field(default=None, compare=False)
     threshold_objective: ThresholdObjective | None = field(default=None, compare=False)
     target_recall: float | None = field(default=None, compare=False)
-    split_counts: SplitCounts | None = field(default=None, compare=False)
     predict_proba_latency_s: float | None = field(default=None, compare=False)
     predict_proba_latency_per_row_s: float | None = field(default=None, compare=False)
     single_row_latency_s: float | None = field(default=None, compare=False)
 
-    @property
-    def inference_latency_s(self) -> float | None:
-        """Alias for predict_proba_latency_s — backward compat."""
-        return self.predict_proba_latency_s
-
 
 def _measure_single_row_latency(model, one_row, *, n_repeats: int = 5) -> float | None:
-    """Median latency for a single-row predict_proba call.
-
-    One warmup call runs first (excluded from timing) so JIT/cache effects
-    don't skew the first timed sample.
-
-    Returns None if model lacks predict_proba.
-    """
     if not hasattr(model, "predict_proba"):
         return None
-    model.predict_proba(one_row)  # warmup — excluded from timing
+    model.predict_proba(one_row)
     times = []
     for _ in range(n_repeats):
-        t0 = time.perf_counter()
+        started = time.perf_counter()
         model.predict_proba(one_row)
-        times.append(time.perf_counter() - t0)
+        times.append(time.perf_counter() - started)
     return float(np.median(times))
 
 
@@ -72,6 +76,26 @@ def compute_scale_pos_weight(train_target: pd.Series) -> float:
     if negative_count == 0:
         raise ValueError("compute_scale_pos_weight: no negative samples in train target")
     return negative_count / positive_count
+
+
+def _audit_partition(name: str, features: pd.DataFrame, target: pd.Series) -> PartitionAudit:
+    if features.empty:
+        raise ValueError(f"{name} split is empty")
+    return PartitionAudit(
+        rows=len(features),
+        positives=int((target == 1).sum()),
+        negatives=int((target == 0).sum()),
+        time_min=float(features["Time"].min()),
+        time_max=float(features["Time"].max()),
+    )
+
+
+def _fit_and_transform(
+    raw_train: pd.DataFrame,
+    *partitions: pd.DataFrame,
+) -> tuple[FeaturePipeline, list[pd.DataFrame]]:
+    pipeline = FeaturePipeline().fit(raw_train)
+    return pipeline, [pipeline.transform(partition) for partition in (raw_train, *partitions)]
 
 
 def train_one_batch(
@@ -87,10 +111,8 @@ def train_one_batch(
     threshold_objective: ThresholdObjective = "f1",
     target_recall: float | None = None,
 ) -> TrainingResult:
-    from fraud_detection.thresholds import apply_threshold, select_threshold_on_validation, validate_threshold
-
     validate_threshold(decision_threshold)
-    resolved_adapter = metrics_adapter if metrics_adapter is not None else SklearnMetricsAdapter()
+    adapter = metrics_adapter if metrics_adapter is not None else SklearnMetricsAdapter()
 
     if val_size is not None:
         return _train_with_validation(
@@ -102,50 +124,45 @@ def train_one_batch(
             val_size=val_size,
             threshold_objective=threshold_objective,
             target_recall=target_recall,
-            metrics_adapter=resolved_adapter,
+            metrics_adapter=adapter,
             imbalance_strategy=imbalance_strategy,
         )
 
-    train_features, test_features, train_target, test_target = load_time_split_batch(
-        data_path,
-        batch_size,
-        target_column,
-        test_size,
+    raw_train, raw_test, train_target, test_target = load_time_split_batch(
+        data_path, batch_size, target_column, test_size
     )
+    split_audit = SplitAudit(
+        train=_audit_partition("train", raw_train, train_target),
+        test=_audit_partition("test", raw_test, test_target),
+    )
+    pipeline, (train_features, test_features) = _fit_and_transform(raw_train, raw_test)
 
-    scale_pos_weight = compute_scale_pos_weight(train_target) if imbalance_strategy == "scale-pos-weight" else None
-    model = model_factory.create(scale_pos_weight=scale_pos_weight)
+    weight = compute_scale_pos_weight(train_target) if imbalance_strategy == "scale-pos-weight" else None
+    model = model_factory.create(scale_pos_weight=weight)
     model.fit(train_features, train_target)
     train_predictions = model.predict(train_features)
-    _t0 = time.perf_counter()
+    started = time.perf_counter()
     test_scores = model.predict_proba(test_features)[:, 1]
-    predict_proba_latency_s = time.perf_counter() - _t0
+    batch_latency = time.perf_counter() - started
+    test_labels = test_target.to_numpy()
     test_predictions = apply_threshold(test_scores, threshold=decision_threshold)
 
-    test_labels = test_target.to_numpy()
-    training_accuracy = float((train_predictions == train_target).mean())
-    test_accuracy = float((test_predictions == test_labels).mean())
-    metrics = resolved_adapter.compute(
-        test_labels,
-        predictions=test_predictions,
-        scores=test_scores,
-    )
-    n_test_rows = len(test_labels)
-    predict_proba_latency_per_row_s = predict_proba_latency_s / n_test_rows if n_test_rows > 0 else None
-    single_row_latency_s = _measure_single_row_latency(model, test_features.iloc[:1])
-
-    return TrainingResult(
-        predictions=test_predictions.tolist(),
-        training_accuracy=training_accuracy,
-        test_accuracy=test_accuracy,
-        metrics=metrics,
+    return _build_result(
+        model=model,
+        pipeline=pipeline,
+        input_columns=tuple(raw_train.columns),
+        split_audit=split_audit,
+        train_target=train_target,
+        train_predictions=train_predictions,
+        test_features=test_features,
         test_labels=test_labels,
         test_scores=test_scores,
-        model=model,
-        split_counts=SplitCounts(train=len(train_target), test=len(test_target)),
-        predict_proba_latency_s=predict_proba_latency_s,
-        predict_proba_latency_per_row_s=predict_proba_latency_per_row_s,
-        single_row_latency_s=single_row_latency_s,
+        test_predictions=test_predictions,
+        metrics_adapter=adapter,
+        effective_threshold=decision_threshold,
+        threshold_target_met=None,
+        threshold_fallback_used=False,
+        batch_latency=batch_latency,
     )
 
 
@@ -161,70 +178,111 @@ def _train_with_validation(
     metrics_adapter: MetricsAdapter,
     imbalance_strategy: ImbalanceStrategy,
 ) -> TrainingResult:
-    from fraud_detection.data import load_three_way_split
-    from fraud_detection.features import FeaturePipeline
-    from fraud_detection.thresholds import apply_threshold, select_threshold_on_validation
-
-    raw_train_feat, raw_val_feat, raw_test_feat, train_target, val_target, test_target = (
-        load_three_way_split(
-            path=data_path,
-            val_size=val_size,
-            test_size=test_size,
-            target_column=target_column,
-            batch_size=batch_size,
-        )
+    raw_train, raw_val, raw_test, train_target, val_target, test_target = load_three_way_split(
+        path=data_path,
+        val_size=val_size,
+        test_size=test_size,
+        target_column=target_column,
+        batch_size=batch_size,
+    )
+    split_audit = SplitAudit(
+        train=_audit_partition("train", raw_train, train_target),
+        val=_audit_partition("validation", raw_val, val_target),
+        test=_audit_partition("test", raw_test, test_target),
+    )
+    pipeline, (train_features, val_features, test_features) = _fit_and_transform(
+        raw_train, raw_val, raw_test
     )
 
-    pipeline = FeaturePipeline().fit(raw_train_feat)
-    train_features = pipeline.transform(raw_train_feat)
-    val_features = pipeline.transform(raw_val_feat)
-    test_features = pipeline.transform(raw_test_feat)
-
-    scale_pos_weight = compute_scale_pos_weight(train_target) if imbalance_strategy == "scale-pos-weight" else None
-    model = model_factory.create(scale_pos_weight=scale_pos_weight)
+    weight = compute_scale_pos_weight(train_target) if imbalance_strategy == "scale-pos-weight" else None
+    model = model_factory.create(scale_pos_weight=weight)
     model.fit(train_features, train_target)
 
     val_labels = val_target.to_numpy()
     val_scores = model.predict_proba(val_features)[:, 1]
-    best_row = select_threshold_on_validation(
+    requested_recall = target_recall if target_recall is not None else 0.95
+    selected = select_threshold_on_validation(
         val_labels,
         val_scores,
         objective=threshold_objective,
-        target_recall=target_recall if target_recall is not None else 0.95,
+        target_recall=requested_recall,
     )
-    val_threshold = best_row.threshold
-
-    val_predictions = apply_threshold(val_scores, threshold=val_threshold)
+    val_predictions = apply_threshold(val_scores, threshold=selected.threshold)
     val_metrics = metrics_adapter.compute(val_labels, predictions=val_predictions, scores=val_scores)
+    target_met = selected.recall >= requested_recall if threshold_objective == "target-recall" else None
 
     train_predictions = model.predict(train_features)
     test_labels = test_target.to_numpy()
-    _t0 = time.perf_counter()
+    started = time.perf_counter()
     test_scores = model.predict_proba(test_features)[:, 1]
-    predict_proba_latency_s = time.perf_counter() - _t0
-    test_predictions = apply_threshold(test_scores, threshold=val_threshold)
+    batch_latency = time.perf_counter() - started
+    test_predictions = apply_threshold(test_scores, threshold=selected.threshold)
 
-    training_accuracy = float((train_predictions == train_target).mean())
-    test_accuracy = float((test_predictions == test_labels).mean())
-    metrics = metrics_adapter.compute(test_labels, predictions=test_predictions, scores=test_scores)
-    n_test_rows = len(test_labels)
-    predict_proba_latency_per_row_s = predict_proba_latency_s / n_test_rows if n_test_rows > 0 else None
-    single_row_latency_s = _measure_single_row_latency(model, test_features.iloc[:1])
-
-    return TrainingResult(
-        predictions=test_predictions.tolist(),
-        training_accuracy=training_accuracy,
-        test_accuracy=test_accuracy,
-        metrics=metrics,
+    return _build_result(
+        model=model,
+        pipeline=pipeline,
+        input_columns=tuple(raw_train.columns),
+        split_audit=split_audit,
+        train_target=train_target,
+        train_predictions=train_predictions,
+        test_features=test_features,
         test_labels=test_labels,
         test_scores=test_scores,
+        test_predictions=test_predictions,
+        metrics_adapter=metrics_adapter,
+        effective_threshold=selected.threshold,
+        threshold_target_met=target_met,
+        threshold_fallback_used=target_met is False,
+        batch_latency=batch_latency,
+        val_threshold=selected.threshold,
+        val_metrics=val_metrics,
+        threshold_objective=threshold_objective,
+        target_recall=target_recall,
+    )
+
+
+def _build_result(
+    *,
+    model: Any,
+    pipeline: FeaturePipeline,
+    input_columns: tuple[str, ...],
+    split_audit: SplitAudit,
+    train_target: pd.Series,
+    train_predictions: np.ndarray,
+    test_features: pd.DataFrame,
+    test_labels: np.ndarray,
+    test_scores: np.ndarray,
+    test_predictions: np.ndarray,
+    metrics_adapter: MetricsAdapter,
+    effective_threshold: float,
+    threshold_target_met: bool | None,
+    threshold_fallback_used: bool,
+    batch_latency: float,
+    val_threshold: float | None = None,
+    val_metrics: ClassificationMetrics | None = None,
+    threshold_objective: ThresholdObjective | None = None,
+    target_recall: float | None = None,
+) -> TrainingResult:
+    row_count = len(test_labels)
+    return TrainingResult(
+        predictions=test_predictions.tolist(),
+        training_accuracy=float((train_predictions == train_target).mean()),
+        test_accuracy=float((test_predictions == test_labels).mean()),
+        metrics=metrics_adapter.compute(test_labels, predictions=test_predictions, scores=test_scores),
         model=model,
+        feature_pipeline=pipeline,
+        input_columns=input_columns,
+        effective_threshold=effective_threshold,
+        threshold_target_met=threshold_target_met,
+        threshold_fallback_used=threshold_fallback_used,
+        split_audit=split_audit,
+        test_labels=test_labels,
+        test_scores=test_scores,
         val_threshold=val_threshold,
         val_metrics=val_metrics,
         threshold_objective=threshold_objective,
         target_recall=target_recall,
-        split_counts=SplitCounts(train=len(train_target), val=len(val_target), test=len(test_target)),
-        predict_proba_latency_s=predict_proba_latency_s,
-        predict_proba_latency_per_row_s=predict_proba_latency_per_row_s,
-        single_row_latency_s=single_row_latency_s,
+        predict_proba_latency_s=batch_latency,
+        predict_proba_latency_per_row_s=batch_latency / row_count,
+        single_row_latency_s=_measure_single_row_latency(model, test_features.iloc[:1]),
     )

@@ -289,3 +289,23 @@ def test_three_way_split_rejects_invalid_sizes(tmp_path, val_size, test_size):
 
     with pytest.raises(ValueError):
         load_three_way_split(path, val_size=val_size, test_size=test_size)
+
+
+def test_equal_time_rows_keep_csv_order_across_split(tmp_path):
+    path = _make_csv(
+        tmp_path,
+        {
+            "Time": [1, 1, 1, 1, 1],
+            "V1": [10, 20, 30, 40, 50],
+            "Class": [0, 0, 1, 0, 1],
+        },
+    )
+
+    train_f, test_f, train_t, test_t = load_time_split_batch(
+        path, batch_size=5, test_size=0.4
+    )
+
+    assert train_f["V1"].tolist() == [10, 20, 30]
+    assert test_f["V1"].tolist() == [40, 50]
+    assert train_t.tolist() == [0, 0, 1]
+    assert test_t.tolist() == [0, 1]

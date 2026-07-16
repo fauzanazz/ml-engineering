@@ -83,7 +83,19 @@ def test_roc_auc_uses_scores_not_predictions(adapter):
 
 
 def test_classification_metrics_has_roc_auc_field():
-    m = ClassificationMetrics(precision=1.0, recall=1.0, f1=1.0, pr_auc=1.0, roc_auc=0.99)
+    m = ClassificationMetrics(
+        precision=1.0,
+        recall=1.0,
+        f1=1.0,
+        pr_auc=1.0,
+        roc_auc=0.99,
+        true_positives=2,
+        true_negatives=2,
+        false_positives=0,
+        false_negatives=0,
+        positive_support=2,
+        negative_support=2,
+    )
 
     assert m.roc_auc == pytest.approx(0.99)
 
@@ -118,3 +130,18 @@ def test_single_class_labels_pr_auc_defined_no_roc_warning(adapter):
     assert not math.isnan(metrics.pr_auc)
     assert 0.0 <= metrics.pr_auc <= 1.0
     assert math.isnan(metrics.roc_auc)
+
+
+def test_metrics_include_confusion_counts_and_support(adapter):
+    labels = np.array([0, 0, 0, 1, 1])
+    predictions = np.array([0, 1, 0, 1, 0])
+    scores = np.array([0.1, 0.8, 0.2, 0.9, 0.3])
+
+    metrics = adapter.compute(labels, predictions=predictions, scores=scores)
+
+    assert metrics.true_positives == 1
+    assert metrics.true_negatives == 2
+    assert metrics.false_positives == 1
+    assert metrics.false_negatives == 1
+    assert metrics.positive_support == 2
+    assert metrics.negative_support == 3

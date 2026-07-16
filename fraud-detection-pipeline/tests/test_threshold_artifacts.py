@@ -1,34 +1,49 @@
 import json
 
+import numpy as np
+import pandas as pd
 import pytest
 
-from fraud_detection.artifacts import write_artifacts
-from fraud_detection.metrics import ClassificationMetrics
-from fraud_detection.training import TrainingResult
+from fraud_detection.cli import main
+from fraud_detection.inference import load_bundle
 
 
-@pytest.fixture()
-def sample_result():
-    return TrainingResult(
-        predictions=[],
-        training_accuracy=0.999,
-        test_accuracy=0.998,
-        metrics=ClassificationMetrics(precision=0.81, recall=1.0, f1=0.90, pr_auc=0.97, roc_auc=0.95),
+def test_selected_threshold_matches_config_and_bundle(tmp_path):
+    path = tmp_path / "data.csv"
+    pd.DataFrame(
+        {
+            "Time": np.arange(20, dtype=float),
+            "Amount": np.resize([1.0, 100.0], 20),
+            "V1": np.resize([0.0, 4.0], 20),
+            "Class": np.resize([0, 1], 20),
+        }
+    ).to_csv(path, index=False)
+    artifact_dir = tmp_path / "runs"
+
+    main(
+        [
+            "--data-path",
+            str(path),
+            "--batch-size",
+            "20",
+            "--test-size",
+            "0.2",
+            "--val-size",
+            "0.2",
+            "--threshold-objective",
+            "target-recall",
+            "--target-recall",
+            "0.95",
+            "--model",
+            "logistic-regression",
+            "--artifact-dir",
+            str(artifact_dir),
+        ]
     )
 
-
-def test_config_includes_decision_threshold(tmp_path, sample_result):
-    config = {
-        "data_path": "data/creditcard.csv",
-        "batch_size": 256,
-        "test_size": 0.2,
-        "imbalance_strategy": "none",
-        "model_name": "LightGbmFactory",
-        "decision_threshold": 0.3,
-    }
-    run_dir = tmp_path / "run-threshold"
-
-    write_artifacts(run_dir, result=sample_result, config=config)
-
-    data = json.loads((run_dir / "config.json").read_text())
-    assert data["decision_threshold"] == pytest.approx(0.3)
+    run_dir = next(artifact_dir.iterdir())
+    config = json.loads((run_dir / "config.json").read_text())
+    bundle = load_bundle(run_dir, trusted=True)
+    assert bundle.effective_threshold == pytest.approx(
+        config["threshold"]["selected"]
+    )

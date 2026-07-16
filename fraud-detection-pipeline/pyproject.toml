@@ -1,7 +1,7 @@
 [project]
 name = "fraud-detection-pipeline"
 version = "0.1.0"
-description = "Minimal fraud detection pipeline with one LightGBM baseline."
+description = "Leakage-safe end-to-end credit-card fraud training, evaluation, and inference pipeline."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -15,9 +15,12 @@ dependencies = [
 
 [project.scripts]
 fraud-detect-train = "fraud_detection.cli:main"
+fraud-detect-score = "fraud_detection.score_cli:main"
+fraud-detect-report = "fraud_detection.reporting:main"
 
 [dependency-groups]
 dev = [
+    "matplotlib>=3.11.0",
     "pytest>=8.0.0",
 ]
 

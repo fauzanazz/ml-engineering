@@ -1,146 +1,86 @@
 import json
-from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import pytest
 
-from fraud_detection.metrics import ClassificationMetrics
-from fraud_detection.training import TrainingResult
+from fraud_detection.cli import main
 
 
-@pytest.fixture()
-def sample_result():
-    return TrainingResult(
-        predictions=[],
-        training_accuracy=0.999,
-        test_accuracy=0.998,
-        metrics=ClassificationMetrics(
-            precision=0.81,
-            recall=1.0,
-            f1=0.90,
-            pr_auc=0.97,
-            roc_auc=0.95,
-        ),
+def _csv(tmp_path, n: int = 20):
+    path = tmp_path / "creditcard.csv"
+    pd.DataFrame(
+        {
+            "Time": np.arange(n, dtype=float),
+            "Amount": np.resize([1.0, 100.0], n),
+            "V1": np.resize([0.0, 4.0], n),
+            "Class": np.resize([0, 1], n),
+        }
+    ).to_csv(path, index=False)
+    return path
+
+
+def test_cli_writes_structured_run_metadata_from_effective_argv(tmp_path, capsys):
+    path = _csv(tmp_path)
+    artifact_dir = tmp_path / "runs"
+    argv = [
+        "--data-path",
+        str(path),
+        "--batch-size",
+        "20",
+        "--test-size",
+        "0.2",
+        "--model",
+        "logistic-regression",
+        "--seed",
+        "7",
+        "--artifact-dir",
+        str(artifact_dir),
+    ]
+
+    main(argv)
+
+    output = capsys.readouterr().out
+    run_dir = next(artifact_dir.iterdir())
+    config = json.loads((run_dir / "config.json").read_text())
+    assert f"artifacts saved to {run_dir}" in output
+    assert config["command"] == ["fraud-detect-train", *argv]
+    assert config["dataset"]["rows"] == 20
+    assert config["run"]["seed"] == 7
+    assert config["run"]["duration_s"] >= 0
+    assert config["training"]["model_key"] == "logistic-regression"
+    assert config["training"]["estimator_class"] == "LogisticRegression"
+    assert config["split"]["audit"]["train"]["positives"] > 0
+    assert config["split"]["audit"]["test"]["negatives"] > 0
+    assert config["threshold"]["selected"] == pytest.approx(0.5)
+    assert config["threshold"]["objective"] == "fixed"
+
+
+def test_cli_validation_threshold_is_the_persisted_operational_threshold(tmp_path):
+    path = _csv(tmp_path)
+    artifact_dir = tmp_path / "runs"
+    main(
+        [
+            "--data-path",
+            str(path),
+            "--batch-size",
+            "20",
+            "--test-size",
+            "0.2",
+            "--val-size",
+            "0.2",
+            "--threshold-objective",
+            "target-recall",
+            "--target-recall",
+            "0.95",
+            "--model",
+            "logistic-regression",
+            "--artifact-dir",
+            str(artifact_dir),
+        ]
     )
 
-
-@pytest.fixture()
-def sample_config():
-    return {
-        "data_path": "data/creditcard.csv",
-        "batch_size": 10000,
-        "test_size": 0.2,
-        "imbalance_strategy": "none",
-        "model_name": "LightGbmFactory",
-    }
-
-
-def test_parse_args_default_artifact_dir_is_artifacts_runs():
-    from fraud_detection.cli import parse_args
-
-    args = parse_args(["--data-path", "data/creditcard.csv"])
-
-    assert args.artifact_dir == Path("artifacts/runs")
-
-
-def test_parse_args_accepts_custom_artifact_dir():
-    from fraud_detection.cli import parse_args
-
-    args = parse_args(["--data-path", "data/creditcard.csv", "--artifact-dir", "/tmp/myexp"])
-
-    assert args.artifact_dir == Path("/tmp/myexp")
-
-
-def test_parse_args_accepts_no_artifact_dir_flag():
-    from fraud_detection.cli import parse_args
-
-    args = parse_args(["--data-path", "data/creditcard.csv", "--no-artifacts"])
-
-    assert args.no_artifacts is True
-
-
-def test_make_run_id_is_deterministic_when_provided():
-    from fraud_detection.artifacts import make_run_dir
-
-    base = Path("/tmp/runs")
-    run_dir = make_run_dir(base, run_id="test-run-42")
-
-    assert run_dir == base / "test-run-42"
-
-
-def test_make_run_id_uses_timestamp_when_not_provided():
-    from fraud_detection.artifacts import make_run_dir
-
-    base = Path("/tmp/runs")
-    run_dir = make_run_dir(base)
-
-    # timestamped: starts with base path, name has digits
-    assert run_dir.parent == base
-    assert any(ch.isdigit() for ch in run_dir.name)
-
-
-def test_two_generated_run_dirs_are_unique():
-    from fraud_detection.artifacts import make_run_dir
-
-    base = Path("/tmp/runs")
-    dir1 = make_run_dir(base)
-    dir2 = make_run_dir(base)
-
-    assert dir1 != dir2
-
-
-def test_mkdir_raises_on_existing_run_dir(tmp_path):
-    from fraud_detection.artifacts import make_run_dir
-
-    base = tmp_path
-    run_dir = make_run_dir(base, run_id="fixed-run")
-    run_dir.mkdir(parents=True)
-
-    with pytest.raises(FileExistsError):
-        run_dir.mkdir(parents=True, exist_ok=False)
-
-
-def test_write_artifacts_raises_on_existing_metrics_json(tmp_path, sample_result, sample_config):
-    from fraud_detection.artifacts import write_artifacts
-
-    run_dir = tmp_path / "run-collision"
-    write_artifacts(run_dir, result=sample_result, config=sample_config)
-
-    with pytest.raises(FileExistsError):
-        write_artifacts(run_dir, result=sample_result, config=sample_config)
-
-
-def test_write_artifacts_raises_on_existing_config_json(tmp_path, sample_result, sample_config):
-    from fraud_detection.artifacts import write_artifacts
-
-    run_dir = tmp_path / "run-collision-cfg"
-    write_artifacts(run_dir, result=sample_result, config=sample_config)
-
-    with pytest.raises(FileExistsError):
-        write_artifacts(run_dir, result=sample_result, config=sample_config)
-
-
-def test_write_artifacts_raises_on_existing_model_txt(tmp_path, sample_result, sample_config):
-    from lightgbm import LGBMClassifier
-    import numpy as np
-    from fraud_detection.artifacts import write_artifacts
-
-    model = LGBMClassifier(n_estimators=5, num_leaves=4, verbose=-1, random_state=42)
-    rng = np.random.default_rng(0)
-    X = rng.standard_normal((50, 4))
-    y = np.array([0] * 40 + [1] * 10)
-    model.fit(X, y)
-
-    run_dir = tmp_path / "run-model-collision"
-    write_artifacts(run_dir, result=sample_result, config=sample_config, model=model)
-
-    with pytest.raises(FileExistsError):
-        write_artifacts(run_dir, result=sample_result, config=sample_config, model=model)
-
-
-def test_write_artifacts_returns_run_dir(tmp_path, sample_result, sample_config):
-    from fraud_detection.artifacts import write_artifacts
-
-    run_dir = tmp_path / "run-return"
-    returned = write_artifacts(run_dir, result=sample_result, config=sample_config)
-
-    assert returned == run_dir
+    config = json.loads((next(artifact_dir.iterdir()) / "config.json").read_text())
+    assert 0 < config["threshold"]["selected"] < 1
+    assert config["threshold"]["target_recall"] == pytest.approx(0.95)
+    assert isinstance(config["threshold"]["fallback_used"], bool)

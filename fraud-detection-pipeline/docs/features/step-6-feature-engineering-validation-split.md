@@ -66,14 +66,11 @@ New `select_threshold_on_validation()` function selects best threshold from a va
 | `val_metrics` | `ClassificationMetrics \| None` | Metrics at val threshold on val set |
 | `threshold_objective` | `str \| None` | `"f1"` or `"target-recall"` |
 | `target_recall` | `float \| None` | Floor used with `target-recall` objective |
-| `split_counts` | `SplitCounts \| None` | Row counts for train/val/test |
+| `split_counts` | `SplitCounts \| None` | Legacy row-count structure from this step |
 
-### Updated: `src/fraud_detection/artifacts.py`
+### Legacy artifact shape from this step
 
-`write_artifacts` conditionally appends to `metrics.json`:
-
-- `val_threshold`, `val_precision`, `val_recall`, `val_f1`, `val_pr_auc` — when `val_metrics` present
-- `split_train`, `split_val`, `split_test` — when `split_counts` present
+This step originally appended flat `val_threshold`, `val_precision`, `val_recall`, `val_f1`, `val_pr_auc`, `split_train`, `split_val`, and `split_test` keys to `metrics.json`. Current schema-version-1 artifacts serialize `SplitAudit` with class support and time ranges under `config.json`, and keep validation/test metrics nested as documented in the [README artifact contract](../../README.md#artifact-contract-and-trust).
 
 ### Updated: `src/fraud_detection/cli.py`
 

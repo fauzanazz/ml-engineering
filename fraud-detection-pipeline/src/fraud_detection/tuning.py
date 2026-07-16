@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -6,72 +7,21 @@ import numpy as np
 import optuna
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.metrics import average_precision_score
+from sklearn.model_selection import TimeSeriesSplit
 
+from fraud_detection.features import FeaturePipeline
 from fraud_detection.models import Classifier, ModelFactory
+from fraud_detection.training import ImbalanceStrategy, compute_scale_pos_weight
 
-# Suppress optuna's per-trial INFO logs — keep warnings/errors visible.
 optuna.logging.set_verbosity(logging.WARNING)
-
-
-def _validate_tuning_inputs(
-    X: pd.DataFrame, y: pd.Series, n_iter: int, scoring: str, cv: int | None = None
-) -> int:
-    """Validate inputs and return safe cv fold count.
-
-    Raises ValueError on unrecoverable conditions so callers can surface clean errors.
-    """
-    if n_iter < 1:
-        raise ValueError(f"n_iter must be >= 1, got {n_iter}")
-
-    counts = y.value_counts()
-    if len(counts) < 2:
-        raise ValueError(
-            f"y must contain at least 2 classes for {scoring}; found only class(es): {list(counts.index)}"
-        )
-    min_count = int(counts.min())
-    if min_count < 2:
-        raise ValueError(
-            f"Each class needs at least 2 samples for CV; minority class has {min_count} sample(s)"
-        )
-
-    safe_cv = max(2, min(3, min_count))
-
-    if cv is not None:
-        if cv < 2:
-            raise ValueError(f"cv must be >= 2, got {cv}")
-        if cv > min_count:
-            raise ValueError(
-                f"cv={cv} exceeds minority class count ({min_count}); "
-                f"each fold needs at least one minority sample"
-            )
-
-    return safe_cv
-
-
-def _make_cv(n_splits: int, random_state: int) -> StratifiedKFold:
-    return StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-
-
-def _run_optuna_study(
-    objective_fn: Any,
-    n_trials: int,
-    random_state: int,
-) -> optuna.Study:
-    sampler = optuna.samplers.TPESampler(seed=random_state)
-    study = optuna.create_study(direction="maximize", sampler=sampler)
-    study.optimize(objective_fn, n_trials=n_trials, show_progress_bar=False)
-    return study
-
 
 _RF_PARAM_SPACE = {
     "n_estimators": ([50, 100, 200], "categorical"),
     "max_depth": ([None, 5, 10, 20], "categorical"),
     "min_samples_split": ([2, 5, 10], "categorical"),
     "min_samples_leaf": ([1, 2, 4], "categorical"),
-    "max_features": (["sqrt", "log2", None], "categorical"),
 }
-
 _XGB_PARAM_SPACE = {
     "n_estimators": ([50, 100, 200], "categorical"),
     "max_depth": ([3, 5, 7, 9], "categorical"),
@@ -79,18 +29,103 @@ _XGB_PARAM_SPACE = {
     "subsample": ([0.6, 0.8, 1.0], "categorical"),
     "colsample_bytree": ([0.6, 0.8, 1.0], "categorical"),
 }
-
 _LGBM_PARAM_SPACE = {
     "n_estimators": ([50, 100, 200], "categorical"),
-    "max_depth": ([3, 5, 7, -1], "categorical"),
+    "max_depth": ([-1, 3, 5, 7], "categorical"),
     "learning_rate": ([0.01, 0.05, 0.1, 0.2, 0.3], "categorical"),
     "num_leaves": ([15, 31, 63, 127], "categorical"),
     "subsample": ([0.6, 0.8, 1.0], "categorical"),
 }
 
 
-def _suggest_params(trial: optuna.Trial, space: dict[str, tuple]) -> dict[str, Any]:
-    return {name: trial.suggest_categorical(name, choices) for name, (choices, _) in space.items()}
+def _validate_tuning_inputs(
+    X: pd.DataFrame,
+    y: pd.Series,
+    *,
+    n_iter: int,
+    cv: int,
+    scoring: str,
+) -> None:
+    if n_iter < 1:
+        raise ValueError(f"n_iter must be >= 1, got {n_iter}")
+    if cv < 2:
+        raise ValueError(f"cv must be >= 2, got {cv}")
+    if scoring != "average_precision":
+        raise ValueError("scoring must be 'average_precision'")
+    if "Time" not in X.columns:
+        raise ValueError("X must contain Time for temporal CV")
+    if not X["Time"].is_monotonic_increasing:
+        raise ValueError("X.Time must be monotonic nondecreasing for temporal CV")
+    if len(X) != len(y):
+        raise ValueError("X and y must contain the same number of rows")
+
+
+def _temporal_cv_scores(
+    X,
+    y,
+    *,
+    n_splits: int,
+    imbalance_strategy: ImbalanceStrategy,
+    build_estimator: Callable[[float | None], Classifier],
+) -> tuple[list[float], int]:
+    if "Time" not in X.columns or not X["Time"].is_monotonic_increasing:
+        raise ValueError("X.Time must be monotonic nondecreasing for temporal CV")
+
+    for effective_splits in range(n_splits, 1, -1):
+        try:
+            folds = list(TimeSeriesSplit(n_splits=effective_splits).split(X))
+        except ValueError:
+            continue
+        if any(
+            y.iloc[train_indices].nunique() < 2 or y.iloc[val_indices].nunique() < 2
+            for train_indices, val_indices in folds
+        ):
+            continue
+
+        scores: list[float] = []
+        for train_indices, val_indices in folds:
+            raw_train = X.iloc[train_indices]
+            raw_val = X.iloc[val_indices]
+            train_target = y.iloc[train_indices]
+            val_target = y.iloc[val_indices]
+            pipeline = FeaturePipeline().fit(raw_train)
+            train_features = pipeline.transform(raw_train)
+            val_features = pipeline.transform(raw_val)
+            weight = (
+                compute_scale_pos_weight(train_target)
+                if imbalance_strategy == "scale-pos-weight"
+                else None
+            )
+            estimator = build_estimator(weight)
+            estimator.fit(train_features, train_target)
+            scores.append(
+                float(
+                    average_precision_score(
+                        val_target, estimator.predict_proba(val_features)[:, 1]
+                    )
+                )
+            )
+        return scores, effective_splits
+
+    raise ValueError(
+        "no valid temporal CV with at least two folds; each fold train and validation must contain both classes"
+    )
+
+
+def _run_optuna_study(
+    objective: Callable[[optuna.Trial], float], n_trials: int, random_state: int
+) -> optuna.Study:
+    sampler = optuna.samplers.TPESampler(seed=random_state)
+    study = optuna.create_study(direction="maximize", sampler=sampler)
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+    return study
+
+
+def _suggest_params(trial: optuna.Trial, space: dict[str, tuple[list, str]]) -> dict[str, Any]:
+    return {
+        name: trial.suggest_categorical(name, choices)
+        for name, (choices, _) in space.items()
+    }
 
 
 class _TunedRandomForestFactory:
@@ -115,7 +150,7 @@ class _TunedXGBoostFactory:
     def create(self, scale_pos_weight: float | None = None) -> Classifier:
         from xgboost import XGBClassifier
 
-        extra: dict[str, float] = {} if scale_pos_weight is None else {"scale_pos_weight": scale_pos_weight}
+        extra = {} if scale_pos_weight is None else {"scale_pos_weight": scale_pos_weight}
         return XGBClassifier(
             **self._best_params,
             random_state=self._random_state,
@@ -133,7 +168,7 @@ class _TunedLightGbmFactory:
     def create(self, scale_pos_weight: float | None = None) -> Classifier:
         from lightgbm import LGBMClassifier
 
-        extra: dict[str, float] = {} if scale_pos_weight is None else {"scale_pos_weight": scale_pos_weight}
+        extra = {} if scale_pos_weight is None else {"scale_pos_weight": scale_pos_weight}
         return LGBMClassifier(
             **self._best_params,
             random_state=self._random_state,
@@ -148,6 +183,48 @@ class TuningResult:
     best_score: float
     scoring: str
     best_factory: ModelFactory
+    cv_splits: int
+    random_state: int
+    cv_strategy: str = "TimeSeriesSplit"
+
+
+def _tune(
+    X: pd.DataFrame,
+    y: pd.Series,
+    *,
+    n_iter: int,
+    cv: int,
+    scoring: str,
+    random_state: int,
+    imbalance_strategy: ImbalanceStrategy,
+    parameter_space: dict[str, tuple[list, str]],
+    build_candidate: Callable[[dict[str, Any], float | None], Classifier],
+    build_factory: Callable[[dict[str, Any], int], ModelFactory],
+) -> TuningResult:
+    _validate_tuning_inputs(X, y, n_iter=n_iter, cv=cv, scoring=scoring)
+    effective_cv = cv
+
+    def objective(trial: optuna.Trial) -> float:
+        nonlocal effective_cv
+        params = _suggest_params(trial, parameter_space)
+        scores, effective_cv = _temporal_cv_scores(
+            X,
+            y,
+            n_splits=cv,
+            imbalance_strategy=imbalance_strategy,
+            build_estimator=lambda weight: build_candidate(params, weight),
+        )
+        return float(np.mean(scores))
+
+    study = _run_optuna_study(objective, n_iter, random_state)
+    return TuningResult(
+        best_params=study.best_params,
+        best_score=float(study.best_value),
+        scoring=scoring,
+        best_factory=build_factory(study.best_params, random_state),
+        cv_splits=effective_cv,
+        random_state=random_state,
+    )
 
 
 def tune_random_forest(
@@ -155,28 +232,28 @@ def tune_random_forest(
     y: pd.Series,
     *,
     n_iter: int = 10,
-    cv: int | None = None,
-    scoring: str = "roc_auc",
+    cv: int = 3,
+    scoring: str = "average_precision",
     random_state: int = 42,
-    n_jobs: int = 1,
+    imbalance_strategy: ImbalanceStrategy = "none",
 ) -> TuningResult:
-    safe_cv = _validate_tuning_inputs(X, y, n_iter, scoring, cv)
-    effective_cv = cv if cv is not None else safe_cv
-    cv_splitter = _make_cv(effective_cv, random_state)
+    def build(params: dict[str, Any], weight: float | None) -> Classifier:
+        class_weight = None if weight is None else {0: 1.0, 1: weight}
+        return RandomForestClassifier(
+            **params, random_state=random_state, class_weight=class_weight
+        )
 
-    def objective(trial: optuna.Trial) -> float:
-        params = _suggest_params(trial, _RF_PARAM_SPACE)
-        estimator = RandomForestClassifier(**params, random_state=random_state)
-        scores = cross_val_score(estimator, X, y, cv=cv_splitter, scoring=scoring, n_jobs=n_jobs)
-        return float(np.mean(scores))
-
-    study = _run_optuna_study(objective, n_iter, random_state)
-    best_params = study.best_params
-    return TuningResult(
-        best_params=best_params,
-        best_score=study.best_value,
+    return _tune(
+        X,
+        y,
+        n_iter=n_iter,
+        cv=cv,
         scoring=scoring,
-        best_factory=_TunedRandomForestFactory(best_params, random_state),
+        random_state=random_state,
+        imbalance_strategy=imbalance_strategy,
+        parameter_space=_RF_PARAM_SPACE,
+        build_candidate=build,
+        build_factory=_TunedRandomForestFactory,
     )
 
 
@@ -185,35 +262,34 @@ def tune_xgboost(
     y: pd.Series,
     *,
     n_iter: int = 10,
-    cv: int | None = None,
-    scoring: str = "roc_auc",
+    cv: int = 3,
+    scoring: str = "average_precision",
     random_state: int = 42,
-    n_jobs: int = 1,
+    imbalance_strategy: ImbalanceStrategy = "none",
 ) -> TuningResult:
-    from xgboost import XGBClassifier
+    def build(params: dict[str, Any], weight: float | None) -> Classifier:
+        from xgboost import XGBClassifier
 
-    safe_cv = _validate_tuning_inputs(X, y, n_iter, scoring, cv)
-    effective_cv = cv if cv is not None else safe_cv
-    cv_splitter = _make_cv(effective_cv, random_state)
-
-    def objective(trial: optuna.Trial) -> float:
-        params = _suggest_params(trial, _XGB_PARAM_SPACE)
-        estimator = XGBClassifier(
+        extra = {} if weight is None else {"scale_pos_weight": weight}
+        return XGBClassifier(
             **params,
             random_state=random_state,
             eval_metric="logloss",
             verbosity=0,
+            **extra,
         )
-        scores = cross_val_score(estimator, X, y, cv=cv_splitter, scoring=scoring, n_jobs=n_jobs)
-        return float(np.mean(scores))
 
-    study = _run_optuna_study(objective, n_iter, random_state)
-    best_params = study.best_params
-    return TuningResult(
-        best_params=best_params,
-        best_score=study.best_value,
+    return _tune(
+        X,
+        y,
+        n_iter=n_iter,
+        cv=cv,
         scoring=scoring,
-        best_factory=_TunedXGBoostFactory(best_params, random_state),
+        random_state=random_state,
+        imbalance_strategy=imbalance_strategy,
+        parameter_space=_XGB_PARAM_SPACE,
+        build_candidate=build,
+        build_factory=_TunedXGBoostFactory,
     )
 
 
@@ -222,28 +298,31 @@ def tune_lightgbm(
     y: pd.Series,
     *,
     n_iter: int = 10,
-    cv: int | None = None,
-    scoring: str = "roc_auc",
+    cv: int = 3,
+    scoring: str = "average_precision",
     random_state: int = 42,
-    n_jobs: int = 1,
+    imbalance_strategy: ImbalanceStrategy = "none",
 ) -> TuningResult:
-    from lightgbm import LGBMClassifier
+    def build(params: dict[str, Any], weight: float | None) -> Classifier:
+        from lightgbm import LGBMClassifier
 
-    safe_cv = _validate_tuning_inputs(X, y, n_iter, scoring, cv)
-    effective_cv = cv if cv is not None else safe_cv
-    cv_splitter = _make_cv(effective_cv, random_state)
+        extra = {} if weight is None else {"scale_pos_weight": weight}
+        return LGBMClassifier(
+            **params,
+            random_state=random_state,
+            verbose=-1,
+            **extra,
+        )
 
-    def objective(trial: optuna.Trial) -> float:
-        params = _suggest_params(trial, _LGBM_PARAM_SPACE)
-        estimator = LGBMClassifier(**params, random_state=random_state, verbose=-1)
-        scores = cross_val_score(estimator, X, y, cv=cv_splitter, scoring=scoring, n_jobs=n_jobs)
-        return float(np.mean(scores))
-
-    study = _run_optuna_study(objective, n_iter, random_state)
-    best_params = study.best_params
-    return TuningResult(
-        best_params=best_params,
-        best_score=study.best_value,
+    return _tune(
+        X,
+        y,
+        n_iter=n_iter,
+        cv=cv,
         scoring=scoring,
-        best_factory=_TunedLightGbmFactory(best_params, random_state),
+        random_state=random_state,
+        imbalance_strategy=imbalance_strategy,
+        parameter_space=_LGBM_PARAM_SPACE,
+        build_candidate=build,
+        build_factory=_TunedLightGbmFactory,
     )

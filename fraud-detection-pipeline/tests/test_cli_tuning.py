@@ -43,11 +43,9 @@ def test_parse_args_tune_n_candidates_custom():
     assert args.tune_n_candidates == 5
 
 
-def test_parse_args_tune_n_iter_alias_maps_to_tune_n_candidates():
-    """--tune-n-iter is a legacy alias; must write to tune_n_candidates dest."""
-    args = parse_args(["--data-path", "data/creditcard.csv", "--tune-n-iter", "7"])
-
-    assert args.tune_n_candidates == 7
+def test_parse_args_rejects_removed_tune_n_iter_alias():
+    with pytest.raises(SystemExit):
+        parse_args(["--data-path", "data/creditcard.csv", "--tune-n-iter", "7"])
 
 
 def test_parse_args_tune_rejects_non_tunable_model():
@@ -327,3 +325,24 @@ def test_main_tune_raises_system_exit_with_context_on_value_error(tmp_path, monk
     # SystemExit raised *from* ValueError — __cause__ must be set
     assert exc_info.value.__cause__ is not None
     assert isinstance(exc_info.value.__cause__, ValueError)
+
+
+def test_parse_args_seed_and_tune_cv_controls():
+    args = parse_args(
+        [
+            "--data-path",
+            "data/creditcard.csv",
+            "--seed",
+            "7",
+            "--tune-cv",
+            "4",
+        ]
+    )
+    assert args.seed == 7
+    assert args.tune_cv == 4
+
+
+@pytest.mark.parametrize("bad", ["1", "11"])
+def test_parse_args_rejects_tune_cv_outside_two_to_ten(bad):
+    with pytest.raises(SystemExit):
+        parse_args(["--data-path", "data/creditcard.csv", "--tune-cv", bad])

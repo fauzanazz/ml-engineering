@@ -125,3 +125,9 @@ def test_factory_map_values_are_factory_classes():
 def test_factory_map_each_instantiation_is_fresh():
     cls = FACTORY_MAP["logistic-regression"]
     assert cls() is not cls()
+
+
+def test_all_factories_propagate_custom_random_state():
+    for factory_class in FACTORY_MAP.values():
+        model = factory_class(random_state=7).create()
+        assert model.get_params()["random_state"] == 7

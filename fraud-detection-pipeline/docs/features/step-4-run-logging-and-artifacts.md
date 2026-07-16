@@ -1,12 +1,14 @@
 # Step 4: Run Logging & Artifacts
 
-Each `fraud-detect-train` run writes a timestamped folder under `artifacts/runs/` (default) containing:
+This step originally introduced the following legacy, step-specific format:
 
-| File | Contents |
+| File | Legacy contents |
 |------|----------|
-| `metrics.json` | `training_accuracy`, `test_accuracy`, `precision`, `recall`, `f1`, `pr_auc` |
-| `config.json` | `data_path`, `batch_size`, `test_size`, `imbalance_strategy`, `model_name` |
-| `model.txt` | LightGBM booster text format via `booster_.save_model()` |
+| `metrics.json` | Flat training/test metrics |
+| `config.json` | Flat data, batch, split, imbalance, and model keys |
+| `model.txt` | LightGBM-only booster text |
+
+Current runs use the schema-version-1 `bundle.joblib`, `evaluation.npz`, nested JSON metadata, and SHA-256 manifests documented in the [README artifact contract](../../README.md#artifact-contract-and-trust). The table above is retained only as historical implementation context.
 
 ## CLI flags
 

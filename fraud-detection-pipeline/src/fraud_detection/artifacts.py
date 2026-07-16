@@ -1,26 +1,95 @@
+import csv
+import hashlib
+import importlib.metadata
 import json
+import math
+import platform
 import uuid
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import joblib
-from lightgbm import LGBMClassifier
+import numpy as np
 
+from fraud_detection.inference import BUNDLE_SCHEMA_VERSION, InferenceBundle
 from fraud_detection.training import TrainingResult
 
-_JOBLIB_WARNING = (
-    "joblib artifacts may execute arbitrary code on load; "
-    "only load from trusted sources"
-)
+SCHEMA_VERSION = 1
 
 
 def make_run_dir(base: Path, run_id: str | None = None) -> Path:
-    if run_id:
-        return base / run_id
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    suffix = uuid.uuid4().hex[:8]
-    return base / f"{timestamp}-{suffix}"
+    if run_id is None:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        suffix = uuid.uuid4().hex[:8]
+        run_id = f"{timestamp}-{suffix}"
+    return base / run_id
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def collect_dataset_metadata(path: Path, *, target_column: str) -> dict[str, Any]:
+    dataset_path = Path(path)
+    digest = hashlib.sha256()
+    with dataset_path.open("rb") as raw:
+        for chunk in iter(lambda: raw.read(1024 * 1024), b""):
+            digest.update(chunk)
+
+    with dataset_path.open(encoding="utf-8", newline="") as text:
+        reader = csv.reader(text)
+        try:
+            columns = next(reader)
+        except StopIteration as exc:
+            raise ValueError("dataset is empty") from exc
+        rows = sum(1 for _ in reader)
+    if target_column not in columns:
+        raise ValueError(f"dataset target column is missing: {target_column}")
+
+    return {
+        "path": str(dataset_path),
+        "sha256": digest.hexdigest(),
+        "bytes": dataset_path.stat().st_size,
+        "rows": rows,
+        "columns": columns,
+    }
+
+
+def collect_runtime_metadata() -> dict[str, Any]:
+    packages = [
+        "joblib",
+        "lightgbm",
+        "numpy",
+        "optuna",
+        "pandas",
+        "scikit-learn",
+        "xgboost",
+    ]
+    return {
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        **{package: importlib.metadata.version(package) for package in packages},
+    }
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, np.generic):
+        return _json_safe(value.item())
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, Path):
+        return str(value)
+    return value
 
 
 def write_artifacts(
@@ -28,69 +97,73 @@ def write_artifacts(
     *,
     result: TrainingResult,
     config: dict[str, Any],
-    model=None,
 ) -> Path:
     run_dir.mkdir(parents=True, exist_ok=False)
+    if set(config) != {
+        "schema_version",
+        "command",
+        "dataset",
+        "run",
+        "runtime",
+        "training",
+        "split",
+        "tuning",
+        "threshold",
+    }:
+        raise ValueError("config must contain the schema-version-1 top-level contract")
+    if config["schema_version"] != SCHEMA_VERSION:
+        raise ValueError(f"schema_version must be {SCHEMA_VERSION}")
 
-    metrics: dict[str, Any] = {
-        "training_accuracy": result.training_accuracy,
-        "test_accuracy": result.test_accuracy,
-        "precision": result.metrics.precision,
-        "recall": result.metrics.recall,
-        "f1": result.metrics.f1,
-        "pr_auc": result.metrics.pr_auc,
-        "roc_auc": result.metrics.roc_auc,
-    }
-    if result.val_metrics is not None:
-        if result.val_threshold is not None:
-            metrics["val_threshold"] = result.val_threshold
-        metrics["val_precision"] = result.val_metrics.precision
-        metrics["val_recall"] = result.val_metrics.recall
-        metrics["val_f1"] = result.val_metrics.f1
-        metrics["val_pr_auc"] = result.val_metrics.pr_auc
-        metrics["val_roc_auc"] = result.val_metrics.roc_auc
-
-    if result.predict_proba_latency_s is not None:
-        metrics["predict_proba_latency_s"] = result.predict_proba_latency_s
-        metrics["inference_latency_s"] = result.predict_proba_latency_s  # backward compat alias
-    if result.predict_proba_latency_per_row_s is not None:
-        metrics["predict_proba_latency_per_row_s"] = result.predict_proba_latency_per_row_s
-    if result.single_row_latency_s is not None:
-        metrics["single_row_latency_s"] = result.single_row_latency_s
-
-    if result.split_counts is not None:
-        sc = result.split_counts
-        metrics["split_train"] = sc.train
-        metrics["split_test"] = sc.test
-        if sc.val is not None:
-            metrics["split_val"] = sc.val
-
-    model_artifact_name: str | None = None
-    if model is not None:
-        if isinstance(model, LGBMClassifier):
-            model_path = run_dir / "model.txt"
-            if model_path.exists():
-                raise FileExistsError(f"{model_path} already exists")
-            model.booster_.save_model(str(model_path))
-            model_artifact_name = "model.txt"
-        else:
-            model_path = run_dir / "model.joblib"
-            if model_path.exists():
-                raise FileExistsError(f"{model_path} already exists")
-            joblib.dump(model, model_path)
-            model_artifact_name = "model.joblib"
-            metrics["model_artifact_warning"] = _JOBLIB_WARNING
+    bundle = InferenceBundle(
+        schema_version=BUNDLE_SCHEMA_VERSION,
+        model=result.model,
+        feature_pipeline=result.feature_pipeline,
+        effective_threshold=result.effective_threshold,
+        input_columns=result.input_columns,
+        model_key=config["training"]["model_key"],
+    )
+    bundle_path = run_dir / "bundle.joblib"
+    evaluation_path = run_dir / "evaluation.npz"
+    joblib.dump(bundle, bundle_path)
+    np.savez(
+        evaluation_path,
+        test_labels=result.test_labels,
+        test_scores=result.test_scores,
+    )
 
     final_config = dict(config)
-    if model_artifact_name is not None:
-        final_config["model_artifact"] = model_artifact_name
-    if model_artifact_name == "model.joblib":
-        final_config["model_artifact_warning"] = _JOBLIB_WARNING
+    final_config["artifacts"] = {
+        "bundle.joblib": {
+            "path": "bundle.joblib",
+            "sha256": _sha256(bundle_path),
+            "format": "joblib",
+            "trusted_load_required": True,
+        },
+        "evaluation.npz": {
+            "path": "evaluation.npz",
+            "sha256": _sha256(evaluation_path),
+        },
+    }
+    metrics = {
+        "schema_version": SCHEMA_VERSION,
+        "training_accuracy": result.training_accuracy,
+        "test_accuracy": result.test_accuracy,
+        "validation": asdict(result.val_metrics) if result.val_metrics is not None else None,
+        "test": asdict(result.metrics),
+        "latency": {
+            "batch_s": result.predict_proba_latency_s,
+            "per_row_s": result.predict_proba_latency_per_row_s,
+            "single_row_s": result.single_row_latency_s,
+            "warmup_calls": 1,
+            "single_row_repeats": 5,
+            "statistic": "median",
+        },
+    }
 
-    with open(run_dir / "metrics.json", "x") as f:
-        f.write(json.dumps(metrics, indent=2))
-
-    with open(run_dir / "config.json", "x") as f:
-        f.write(json.dumps(final_config, indent=2))
-
+    with (run_dir / "config.json").open("x", encoding="utf-8") as file:
+        json.dump(_json_safe(final_config), file, indent=2, sort_keys=True)
+        file.write("\n")
+    with (run_dir / "metrics.json").open("x", encoding="utf-8") as file:
+        json.dump(_json_safe(metrics), file, indent=2, sort_keys=True)
+        file.write("\n")
     return run_dir

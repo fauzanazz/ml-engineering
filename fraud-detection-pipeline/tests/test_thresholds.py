@@ -232,10 +232,13 @@ def test_select_threshold_invalid_target_recall_negative_raises():
         )
 
 
-def test_select_threshold_uses_default_sweep_when_thresholds_none():
-    row = select_threshold_on_validation(_LABELS, _SCORES, objective="f1")
-    assert isinstance(row, ThresholdRow)
-    assert 0 < row.threshold < 1
+def test_select_threshold_uses_distinct_validation_scores_by_default():
+    row = select_threshold_on_validation(
+        np.array([0, 1, 0]),
+        np.array([0.1, 0.42, 0.4]),
+        objective="f1",
+    )
+    assert row.threshold == pytest.approx(0.42)
 
 
 def test_select_threshold_f1_is_deterministic():
@@ -252,3 +255,30 @@ def test_select_threshold_target_recall_is_deterministic():
         _LABELS, _SCORES, objective="target-recall", target_recall=0.95, thresholds=_THRESHOLDS
     )
     assert row1.threshold == row2.threshold
+
+
+def test_select_threshold_rejects_scores_without_usable_candidate():
+    with pytest.raises(
+        ValueError,
+        match="validation scores do not contain a usable threshold",
+    ):
+        select_threshold_on_validation(
+            np.array([0, 1]),
+            np.array([0.0, 1.0]),
+        )
+
+
+def test_default_selection_builds_predictions_once(monkeypatch):
+    from fraud_detection import thresholds as threshold_module
+
+    calls = 0
+    original = threshold_module.apply_threshold
+
+    def recording_apply(scores, *, threshold):
+        nonlocal calls
+        calls += 1
+        return original(scores, threshold=threshold)
+
+    monkeypatch.setattr(threshold_module, "apply_threshold", recording_apply)
+    select_threshold_on_validation(_LABELS, _SCORES)
+    assert calls == 1

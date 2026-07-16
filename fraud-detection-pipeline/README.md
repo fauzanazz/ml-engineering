@@ -1,266 +1,141 @@
-# Fraud Detection Pipeline
+# Credit Card Fraud Detection Pipeline
 
-Fraud Detection Pipeline adalah project eksperimen machine learning untuk mendeteksi transaksi fraud dari dataset kartu kredit anonymized (`data/creditcard.csv`). Pipeline ini dibuat bertahap dari baseline sederhana sampai evaluasi multi-model dengan split train/validation/test, feature engineering, threshold tuning, artifact logging, dan latency metric.
+[![Fraud Detection CI](https://github.com/fauzanazz/ml-engineering/actions/workflows/fraud-detection-pipeline-ci.yml/badge.svg)](https://github.com/fauzanazz/ml-engineering/actions/workflows/fraud-detection-pipeline-ci.yml)
 
-## Tujuan Project
+An end-to-end ML engineering repository for detecting fraudulent card transactions under severe class imbalance. False negatives represent missed fraud; false positives create investigation cost and customer friction. The pipeline therefore selects an operating threshold on validation data and reports both error types on a held-out temporal test set.
 
-Project ini menjawab pertanyaan utama:
+## Architecture
 
-- Bagaimana membangun pipeline fraud detection yang tidak leakage?
-- Model mana yang paling cocok untuk fraud detection dengan data imbalance?
-- Bagaimana trade-off precision, recall, F1, PR AUC, dan latency?
-- Bagaimana memilih threshold tanpa nyontek test set?
+```mermaid
+flowchart LR
+    A[Raw chronological CSV] --> B[Stable time split]
+    B --> C[Cross-partition deduplication]
+    C --> D[Train-only feature pipeline]
+    D --> E[Forward TimeSeriesSplit tuning]
+    E --> F[Validation threshold selection]
+    F --> G[Held-out test evaluation]
+    G --> H[Versioned bundle + evaluation artifacts]
+    H --> I[Strict raw-transaction scoring]
+    H --> J[Verified Markdown + SVG report]
+```
 
-Karena fraud sangat imbalance, metric utama bukan accuracy. Fokus utama:
+Core controls:
 
-- **Recall** — fraud yang kelewat harus minimum.
-- **False Negative (FN)** — missed fraud paling mahal.
-- **PR AUC** — lebih cocok dari ROC AUC untuk minority class.
-- **Latency** — penting untuk online / streaming fraud prediction.
+- Stable chronological sorting preserves CSV order for equal timestamps.
+- Splitting occurs before deduplication; later partitions remove feature-identical rows seen earlier.
+- `FeaturePipeline` is fitted only on each training partition, including independently inside every temporal CV fold.
+- Tuning uses average precision with forward-only `TimeSeriesSplit`; class weighting is recomputed from each fold's training labels.
+- The fitted preprocessing pipeline, estimator, raw input schema, and selected threshold are persisted together.
+- Run metadata records the dataset SHA-256, split time ranges and class support, runtime versions, tuning protocol, confusion counts, and artifact hashes.
+
+## Locked setup
+
+Requires Python 3.11 or newer and [uv](https://docs.astral.sh/uv/).
+
+```bash
+uv sync --locked
+uv run pytest -q
+```
+
+CI runs the same locked install and test command on Python 3.13. It does not require the raw dataset or Kaggle credentials.
 
 ## Dataset
 
-Dataset lokal:
+Use the Kaggle **Credit Card Fraud Detection** dataset described in [`data/README.md`](data/README.md), then place it at:
 
 ```text
 data/creditcard.csv
 ```
 
-Raw dataset is not committed. Download source and setup notes: [Data README](data/README.md).
+The canonical benchmark used all 284,807 rows and verified the file fingerprint recorded in the [full-dataset report](docs/full-dataset-benchmark.md). Raw CSV files are ignored by Git.
 
-Kolom:
+## Train, report, and score
 
-- `Time`
-- `V1`–`V28` — anonymized/PCA features
-- `Amount`
-- `Class` — label target, `1 = fraud`, `0 = legit`
-
-Fraud sangat jarang:
-
-```text
-492 fraud / 284,807 total rows
-~0.17% fraud rate
-```
-
-## Project Steps
-
-| Step | Tanggal | Judul | Ringkasan |
-|---:|---|---|---|
-| 1 | 2026-05-09 | Project scaffold + one-batch baseline | Setup pipeline awal, load batch kecil, baseline menunjukkan accuracy menipu karena all-negative prediction. |
-| 2 | 2026-05-09 | Time-split training/evaluation | Split berdasarkan `Time`, evaluasi precision/recall/F1/PR AUC, mulai validasi model lebih realistis. |
-| 3 | 2026-05-09 | Class imbalance handling | Tambah `scale-pos-weight` untuk menangani imbalance; recall tetap tinggi dengan trade-off precision. |
-| 4 | 2026-05-09 | Run logging + artifacts | Tambah artifact writer untuk `config.json`, `metrics.json`, model artifact, dan historical run log. |
-| 5 | 2026-05-08 | Threshold tuning for recall | Tambah `--decision-threshold` dan threshold sweep. Belakangan dicatat sebagai exploratory karena threshold dipilih dari test set. |
-| 6 | 2026-05-09 | Feature engineering + validation split | Tambah train/validation/test split, train-only feature engineering, validation-only threshold tuning, duplicate/leakage handling. |
-| 7 | 2026-05-09 | Hyperparameter tuning | Tambah adaptive hyperparameter search (Optuna TPE) untuk LightGBM, Random Forest, dan XGBoost; tambah ROC AUC dan single-row latency untuk evaluasi online scoring. |
-
-Detail tiap step:
-
-- [Step 1: Project Scaffold and One-Batch Baseline](docs/features/step-1-project-scaffold-and-one-batch-baseline.md)
-- [Step 2: Training Evaluation](docs/features/step-2-training-evaluation.md)
-- [Step 3: Class Imbalance Handling](docs/features/step-3-class-imbalance-handling.md)
-- [Step 4: Run Logging and Artifacts](docs/features/step-4-run-logging-and-artifacts.md)
-- [Step 5: Threshold Tuning for Recall](docs/features/step-5-threshold-tuning-for-recall.md)
-- [Step 6: Feature Engineering & Validation Split](docs/features/step-6-feature-engineering-validation-split.md)
-- [Step 7: Hyperparameter Tuning](docs/features/step-7-hyperparameter-tuning.md)
-- [Historical Run Log](docs/run-log.md)
-- [Artifact Security](docs/artifact-security.md)
-
-## Current Pipeline
-
-Current flow:
-
-```text
-raw CSV
- -> sort by Time
- -> chronological train / validation / test split
- -> remove duplicate rows per split
- -> remove exact feature overlap across splits
- -> fit FeaturePipeline on train only
- -> transform train / validation / test
- -> optionally tune hyperparameters on train-only CV
- -> train model on train
- -> tune threshold on validation
- -> evaluate once on test
- -> write artifacts
-```
-
-Important leakage rules:
-
-- Scaler / feature pipeline fit only on train.
-- Threshold selected only on validation.
-- Test used only for final evaluation.
-- Duplicate cleanup happens after split, with cross-split exact feature overlap removal.
-
-## Feature Engineering
-
-`FeaturePipeline` adds:
-
-| Feature | Description |
-|---|---|
-| `log_amount_raw` | `log1p(Amount)` |
-| `amount_is_zero` | binary flag for zero amount |
-| `hour_of_day` | derived from `Time` |
-| `day` | derived from `Time` |
-| `is_night` | `hour_of_day < 6` |
-| `log_amount_scaled` | train-fitted robust scaling |
-| `amount_scaled` | train-fitted robust scaling |
-
-`V1`–`V28` are kept as anonymized PCA features.
-
-## Supported Models
-
-CLI supports:
-
-```text
-lightgbm
-logistic-regression
-decision-tree
-random-forest
-xgboost
-```
-
-Example:
+Run the predeclared full-data protocol:
 
 ```bash
 uv run fraud-detect-train \
   --data-path data/creditcard.csv \
-  --batch-size 50000 \
+  --batch-size 284807 \
+  --model random-forest \
   --imbalance-strategy scale-pos-weight \
   --val-size 0.1 \
+  --test-size 0.2 \
   --threshold-objective target-recall \
   --target-recall 0.95 \
-  --model random-forest
+  --tune \
+  --tune-n-candidates 50 \
+  --tune-cv 3 \
+  --seed 42 \
+  --artifact-dir artifacts/runs
 ```
 
-## Model Comparison
-
-### Non-tuned comparison
-
-Config:
-
-```text
-batch_size=50000
-imbalance_strategy=scale-pos-weight
-val_size=0.1
-threshold_objective=target-recall
-target_recall=0.95
-```
-
-| Model | Precision | Recall | F1 | PR AUC | Batch latency | Per-row latency |
-|---|---:|---:|---:|---:|---:|---:|
-| LightGBM | 0.2429 | 0.9773 | 0.3891 | 0.3390 | 0.002021s | 0.000000203s |
-| Logistic Regression | 0.6613 | 0.9318 | 0.7736 | 0.9284 | **0.000439s** | **0.000000044s** |
-| Decision Tree depth 2 | 0.3060 | 0.9318 | 0.4607 | 0.2854 | 0.000735s | 0.000000074s |
-| Random Forest | 0.5513 | **0.9773** | 0.7049 | **0.9669** | 0.004302s | 0.000000432s |
-| XGBoost | **0.9211** | 0.7955 | **0.8537** | 0.9399 | 0.001149s | 0.000000115s |
-
-Interpretation:
-
-- **Random Forest**: best recall + best PR AUC, only `FN=1` in this non-tuned test run.
-- **XGBoost**: best F1 and precision, but recall lower.
-- **Logistic Regression**: fastest and strong simple baseline.
-
-For fraud goal where missed fraud is expensive, strongest candidate from this non-tuned comparison is:
-
-```text
-Random Forest
-```
-
-### Tuned Optuna TPE comparison
-
-Latest documented Optuna TPE run (`--tune-n-candidates 500`, `batch_size=10000`) found **Random Forest** as the best held-out test model:
-
-```text
-best_params={'n_estimators': 200, 'max_depth': 5, 'min_samples_split': 2, 'min_samples_leaf': 4, 'max_features': 'sqrt'}
-precision=1.0000 recall=1.0000 f1=1.0000 pr_auc=1.0000 roc_auc=1.0000
-```
-
-LightGBM remains the best latency model with `recall=1.0000`, `roc_auc=0.9999`, and `single_row_latency_s=0.000319167`.
-
-See [Step 7: Hyperparameter Tuning](docs/features/step-7-hyperparameter-tuning.md).
-
-## Metrics
-
-Current metrics logged:
-
-- `training_accuracy`
-- `test_accuracy`
-- `precision`
-- `recall`
-- `f1`
-- `pr_auc`
-- `roc_auc`
-- `val_threshold`
-- `val_precision`
-- `val_recall`
-- `val_f1`
-- `val_pr_auc`
-- `val_roc_auc`
-- `split_train`
-- `split_val`
-- `split_test`
-- `predict_proba_latency_s`
-- `predict_proba_latency_per_row_s`
-- `single_row_latency_s`
-- `inference_latency_s` — backward-compatible alias
-
-## Artifacts
-
-Runs are saved under:
-
-```text
-artifacts/runs/<timestamp>-<id>/
-```
-
-Each run can include:
-
-```text
-config.json
-metrics.json
-model.txt       # LightGBM
-model.joblib    # sklearn / XGBoost
-```
-
-Security note:
-
-- `model.joblib` uses pickle-based serialization.
-- Only load joblib artifacts from trusted sources.
-- See [Artifact Security](docs/artifact-security.md).
-
-## Development
-
-Run tests:
+Generate reviewable evidence from the printed run directory:
 
 ```bash
-uv run pytest -q
+uv run fraud-detect-report \
+  --run-dir artifacts/runs/<run-id> \
+  --output-dir docs
 ```
 
-Train one model:
+Score one raw transaction:
 
 ```bash
-uv run fraud-detect-train --data-path data/creditcard.csv --model random-forest
+uv run fraud-detect-score \
+  --run-dir artifacts/runs/<run-id> \
+  --input-path examples/transaction.json \
+  --trust-artifact
 ```
 
-Train with validation-safe threshold tuning:
+`examples/transaction.json` is synthetic schema-only data. It contains exactly `Time`, `Amount`, and `V1`–`V28`; `Class` is intentionally absent because scoring rejects target and extra columns.
 
-```bash
-uv run fraud-detect-train \
-  --data-path data/creditcard.csv \
-  --batch-size 50000 \
-  --imbalance-strategy scale-pos-weight \
-  --val-size 0.1 \
-  --threshold-objective target-recall \
-  --target-recall 0.95 \
-  --model random-forest
-```
+## Canonical full-dataset result
 
-## Next Steps
+The single predeclared tuned Random Forest run used 50 Optuna TPE trials, average precision, three effective forward temporal folds, seed 42, and a held-out final 20% test partition. Full provenance, split audits, runtime versions, plots, and limitations are in [`docs/full-dataset-benchmark.md`](docs/full-dataset-benchmark.md).
 
-Recommended next steps:
+| Held-out test metric | Observed value |
+|---|---:|
+| Precision | 0.918033 |
+| Recall | 0.756757 |
+| F1 | 0.829630 |
+| PR AUC | 0.821074 |
+| ROC AUC | 0.962580 |
+| True positives | 56 |
+| False positives | 5 |
+| False negatives | 18 |
+| True negatives | 56,642 |
 
-1. Add `score_transaction` / `predict_one` API.
-2. Add safe model loading path with trust checks.
-3. Persist tuning metadata as a dedicated artifact report.
-4. Evaluate bigger batch or full dataset.
-5. Add streaming-style inference test.
+The requested validation recall of 0.95 was not achievable. The deterministic F1 fallback selected threshold `0.249874677029`; the run records `target_met=false` and `fallback_used=true`. No model or threshold was changed after observing held-out test metrics.
+
+Earlier 10k/50k experiments remain dated historical evidence in [`docs/run-log.md`](docs/run-log.md); they are not the current benchmark or a basis for selecting this held-out result.
+
+## Artifact contract and trust
+
+Each local run directory contains:
+
+- `config.json`: schema version 1 provenance, training, split, tuning, threshold, and SHA-256 manifests.
+- `metrics.json`: schema version 1 validation/test metrics and latency protocol.
+- `bundle.joblib`: estimator, fitted `FeaturePipeline`, raw input column order, model key, and effective threshold.
+- `evaluation.npz`: held-out labels and scores used to generate the report without loading the pickle bundle.
+
+`joblib` is pickle-based and can execute arbitrary code. SHA-256 detects substitution but does not make an untrusted pickle safe. `fraud-detect-score` requires explicit `--trust-artifact`, and `load_bundle(..., trusted=True)` must only be used for artifacts from a trusted source. Run binaries and row-level data remain ignored and are not published.
+
+See [`docs/artifact-security.md`](docs/artifact-security.md) for the security boundary.
+
+## Reproducibility
+
+- Dependencies are locked in `uv.lock`.
+- All model factories, Optuna sampling, and final training receive the recorded seed.
+- Equal-time records use stable sorting.
+- The run records the exact effective CLI command, dataset fingerprint, runtime package versions, split audits, effective temporal fold count, and tuned parameters.
+- Reports verify `evaluation.npz` against its manifest and refuse to overwrite existing evidence.
+- The committed report and SVGs are generated from one run; local model and evaluation binaries are intentionally excluded from version control.
+
+## Limitations
+
+- The dataset is from 2013 and may not represent current fraud behavior.
+- V1–V28 are anonymized PCA features, limiting feature-level interpretation.
+- Evaluation uses one held-out temporal split rather than repeated production backtests.
+- There is no drift or feedback monitoring.
+- There is no deployed API, serving path, dashboard, or external experiment tracker.
+- Latency is machine-specific and is not a production service-level guarantee.
