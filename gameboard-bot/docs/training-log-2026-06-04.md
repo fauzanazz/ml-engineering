@@ -91,8 +91,8 @@ is +Elo or neutral. The `core/src/search.rs` change stays in the working tree as
 unproven experiment with this log explaining its status.
 
 ### Next steps
-- Decisive match: ≥300 games, 3+ fresh seeds, both open-6 and open-8, no early stop.
-- If still ~50–52%: the bundle is neutral; either drop it or ablate to find the one
-  component (likely null-move) that does pay off at the 600k budget and keep only that.
+- Decisive match command: `core/scripts/search_gate.sh 300 12 600000`.
+- Default matrix: `OPENS="6 8"`, `SEEDS="42 99 123"`, candidate env `WC_PVS=1 WC_ASP=1 WC_NULLMOVE=1`.
+- If the result still clusters around 50-52%: the bundle is neutral. Drop it, or ablate with `CANDIDATE_ENV="WC_NULLMOVE=1"` / `WC_PVS=1` / `WC_ASP=1` and keep only a repeated edge.
 - Aspiration is the prime suspect for adding re-search overhead on the noisy path eval.
 - Bigger levers regardless: eval upgrade, wall-threat extension.

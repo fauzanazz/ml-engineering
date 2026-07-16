@@ -5,7 +5,7 @@ import json
 import torch
 from torch.utils.data import Dataset
 
-from encoding import ACTION_COUNT, FEATURE_LEN
+from encoding import WALLCHESS, GameSpec
 
 
 class SelfPlayDataset(Dataset):
@@ -15,7 +15,12 @@ class SelfPlayDataset(Dataset):
     the game outcome from that state's side-to-move POV.
     """
 
-    def __init__(self, path: str | list[str], policy_weight: float = 1.0):
+    def __init__(
+        self,
+        path: str | list[str],
+        policy_weight: float = 1.0,
+        spec: GameSpec = WALLCHESS,
+    ):
         """policy_weight scales this source's policy loss per sample. Set 0.0 for
         value-only data (self-play z targets without trusting its weak policy)."""
         paths = [path] if isinstance(path, str) else path
@@ -28,13 +33,18 @@ class SelfPlayDataset(Dataset):
                         continue
                     rec = json.loads(line)
                     f = rec["f"]
-                    if len(f) != FEATURE_LEN:
+                    if len(f) != spec.feature_len:
                         raise ValueError(
-                            f"{one_path}:{line_no}: feature len {len(f)} != {FEATURE_LEN}"
+                            f"{one_path}:{line_no}: feature len {len(f)} != {spec.feature_len}"
                         )
-                    pol = torch.zeros(ACTION_COUNT, dtype=torch.float32)
+                    pol = torch.zeros(spec.action_count, dtype=torch.float32)
                     for idx, prob in rec["pi"]:
-                        pol[int(idx)] = float(prob)
+                        idx = int(idx)
+                        if idx < 0 or idx >= spec.action_count:
+                            raise ValueError(
+                                f"{one_path}:{line_no}: policy index {idx} outside 0..{spec.action_count - 1}"
+                            )
+                        pol[idx] = float(prob)
                     feats.append(torch.tensor(f, dtype=torch.float32))
                     pols.append(pol)
                     vals.append(float(rec["z"]))

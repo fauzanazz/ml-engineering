@@ -1,11 +1,11 @@
 """Value + policy nets for WallChess.
 
 Two architectures:
-  WallNet    — 2-layer MLP over the flat 300-dim feature vector. Fast, simple.
+  WallNet    — 2-layer MLP over the flat 462-dim feature vector. Fast, simple.
                Tensor contract: l1, l2, policy, value.
   WallNetCNN — CNN encoder + MLP head over the same flat features (reshaped
-               internally). Captures spatial wall-cluster patterns that the MLP
-               cannot represent (e.g. whether a cage has a gap).
+               internally into 7×9×9 spatial planes). Captures wall/path patterns
+               that the MLP does not learn efficiently.
                Tensor contract: conv1, conv2, conv3, conv_out, fc_scalar,
                fc_head, policy, value.
 
@@ -17,22 +17,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from encoding import ACTION_COUNT, FEATURE_LEN
+from encoding import ACTION_COUNT, FEATURE_LEN, WALLCHESS, GameSpec
 
 HIDDEN = 256
 
-# CNN board encoding constants (must match core/src/net.rs board_tensor logic)
-CNN_BOARD_CHANNELS = 4   # my_pawn, opp_pawn, h_walls, v_walls
+# CNN board encoding constants (must match core/src/net.rs build_board_tensor)
+CNN_BOARD_CHANNELS = 7   # pawns, walls, my/opp BFS maps, side-to-move plane
 BOARD_SIZE = 9
 SCALAR_LEN = 7           # my_walls/10, opp_walls/10, race_margin/16, 4 progress flags
 
 
 class WallNet(nn.Module):
-    def __init__(self, hidden: int = HIDDEN):
+    def __init__(self, hidden: int = HIDDEN, spec: GameSpec = WALLCHESS):
         super().__init__()
-        self.l1 = nn.Linear(FEATURE_LEN, hidden)
+        self.l1 = nn.Linear(spec.feature_len, hidden)
         self.l2 = nn.Linear(hidden, hidden)
-        self.policy = nn.Linear(hidden, ACTION_COUNT)
+        self.policy = nn.Linear(hidden, spec.action_count)
         self.value = nn.Linear(hidden, 1)
 
     def forward(self, x):
@@ -45,17 +45,17 @@ class WallNet(nn.Module):
 class WallNetCNN(nn.Module):
     """CNN encoder over the 9×9 board + scalar head for non-spatial features.
 
-    Input: same flat 300-dim feature vector as WallNet — reshaped internally.
-    Board channels (4, 9, 9):
+    Input: same flat 462-dim feature vector as WallNet — reshaped internally.
+    Board channels (7, 9, 9):
       ch0: my pawn (one-hot, me-frame)
       ch1: opp pawn (one-hot, me-frame)
       ch2: h-walls (8×8 anchor bits placed in top-left of 9×9)
       ch3: v-walls (same)
+      ch4: my BFS distance-to-goal map
+      ch5: opp BFS distance-to-goal map
+      ch6: side-to-move/bias plane (constant 1 in me-frame)
     Scalar inputs (7):
       my_walls/10, opp_walls/10, race_margin/16, 4 progress flags
-
-    Three conv layers (3×3, padding=1) keep spatial resolution at 9×9.
-    A 1×1 conv compresses channels before flattening — avoids a huge linear.
     """
 
     def __init__(self, channels: int = 32, scalar_hidden: int = 32, head_hidden: int = 256):
@@ -73,13 +73,15 @@ class WallNetCNN(nn.Module):
         self.value = nn.Linear(head_hidden, 1)
 
     def _board_tensor(self, x: torch.Tensor) -> torch.Tensor:
-        """Reshape flat features → 4-channel 9×9 board tensor.
+        """Reshape flat features → 7-channel 9×9 board tensor.
 
         Feature layout (from features.rs, 0-indexed):
-          0..81   my pawn one-hot (9×9 me-frame, row-major)
-          81..162 opp pawn one-hot
-          162..226 h-walls 64 bits = 8×8 anchor grid, row-major
-          226..290 v-walls 64 bits
+          0..81     my pawn one-hot (9×9 me-frame, row-major)
+          81..162   opp pawn one-hot
+          162..226  h-walls 64 bits = 8×8 anchor grid, row-major
+          226..290  v-walls 64 bits
+          300..381  my BFS distance-to-goal map
+          381..462  opp BFS distance-to-goal map
         """
         B = x.shape[0]
         my_pawn = x[:, :81].reshape(B, 1, BOARD_SIZE, BOARD_SIZE)
@@ -89,7 +91,10 @@ class WallNetCNN(nn.Module):
         h[:, 0, :8, :8] = x[:, 162:226].reshape(B, 8, 8)
         v = torch.zeros(B, 1, BOARD_SIZE, BOARD_SIZE, device=x.device, dtype=x.dtype)
         v[:, 0, :8, :8] = x[:, 226:290].reshape(B, 8, 8)
-        return torch.cat([my_pawn, opp_pawn, h, v], dim=1)  # [B, 4, 9, 9]
+        my_dist = x[:, 300:381].reshape(B, 1, BOARD_SIZE, BOARD_SIZE)
+        opp_dist = x[:, 381:462].reshape(B, 1, BOARD_SIZE, BOARD_SIZE)
+        stm = x[:, 292:293].reshape(B, 1, 1, 1).expand(B, 1, BOARD_SIZE, BOARD_SIZE)
+        return torch.cat([my_pawn, opp_pawn, h, v, my_dist, opp_dist, stm], dim=1)
 
     def _scalar_vec(self, x: torch.Tensor) -> torch.Tensor:
         """Extract non-spatial scalar features.
@@ -136,7 +141,7 @@ class WallNetCNN(nn.Module):
 # ---------------------------------------------------------------------------
 
 def _board_tensor(x: torch.Tensor) -> torch.Tensor:
-    """Flat features → [B, 4, 9, 9] board (shared with WallNetCNN layout)."""
+    """Flat features → [B, 7, 9, 9] board (shared with WallNetCNN layout)."""
     B = x.shape[0]
     my_pawn = x[:, :81].reshape(B, 1, BOARD_SIZE, BOARD_SIZE)
     opp_pawn = x[:, 81:162].reshape(B, 1, BOARD_SIZE, BOARD_SIZE)
@@ -144,7 +149,10 @@ def _board_tensor(x: torch.Tensor) -> torch.Tensor:
     h[:, 0, :8, :8] = x[:, 162:226].reshape(B, 8, 8)
     v = torch.zeros(B, 1, BOARD_SIZE, BOARD_SIZE, device=x.device, dtype=x.dtype)
     v[:, 0, :8, :8] = x[:, 226:290].reshape(B, 8, 8)
-    return torch.cat([my_pawn, opp_pawn, h, v], dim=1)
+    my_dist = x[:, 300:381].reshape(B, 1, BOARD_SIZE, BOARD_SIZE)
+    opp_dist = x[:, 381:462].reshape(B, 1, BOARD_SIZE, BOARD_SIZE)
+    stm = x[:, 292:293].reshape(B, 1, 1, 1).expand(B, 1, BOARD_SIZE, BOARD_SIZE)
+    return torch.cat([my_pawn, opp_pawn, h, v, my_dist, opp_dist, stm], dim=1)
 
 
 def _scalar_vec(x: torch.Tensor) -> torch.Tensor:

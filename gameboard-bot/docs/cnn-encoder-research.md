@@ -5,22 +5,22 @@
 ### Architecture (as of 2026-06-01)
 
 ```
-Input: 300-dim flat vector (features.rs)
+Input: 462-dim flat vector (features.rs)
   - 81: my pawn one-hot (9×9 me-frame)
   - 81: opp pawn one-hot
   - 64: horizontal wall bits (8×8 anchor grid)
   - 64: vertical wall bits
   - 1: my walls_left / 10
   - 1: opp walls_left / 10
-  - 1: bias constant
+  - 1: bias constant / side-to-move plane source
   - 1: my BFS distance to goal / 16
   - 1: opp BFS distance / 16
   - 1: race margin / 16
   - 4: progress flags (can step toward goal in each direction?)
-
-Hidden: Linear(300→512) → ReLU → Linear(512→512) → ReLU
-Heads:  policy Linear(512→209), value Linear(512→1)+tanh
-Params: ~524K
+  - 81: my BFS distance-to-goal map / 16
+  - 81: opponent BFS distance-to-goal map / 16
+Hidden (MLP default): Linear(462→256) → ReLU → Linear(256→256) → ReLU
+Heads: policy Linear(256→209), value Linear(256→1)+tanh
 ```
 
 Arena result: **~20% win rate vs depth-3 alpha-beta (600 MCTS sims).**
@@ -83,9 +83,9 @@ Board representation: 9×9 spatial grid with C channels
   ch1: opp pawn position (9×9 float)
   ch2: horizontal walls — h_wall[r,c] = 1.0 if wall at anchor (r,c) (8×8, padded to 9×9)
   ch3: vertical walls   — v_wall[r,c] = 1.0
-  ch4: my BFS distance to goal (broadcast scalar, 9×9 constant)   [optional]
-  ch5: opp BFS distance (broadcast scalar)                        [optional]
-
+  ch4: my BFS distance-to-goal map
+  ch5: opp BFS distance-to-goal map
+  ch6: side-to-move / bias constant plane
 CNN head: 
   Conv2d(C→32, 3×3, pad=1) → BN → ReLU  # local wall patterns
   Conv2d(32→64, 3×3, pad=1) → BN → ReLU # intermediate features
@@ -126,11 +126,11 @@ Total params: ~400-500K (fits WASM budget)
 
 ## Implementation Plan
 
-1. `core/src/features_cnn.rs` — new encoder: flat 300-dim → 6×9×9 tensor
-2. `trainer/model.py` — new `WallNetCNN` class
-3. `trainer/encoding_cnn.py` — sync board-to-tensor encoding
-4. `core/src/net.rs` — extend loader to support CNN weight shapes
-5. Retrain on existing 60K sd-full + 196K selfplay data
+1. `core/src/features.rs` — encoder now emits 462 features: legacy 300 + two BFS maps
+2. `trainer/model.py` — `WallNetCNN` consumes a 7×9×9 spatial tensor
+3. `trainer/train.py` — `--arch cnn --policy-loss-weight 0` trains value-only first
+4. `core/src/net.rs` — Candle loader runs CNN as both `PolicyValue` and alpha-beta `Evaluator`
+5. `trainer/autoloop.py` — resumable data → train → arena-gate → promote loop
 6. Arena eval: target >30% vs d3 at 600 sims
 
 Key invariant: me-frame mirroring still required (North board flipped 180°

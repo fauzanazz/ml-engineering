@@ -8,16 +8,16 @@ product
 
 Two audiences sharing the same surface:
 
-- **Casual players**: friends playing pass-and-play on one screen, or solo vs the bot. They want to pick up and play without reading docs — the board is the interface.
-- **Developers and bot-curious**: people exploring the ML bot, reading source, testing the AI's strategy. They care about clarity and signal density, not ornamentation.
+- **Casual players**: friends playing pass-and-play on one screen, or solo vs the bot. They want to pick up and play without reading docs because the board is the interface.
+- **Developers and bot-curious**: people exploring the bot, reading source, testing search behavior, or checking the ML experiments. They care about clarity and signal density, not ornamentation.
 
-Both arrive via the landing page and end up at the board. The game loop is the product.
+Both arrive via the landing page, choose a game, and end up at a board. The game loop is the product.
 
 ## Product Purpose
 
-Wall Chess is a two-player abstract strategy game (pawn + wall placement on a 9×9 grid). The web app lets you play vs a bot or a friend on the same screen. The underlying ML bot is the engineering artifact; the UI is its showcase.
+Gameboard is a small multi-game strategy surface for bots built on one Rust engine. Wall Chess is the mature pawn-and-wall game; International Draughts is the second playable game, backed by the same search core through WASM. The web app lets people play vs a bot or a friend where supported. The bot engine is the engineering artifact; the UI is its showcase.
 
-Success: a player lands, understands the rules, starts a game, and either finishes or comes back.
+Success: a player lands, chooses a board, understands the turn state, starts a game, and either finishes or comes back.
 
 ## Brand Personality
 
@@ -37,15 +37,15 @@ Minimal, focused, unhurried. White dominates (surfaces, backgrounds), black grou
 ## Design Principles
 
 1. **Board first**: the game board is never subordinate to chrome. Header, panels, controls are quiet; the board is loud.
-2. **Understand by playing**: rules are emergable from the board itself — highlighting, goal rows, pawn colors. Docs are a fallback, not onboarding.
+2. **Understand by playing**: rules emerge from the board itself through highlighting, goal rows, pawn colors, capture prompts, and turn state. Docs are a fallback, not onboarding.
 3. **Restraint as identity**: white dominates, ink structures, brown accents once per cluster. The 60-30-10 ratio is the palette, not a guideline. Any drift toward color-heavy surfaces or warm-neutral maximalism breaks the identity.
 4. **Signal over decoration**: every visual element earns its place by communicating game state or guiding a decision. Purely decorative layers are noise at the board.
-5. **Same surface, two audiences**: developers reading code and casual players pressing buttons should both feel the interface was made for them. No mode-switching, no persona-targeted layers — clarity serves both.
+5. **Same surface, two audiences**: developers reading code and casual players pressing buttons should both feel the interface was made for them. No mode-switching, no persona-targeted layers. Clarity serves both.
 
 ## Accessibility & Inclusion
 
 - Target: WCAG 2.1 AA at minimum.
-- Dark mode: first-class, not an afterthought — deep ocean tones, not inverted light mode.
-- Reduced motion: all animations must have a `prefers-reduced-motion` alternative (crossfade or instant).
-- Board cells: keyboard-accessible, labelled with row/column for screen readers.
+- Dark mode: first-class, not an afterthought. Use deep warm-black tones, not inverted light mode.
+- Reduced motion: all animations must have a `prefers-reduced-motion` alternative.
+- Board cells: keyboard-accessible, labelled with square and piece state for screen readers.
 - Color alone must not be the only signal for game state (pawn color, turn indicator, hints).

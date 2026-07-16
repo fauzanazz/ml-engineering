@@ -101,7 +101,6 @@ function antiOscillate(state: GameState, chosen: Move): Move {
 const BOT_DEPTH = 4
 const ANALYSIS_DEPTH = 12
 const BOT_NODE_LIMIT = 600_000
-const GRAPH_DEPTH = 4
 // Logistic squash constant for the 0..100 win meter (larger -> closer to 50/50).
 const SCORE_K = 200
 
@@ -237,28 +236,11 @@ export async function analyzePosition(
   return wasm.analyze_state(state, depth, k) as Analysis
 }
 
-// One pruned successor in the state graph: a strong move + the resulting
-// SOUTH win-chance (already scored). `score` is the raw side-to-move eval.
-export type RankedMove = { move: Move; south: number; score: number }
-
-// Top strong successors for the graph view — pruned in Rust so the graph stays
-// light: at most `k` moves, useless walls dropped, blunders (worse than best by
-// > `margin` centi-steps) dropped. Each comes pre-scored.
-export async function topMoves(
-  state: GameState,
-  depth = GRAPH_DEPTH,
-  k = 3,
-  margin = 80,
-  winK = SCORE_K,
-): Promise<RankedMove[]> {
-  const wasm = await loadWasm()
-  return wasm.top_moves_js(state, depth, k, margin, winK) as RankedMove[]
-}
 
 // ---- trained-net bot (opt-in) ---------------------------------------------
 // The net bot lives in a SEPARATE wasm bundle (src/wasm-net) because it bundles
 // candle (~730KB extra). It is lazy-loaded only when actually used, so the
-// default engine/graph bundle stays small. Rebuild it with:
+// default engine bundle stays small. Rebuild it with:
 //   wasm-pack build wasm --target web --release --features net
 //   cp wasm/pkg/wallchess_wasm* webui/src/wasm-net/
 type NetWasmModule = typeof import('../wasm-net/wallchess_wasm.js')
@@ -358,41 +340,3 @@ function mirrorMove(side: Side, move: Move): Move {
   }
 }
 
-// A fully precomputed pruned state graph (BFS done entirely in Rust).
-export type GraphNodeData = {
-  key: string
-  ply: number
-  south: number
-  state: GameState
-}
-export type GraphEdgeData = { from: string; to: string; move: Move }
-export type GraphData = {
-  nodes: GraphNodeData[]
-  edges: GraphEdgeData[]
-  capped: boolean
-}
-
-// Generate the whole pruned graph from `state` in one WASM call. `maxDepth`
-// controls how far ahead Rust precomputes; `maxNodes` is the hard memory ceiling
-// (the returned `capped` flag is true if it stopped early). Orders of magnitude
-// faster than expanding node-by-node from JS.
-export async function topGraph(
-  state: GameState,
-  depth = GRAPH_DEPTH,
-  k = 5,
-  margin = 400,
-  maxDepth = 12,
-  maxNodes = 1500,
-  winK = SCORE_K,
-): Promise<GraphData> {
-  const wasm = await loadWasm()
-  return wasm.generate_graph_js(
-    state,
-    depth,
-    k,
-    margin,
-    winK,
-    maxDepth,
-    maxNodes,
-  ) as GraphData
-}

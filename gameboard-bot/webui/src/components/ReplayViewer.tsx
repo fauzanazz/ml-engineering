@@ -129,8 +129,6 @@ export default function ReplayViewer({ record, onClose }: Props) {
             <div className="aspect-square h-full max-w-full">
               <Board
                 state={boardState}
-                actionMode="move"
-                orientation="h"
                 legalTargets={[]}
                 interactive={false}
                 canPlace={() => false}

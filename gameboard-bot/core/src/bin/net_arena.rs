@@ -85,7 +85,7 @@ impl Rng {
 fn main() {
     let mut args = std::env::args().skip(1);
     let weights = args.next().expect(
-        "usage: net_arena <weights.safetensors> [games] [sims] [heuristic_depth] [max_plies] [opening_plies] [no_guard=0|1]",
+        "usage: net_arena <weights.safetensors> [games] [sims] [heuristic_depth] [max_plies] [opening_plies] [no_guard=0|1] [threshold]",
     );
     let games: u32 = parse_arg(args.next(), 20);
     let sims: u32 = parse_arg(args.next(), 200);
@@ -93,12 +93,18 @@ fn main() {
     let max_plies: u32 = parse_arg(args.next(), 140);
     let opening_plies: u32 = parse_arg(args.next(), 0);
     let no_guard: bool = args.next().as_deref() == Some("1");
+    let threshold: f32 = parse_arg(args.next(), 0.60);
 
     let net = NetEvaluator::load(&weights).expect("load net weights");
     let move_book = load_move_book();
     let endgame_book = load_endgame_book();
     let heuristic = Heuristic::default();
-    let mut rng = Rng(0x51f1_7e5d_9a11_2026);
+    let seed = std::env::var("NET_ARENA_SEED")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .filter(|s| *s != 0)
+        .unwrap_or(0x51f1_7e5d_9a11_2026);
+    let mut rng = Rng(seed);
     let mut stats = MatchStats::default();
     let log_moves = std::env::var("NET_ARENA_LOG").is_ok();
     eprintln!("guard={}", if no_guard { "off" } else { "on" });
@@ -194,6 +200,17 @@ fn main() {
         stats.heuristic_timing.avg_ms(),
         stats.heuristic_timing.max_ms(),
         stats.heuristic_timing.moves,
+    );
+    let games_done = stats.net_wins + stats.heuristic_wins + stats.draws;
+    let candidate_score =
+        (stats.net_wins as f32 + 0.5 * stats.draws as f32) / games_done.max(1) as f32;
+    println!(
+        "RESULT {{\"candidate_score\":{candidate_score:.4},\"candidate_wins\":{},\"draws\":{},\"games\":{},\"opponent\":\"heuristic\",\"opponent_wins\":{},\"promote\":{},\"threshold\":{threshold:.4}}}",
+        stats.net_wins,
+        stats.draws,
+        games_done,
+        stats.heuristic_wins,
+        candidate_score >= threshold,
     );
 }
 

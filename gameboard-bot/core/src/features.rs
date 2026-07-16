@@ -1,28 +1,31 @@
 //! State → flat feature vector for the value/policy net. MUST match the Python
 //! trainer (`trainer/encoding.py`) byte-for-byte in length and field order.
 //!
-//! Layout (total [`FEATURE_LEN`] = 300), all from the side-to-move's frame so the
+//! Layout (total [`FEATURE_LEN`] = 462), all from the side-to-move's frame so the
 //! net sees one consistent "me vs them" view regardless of which colour moves:
-//!   - `0..81`    my pawn, one-hot over 81 cells (board mirrored if I am North)
-//!   - `81..162`  opponent pawn, one-hot over 81 cells
-//!   - `162..226` horizontal walls, 64 bits (mirrored to my frame)
-//!   - `226..290` vertical walls, 64 bits
-//!   - `290`      my walls left / 10
-//!   - `291`      opponent walls left / 10
-//!   - `292`      constant 1.0 (bias / "side to move" marker, always me)
-//!   - `293`      my shortest-path distance to goal / 16
-//!   - `294`      opponent shortest-path distance to goal / 16
-//!   - `295`      race margin (opp_dist - my_dist) / 16  (positive ⇒ I lead)
-//!   - `296..300` 4 progress flags: for each me-frame direction
-//!                [toward-goal, away, right, left], 1.0 iff a legal pawn step
-//!                that way strictly reduces my distance-to-goal. Gives the MLP
-//!                the path gradient directly instead of forcing it to recompute
-//!                shortest paths from one-hot cells (the old finishing weakness).
+//!   - `0..81`      my pawn, one-hot over 81 cells (board mirrored if I am North)
+//!   - `81..162`    opponent pawn, one-hot over 81 cells
+//!   - `162..226`   horizontal walls, 64 bits (mirrored to my frame)
+//!   - `226..290`   vertical walls, 64 bits
+//!   - `290`        my walls left / 10
+//!   - `291`        opponent walls left / 10
+//!   - `292`        constant 1.0 (bias / "side to move" marker, always me)
+//!   - `293`        my shortest-path distance to goal / 16
+//!   - `294`        opponent shortest-path distance to goal / 16
+//!   - `295`        race margin (opp_dist - my_dist) / 16  (positive ⇒ I lead)
+//!   - `296..300`   4 progress flags: for each me-frame direction
+//!                  [toward-goal, away, right, left], 1.0 iff a legal pawn step
+//!                  that way strictly reduces my distance-to-goal.
+//!   - `300..381`   my distance-to-goal map / 16, one value per me-frame cell
+//!   - `381..462`   opponent distance-to-goal map / 16, one value per me-frame cell
 
 use crate::moves::distance_to_goal;
 use crate::state::{Cell, Move, Side, State, Wall, SIZE};
 
-pub const FEATURE_LEN: usize = 81 + 81 + 64 + 64 + 3 + 3 + 4; // 300
+pub const BASE_FEATURE_LEN: usize = 81 + 81 + 64 + 64 + 3 + 3 + 4; // 300
+pub const DIST_MAP_OFFSET: usize = BASE_FEATURE_LEN;
+pub const OPP_DIST_MAP_OFFSET: usize = DIST_MAP_OFFSET + 81;
+pub const FEATURE_LEN: usize = BASE_FEATURE_LEN + 81 + 81; // 462
 
 /// BFS distance normalizer. Path lengths run ~8..~30; /16 keeps the common range
 /// in [0,1] without clamping the rare long detour.
@@ -55,6 +58,18 @@ fn to_me_frame(side: Side, cell: Cell) -> Cell {
     match side {
         Side::South => cell,
         Side::North => Cell::new(SIZE + 1 - cell.r, SIZE + 1 - cell.c),
+    }
+}
+
+fn write_distance_map(state: &State, frame_side: Side, goal_row: u8, offset: usize, f: &mut [f32]) {
+    for r in 1..=SIZE {
+        for c in 1..=SIZE {
+            let cell = Cell::new(r, c);
+            let frame = to_me_frame(frame_side, cell);
+            let idx = cell_index(frame.r, frame.c);
+            let d = distance_to_goal(state, cell, goal_row).unwrap_or(UNREACHABLE_DIST);
+            f[offset + idx] = d as f32 / DIST_NORM;
+        }
     }
 }
 
@@ -119,6 +134,9 @@ pub fn encode(state: &State) -> Vec<f32> {
     f[294] = opp_dist as f32 / DIST_NORM;
     f[295] = (opp_dist as f32 - me_dist as f32) / DIST_NORM;
 
+    write_distance_map(state, me, me.goal_row(), DIST_MAP_OFFSET, &mut f);
+    write_distance_map(state, me, opp.goal_row(), OPP_DIST_MAP_OFFSET, &mut f);
+
     // For each me-frame direction, flag a legal single step that strictly cuts my
     // distance-to-goal. Simple adjacency (matches the BFS step model); pawn jumps
     // over the opponent are rare and already covered by the global distance.
@@ -156,6 +174,9 @@ mod tests {
         // only the toward-goal step makes progress at the start cell.
         assert_eq!(f[296], 1.0);
         assert_eq!(&f[297..300], &[0.0, 0.0, 0.0]);
+        assert_eq!(f.len(), FEATURE_LEN);
+        assert_eq!(f[DIST_MAP_OFFSET + cell_index(1, 5)], 8.0 / 16.0);
+        assert_eq!(f[OPP_DIST_MAP_OFFSET + cell_index(9, 5)], 8.0 / 16.0);
     }
 
     #[test]

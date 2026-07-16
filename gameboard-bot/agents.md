@@ -1,7 +1,7 @@
 # gameboard-bot
 
-> Status: Multi-game platform — Wall Chess (deployed bot) + International Draughts (engine landed).
-> Goal: One shared Rust engine (search + arena + encoders) that hosts many board games behind a single `Game` trait.
+> Status: Multi-game platform — Wall Chess (deployed bot) + International Draughts (engine and web route landed).
+> Goal: One shared Rust engine (search + arena + encoders) that hosts board games behind a single `Game` trait, with the web UI as the playable showcase.
 
 ---
 
@@ -14,7 +14,7 @@
 | Game | Board | trait `ID` | Status |
 | --- | --- | --- | --- |
 | Wall Chess (Quoridor variant) | 9×9, 81 cells | `wallchess` | Deployed bot (Gen-2: aggressive pruning + reweighted eval) |
-| International Draughts | 10×10, 50 dark squares | `checkers` | Engine landed (perft d1–8 exact); CLI bin `checkers` |
+| International Draughts | 10×10, 50 dark squares | `checkers` | Engine + WASM web route landed; Gen-1 search bot, NN training not landed |
 
 ### The `Game` seam
 
@@ -32,6 +32,7 @@ Each game is a flat module at the core crate root that implements `Game` (associ
 | `docs/multi-game-architecture-plan` | How the engine was genericized over `Game`; phases and golden-snapshot guards |
 | `docs/game-trait-design` | The `Game`/`Evaluator`/`Encoder` trait contracts and the generic `Search<'a, E>` design |
 | `docs/checkers-rules-and-encoding` | International Draughts rules, board indexing, and the encoder layout |
+| `webui/README.md` | Playable routes and WebUI development commands |
 
 ---
 

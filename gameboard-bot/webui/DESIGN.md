@@ -1,6 +1,6 @@
 ---
-name: Wall Chess
-description: A focused, board-first strategy game where pawn and wall placement decide the match.
+name: Gameboard
+description: A focused, board-first strategy surface for Wall Chess and International Draughts.
 colors:
   ink: "#1a1510"
   ink-soft: "#5a524a"
@@ -85,22 +85,22 @@ components:
     padding: "{spacing.md}"
 ---
 
-# Design System: Wall Chess
+# Design System: Gameboard
 
 ## 1. Overview
 
 **Creative North Star: "The Quiet Board Room"**
 
-Wall Chess is a white room with a game board in it. Surfaces are clean white. Text is near-black. Brown appears once or twice per screen — in a button, a link, a kicker — and nowhere else. The board is the only thing with texture or tonal range. Everything else defers.
+Gameboard is a white room with one game board in it. Surfaces are clean white. Text is near-black. Brown appears once or twice per screen: in a button, a link, a kicker, or a focus ring. The board is the only thing with texture or tonal range. Everything else defers.
 
-The palette is a ratio, not a theme: 60% neutral, 30% ink, 10% brown. Neutral (white) is the primary — it fills all backgrounds and surfaces. Ink fills 30% as structure: text, borders, dividers, primary buttons. Brown fills 10% as accent: links, kickers, pawn gradient, focus rings. The system should feel like a well-typeset book that happens to have a game board in it.
+The palette is a ratio, not a theme: 60% neutral, 30% ink, 10% brown. Neutral (white) is the primary because it fills all backgrounds and surfaces. Ink fills 30% as structure: text, borders, dividers, primary buttons. Brown fills 10% as accent: links, kickers, pawn gradient, focus rings. The system should feel like a well-typeset book that happens to have a game board in it.
 
 The system explicitly rejects: teal or green color branding (replaced by this palette), warm-neutral maximalism (brown is 10%, not 40%), dark terminal chrome, and gamification overlays.
 
 **Key Characteristics:**
 - White-dominant surfaces: no colored backgrounds, no tinted neutrals, no cream
 - Near-black structure: text, borders, primary buttons all pull from the same near-black ink
-- Brown as accent only: one brown element per visual cluster — link, kicker, or button accent; never fill backgrounds
+- Brown as accent only: one brown element per visual cluster, such as a link, kicker, or button accent; never fill backgrounds
 - Board-first: the board is the only element with real tonal range; everything else is quiet
 - Dark mode: deep warm-black tones (not blue-black or gray), same ratio inverted
 

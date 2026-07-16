@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlayRouteImport } from './routes/play'
-import { Route as GraphRouteImport } from './routes/graph'
 import { Route as GameRouteImport } from './routes/game'
 import { Route as CheckersRouteImport } from './routes/checkers'
 import { Route as AboutRouteImport } from './routes/about'
@@ -19,11 +18,6 @@ import { Route as IndexRouteImport } from './routes/index'
 const PlayRoute = PlayRouteImport.update({
   id: '/play',
   path: '/play',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GraphRoute = GraphRouteImport.update({
-  id: '/graph',
-  path: '/graph',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GameRoute = GameRouteImport.update({
@@ -52,7 +46,6 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/checkers': typeof CheckersRoute
   '/game': typeof GameRoute
-  '/graph': typeof GraphRoute
   '/play': typeof PlayRoute
 }
 export interface FileRoutesByTo {
@@ -60,7 +53,6 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/checkers': typeof CheckersRoute
   '/game': typeof GameRoute
-  '/graph': typeof GraphRoute
   '/play': typeof PlayRoute
 }
 export interface FileRoutesById {
@@ -69,15 +61,14 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/checkers': typeof CheckersRoute
   '/game': typeof GameRoute
-  '/graph': typeof GraphRoute
   '/play': typeof PlayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/checkers' | '/game' | '/graph' | '/play'
+  fullPaths: '/' | '/about' | '/checkers' | '/game' | '/play'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/checkers' | '/game' | '/graph' | '/play'
-  id: '__root__' | '/' | '/about' | '/checkers' | '/game' | '/graph' | '/play'
+  to: '/' | '/about' | '/checkers' | '/game' | '/play'
+  id: '__root__' | '/' | '/about' | '/checkers' | '/game' | '/play'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -85,7 +76,6 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   CheckersRoute: typeof CheckersRoute
   GameRoute: typeof GameRoute
-  GraphRoute: typeof GraphRoute
   PlayRoute: typeof PlayRoute
 }
 
@@ -96,13 +86,6 @@ declare module '@tanstack/react-router' {
       path: '/play'
       fullPath: '/play'
       preLoaderRoute: typeof PlayRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/graph': {
-      id: '/graph'
-      path: '/graph'
-      fullPath: '/graph'
-      preLoaderRoute: typeof GraphRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/game': {
@@ -141,7 +124,6 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   CheckersRoute: CheckersRoute,
   GameRoute: GameRoute,
-  GraphRoute: GraphRoute,
   PlayRoute: PlayRoute,
 }
 export const routeTree = rootRouteImport

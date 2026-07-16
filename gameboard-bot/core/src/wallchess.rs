@@ -46,7 +46,7 @@ impl Game for WallChess {
 
     const ID: &'static str = "wallchess";
     const ACTION_COUNT: usize = ACTION_COUNT; // 209
-    const FEATURE_LEN: usize = FEATURE_LEN; // 300
+    const FEATURE_LEN: usize = FEATURE_LEN; // 462
     const MOVE_INDEX_SPACE: usize = HISTORY_SIZE; // 384
 
     #[inline]
@@ -113,11 +113,9 @@ impl Game for WallChess {
     fn hash(s: &State) -> u64 {
         let mut h = s.h_walls;
         h ^= s.v_walls.wrapping_mul(0x9e3779b97f4a7c15u64);
-        h ^= (s.pawns[0].r as u64 * 10 + s.pawns[0].c as u64)
-            .wrapping_mul(0x517cc1b727220a95u64)
+        h ^= (s.pawns[0].r as u64 * 10 + s.pawns[0].c as u64).wrapping_mul(0x517cc1b727220a95u64)
             << 32;
-        h ^= (s.pawns[1].r as u64 * 10 + s.pawns[1].c as u64)
-            .wrapping_mul(0xbf58476d1ce4e5b9u64)
+        h ^= (s.pawns[1].r as u64 * 10 + s.pawns[1].c as u64).wrapping_mul(0xbf58476d1ce4e5b9u64)
             << 16;
         h ^= (s.walls_left[0] as u64) << 56;
         h ^= (s.walls_left[1] as u64) << 48;

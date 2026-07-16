@@ -77,7 +77,10 @@ fn no_value_tiebreak_between_equal_counts() {
     assert_eq!(moves.len(), 2, "{moves:?}");
     assert!(moves.iter().all(|m| m.captured.count_ones() == 1));
     let targets: Vec<u8> = moves.iter().map(|m| m.to).collect();
-    assert!(targets.contains(&13) && targets.contains(&31), "{targets:?}");
+    assert!(
+        targets.contains(&13) && targets.contains(&31),
+        "{targets:?}"
+    );
 }
 
 #[test]
@@ -235,14 +238,19 @@ fn mirror_move_is_an_involution() {
         to: 11,
         captured: (1u64 << 8) | (1u64 << 7),
     };
-    let twice =
-        <Checkers as Encoder>::mirror_move(Player::P0, <Checkers as Encoder>::mirror_move(Player::P0, m));
+    let twice = <Checkers as Encoder>::mirror_move(
+        Player::P0,
+        <Checkers as Encoder>::mirror_move(Player::P0, m),
+    );
     assert_eq!(twice, m);
 }
 
 #[test]
 fn encode_has_expected_length() {
-    assert_eq!(Checkers::encode(&State::initial()).len(), Checkers::FEATURE_LEN);
+    assert_eq!(
+        Checkers::encode(&State::initial()).len(),
+        Checkers::FEATURE_LEN
+    );
 }
 
 // ── Shared engine reuse (the no-duplication payoff) ─────────────────────────
@@ -256,8 +264,14 @@ fn shared_search_and_arena_play_checkers() {
     // legal move from the opening — no checkers-specific search code exists.
     let h = CheckersHeuristic::default();
     let mut s = Search::new(&h);
-    let best = s.search(&State::initial(), 5).best.expect("engine returns a move");
-    assert!(legal_moves(&State::initial()).contains(&best), "illegal: {best:?}");
+    let best = s
+        .search(&State::initial(), 5)
+        .best
+        .expect("engine returns a move");
+    assert!(
+        legal_moves(&State::initial()).contains(&best),
+        "illegal: {best:?}"
+    );
 
     // The generic arena match driver plays a full self-play game to a result.
     // (debug_assert inside play_game rejects any illegal move it is handed.)
@@ -294,7 +308,11 @@ fn random_playout_preserves_occupancy_invariants() {
             assert_eq!(s.white & s.black, 0, "colour overlap");
             assert_eq!(s.kings & !s.occ(), 0, "king on empty square");
             // Piece count drops by exactly the captured count.
-            assert_eq!(s.occ().count_ones() + ncaptured, before, "piece-count drift");
+            assert_eq!(
+                s.occ().count_ones() + ncaptured,
+                before,
+                "piece-count drift"
+            );
         }
     }
 }

@@ -55,7 +55,7 @@ fn main() {
         .filter(|s| *s != 0)
         .unwrap_or(0xace5_2026_5eed_f00d);
     let mut rng = Rng(seed);
-    let heuristic = Heuristic::default();
+    let heuristic = Heuristic::from_env();
     let file = File::create(&out).expect("create expert-data output");
     let mut w = BufWriter::new(file);
     let mut total_samples = 0u64;

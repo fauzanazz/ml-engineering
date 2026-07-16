@@ -23,14 +23,14 @@ The frame convention is the most error-prone part: both games encode from the **
 
 | Game | Rust source | `FEATURE_LEN` | `ACTION_COUNT` | `MOVE_INDEX_SPACE` | Status |
 |---|---|---|---|---|---|
-| Wall Chess | `core/src/features.rs`, `core/src/action.rs` | **300** | **209** | 384 | **LANDED** — deployed contract, Python + TS parity exist |
-| International Draughts | `core/src/checkers.rs` (`impl Encoder`) | **308** | **2500** | 2500 | **PROVISIONAL** — Rust-only; Python/TS NOT written |
+| Wall Chess | `core/src/features.rs`, `core/src/action.rs` | **462** | **209** | 384 | **LANDED** — spatial CNN contract, Python trainer parity exists |
+| International Draughts | `core/src/checkers.rs` (`impl Encoder`) | **308** | **2500** | 2500 | **PYTHON READY / TS-NN PROVISIONAL** — Rust + Python trainer helpers exist; browser NN inference is not wired |
 
 `ACTION_COUNT` is the policy-head width (one logit per action). `MOVE_INDEX_SPACE` is the move-ordering history-table width and may differ from `ACTION_COUNT` (Wall Chess: 384 vs 209). For draughts both are `N*N = 2500`.
 
-### Wall Chess feature layout (`FEATURE_LEN = 300`)
+### Wall Chess feature layout (`FEATURE_LEN = 462`)
 
-`81 + 81 + 64 + 64 + 3 + 3 + 4`, all in the me-frame (board mirrored if the side to move is North):
+`81 + 81 + 64 + 64 + 3 + 3 + 4 + 81 + 81`, all in the me-frame (board mirrored if the side to move is North):
 
 | Range | Field | Notes |
 |---|---|---|
@@ -45,6 +45,8 @@ The frame convention is the most error-prone part: both games encode from the **
 | `294` | opponent shortest-path distance to goal / 16 | |
 | `295` | race margin `(opp_dist - my_dist) / 16` | positive ⇒ I lead |
 | `296..300` | 4 progress flags `[toward-goal, away, right, left]` | `1.0` iff a legal pawn step that way strictly cuts my distance |
+| `300..381` | my BFS distance-to-goal map / 16 | 9×9 me-frame cell map |
+| `381..462` | opponent BFS distance-to-goal map / 16 | 9×9 me-frame cell map |
 
 ### Wall Chess action layout (`ACTION_COUNT = 209`)
 
@@ -87,7 +89,7 @@ The frame convention is the most error-prone part: both games encode from the **
 
 ## Parity guards and the failure mode each catches
 
-The guards below are the only thing that converts a silent mis-score into a hard test failure. The Rust tests that exist **today** are Wall Chess's (`core/src/action.rs`, `core/src/features.rs` test modules) plus checkers `perft`.
+The guards below are the only thing that converts a silent mis-score into a hard test failure. Rust covers Wall Chess plus checkers rules/perft; `trainer/checkers_selfcheck.py` covers the Python checkers port.
 
 | Guard | Property checked | Failure mode it catches |
 |---|---|---|
@@ -99,12 +101,12 @@ The guards below are the only thing that converts a silent mis-score into a hard
 ### action_index round-trip
 
 - **Wall Chess:** `roundtrip_all_legal_moves` in `core/src/action.rs` walks 40 plies of a real game and asserts `index_to_move(action_index(mv)) == mv` and `i < ACTION_COUNT` for every legal move; `action_count_is_209` pins the width.
-- **Draughts:** `action_index`/`index_to_move` exist (`from*50+to`), but no cross-language round-trip test exists yet. Endpoints round-trip; `captured` does **not** (by design — see above), so the test must assert endpoint equality after a legal-set intersection, not raw `Move` equality.
+- **Draughts:** Rust and Python both use `from*50+to`. Endpoints round-trip; `captured` does **not** because the index intentionally discards it, so consumers recover captures by intersecting the decoded endpoints with the legal set.
 
 ### mirror_move involution
 
-- **Wall Chess:** `mirror_move` is documented as an involution (the same op applied with the same side decodes it). `me_frame_is_side_invariant_at_start` checks the symmetric start encodes identically for both sides — a proxy that catches a broken mirror.
-- **Draughts:** `mirror_move` is the 180° rotation `i ↔ 49-i` on both endpoints and the captured mask; self-inverse by construction. No explicit involution test yet.
+- **Wall Chess:** `mirror_move` is documented as an involution (the same op applied with the same side decodes it). `me_frame_is_side_invariant_at_start` checks the symmetric start encodes identically for both sides.
+- **Draughts:** `mirror_move` is the 180° rotation `i ↔ 49-i` on both endpoints and the captured mask. Rust and the trainer self-check assert the involution.
 
 ### state_key round-trip
 
@@ -117,13 +119,11 @@ The guards below are the only thing that converts a silent mis-score into a hard
 
 ---
 
-## Honest status: what must be added when checkers training starts
+## Honest status before checkers training
 
-Only the **Rust** side of the checkers encoder exists. The Python trainer and TS webui have **no** draughts feature/action code, and the cross-language parity tests today are **wallchess-only**. Before draughts training:
+The trainer has the checkers `GameSpec`, feature encoder, action layout, `mirror_move`, and state-key helpers. Remaining work before a real draughts NN run:
 
-1. **Port `impl Encoder for Checkers::encode` to `trainer/encoding.py`** — all 308 fields including the two reserved `0.0` pads, the me-frame 180° rotation, and the exact plane order (my men / my kings / opp men / opp kings / all men / all kings).
-2. **Port the action layout** (`from*50 + to`) to Python and TS; add a round-trip test asserting endpoint preservation after legal-set intersection (raw `Move` equality fails because `captured` is dropped).
-3. **Add a mirror_move involution test** for draughts in Rust and the port (`i ↔ 49-i` on both endpoints + captured mask).
-4. **Add a state_key round-trip test** for the `white.black.kings.stm.idle` hex format, including the extra-field rejection.
-5. **Cross-language perft check** — reproduce the Rust d1–d8 perft counts in any language that generates draughts moves, as the move-gen oracle underpinning the action space.
-6. **Promote `FEATURE_LEN=308` / `ACTION_COUNT=2500` from PROVISIONAL to LANDED** only once a generated golden vector matches byte-for-byte across Rust ↔ Python ↔ TS. The dims are marked provisional in the code (`const FEATURE_LEN`, `const ACTION_COUNT` carry "revisited when training starts") and may change on first real training.
+1. **Generate checkers JSONL training data** — no `selfplay_data` / `search_data` equivalent emits draughts records yet.
+2. **Wire TS/browser NN inference** — the web UI can play draughts through WASM search, but it does not encode draughts positions for a learned policy/value net.
+3. **Cross-language perft check outside Rust** — Rust d1–d8 remains the oracle; no Python/TS move generator exists because the browser intentionally delegates rules to WASM.
+4. **Promote `FEATURE_LEN=308` / `ACTION_COUNT=2500` from provisional in Rust comments** only after a generated golden vector is checked byte-for-byte across Rust ↔ Python and the first training data emitter uses it.

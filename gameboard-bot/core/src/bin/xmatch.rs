@@ -139,7 +139,11 @@ fn play(a: &mut Engine, b: &mut Engine, a_is_south: bool, start: State) -> Res {
         };
         // Referee trusts engine legality but guards against protocol drift.
         if !gameboard_core::moves::is_legal(&state, mv) {
-            eprintln!("illegal move from {} engine: {:?}", if a_turn { "A" } else { "B" }, mv);
+            eprintln!(
+                "illegal move from {} engine: {:?}",
+                if a_turn { "A" } else { "B" },
+                mv
+            );
             break;
         }
         state = state.apply(mv);

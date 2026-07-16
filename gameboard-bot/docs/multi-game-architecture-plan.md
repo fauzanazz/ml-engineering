@@ -145,7 +145,7 @@ Game dimensions, as implemented:
 
 | Game | `ID` | `ACTION_COUNT` | `FEATURE_LEN` | `MOVE_INDEX_SPACE` |
 |------|------|----------------|---------------|--------------------|
-| Wall Chess | `"wallchess"` | 209 | 300 | 384 |
+| Wall Chess | `"wallchess"` | 209 | 462 | 384 |
 | Checkers (Intl. 10×10) | `"checkers"` | 2500 (`N*N`) | 308 (`6*N+8`) | 2500 (`from*50 + to`) |
 
 ### Deferred: the `games/` subdirectory nesting
@@ -175,12 +175,11 @@ The original plan put each game under `games/wallchess/` and `games/checkers/`. 
 
 ---
 
-## 7. Out of scope this session / next phase
+## 7. Remaining deferred work
 
-Honest NOT-LANDED list — these are real follow-ups, not done:
+Current follow-ups after the WebUI cleanup and trainer readiness pass:
 
-- **wasm per-game bundles.** The wasm package is still `wallchess-wasm`, Wall-Chess-only. No checkers wasm surface yet.
-- **webui game-picker + per-game Board.** The UI is single-game; no game-selection dropdown, no checkers board renderer.
-- **trainer per-game `GameSpec`.** The Python trainer is Wall-Chess-bound; no abstraction to point it at a second game's encoder/action space.
-- **NN training for checkers.** No teacher/student nets, no self-play data, no learned evaluator for draughts — `CheckersHeuristic` is hand-written.
-- **Genericizing `Mcts` / `net` / graph over `G`.** The `PolicyValue` MCTS seam, the candle net path, and the state-graph generator are still Wall-Chess-bound. The `Encoder` contract is generic; its consumers are not. Deferred until checkers NN training begins.
+- **wasm per-game bundles.** The wasm package is still `wallchess-wasm` for deployment continuity. Checkers exports exist through that package; separate per-game bundles are still deferred.
+- **trainer checkers data generation.** `trainer/encoding.py` now has `GameSpec` and Checkers feature/action helpers, but no checkers self-play/search-data emitter writes JSONL training rows yet.
+- **NN training for checkers.** No teacher/student nets, no self-play data, no learned evaluator for draughts. `CheckersHeuristic` remains the playable Gen-1 bot.
+- **Genericizing `Mcts` / `net` / graph over `G`.** The `PolicyValue` MCTS seam, candle net path, and graph generator are still Wall-Chess-bound. The `Encoder` contract and trainer dimensions are game-aware; inference consumers are not.

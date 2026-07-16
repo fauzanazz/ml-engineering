@@ -70,7 +70,11 @@ enum Agent {
 #[inline]
 fn choose(a: &Agent, s: &State, rng: &mut Rng) -> Option<gameboard_core::checkers::Move> {
     match a {
-        Agent::Search(h, d) => Search::with_config(h, SearchConfig::draughts()).search(s, *d).best,
+        Agent::Search(h, d) => {
+            Search::with_config(h, SearchConfig::draughts())
+                .search(s, *d)
+                .best
+        }
         Agent::Random => {
             let m = legal_moves(s);
             if m.is_empty() {
@@ -103,7 +107,11 @@ fn result(s: &State) -> Out {
     }
     if !gameboard_core::checkers::any_legal_move(s) {
         // side to move (s.stm) has no move and loses
-        return if s.stm == Color::White { Out::P1 } else { Out::P0 };
+        return if s.stm == Color::White {
+            Out::P1
+        } else {
+            Out::P0
+        };
     }
     let wm = material(s.white & !s.kings, s.white & s.kings);
     let bm = material(s.black & !s.kings, s.black & s.kings);
@@ -165,7 +173,9 @@ impl Tally {
 /// A vs B over `games`, alternating seats each game, parallel across threads.
 /// Each game is a pure function of its seed → reproducible regardless of timing.
 fn run_match(a: Agent, b: Agent, games: u32, max_plies: u32, base: u64, open: u32) -> Tally {
-    let nthreads = thread::available_parallelism().map(|n| n.get()).unwrap_or(4) as u32;
+    let nthreads = thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4) as u32;
     let nthreads = nthreads.clamp(1, games.max(1));
     let total = thread::scope(|sc| {
         let mut handles = Vec::new();
@@ -325,8 +335,14 @@ fn main() {
                 open,
             );
             report(
-                &format!("A {}/{}/{}/{} d{}", a.man, a.king, a.advance, a.back_rank, da),
-                &format!("B {}/{}/{}/{} d{}", b.man, b.king, b.advance, b.back_rank, db),
+                &format!(
+                    "A {}/{}/{}/{} d{}",
+                    a.man, a.king, a.advance, a.back_rank, da
+                ),
+                &format!(
+                    "B {}/{}/{}/{} d{}",
+                    b.man, b.king, b.advance, b.back_rank, db
+                ),
                 t,
             );
         }

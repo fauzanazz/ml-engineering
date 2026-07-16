@@ -17,8 +17,10 @@ use candle_nn::{Conv2d, Conv2dConfig, Linear, Module};
 
 use crate::action::{action_index, index_to_move, ACTION_COUNT};
 use crate::features::{encode, mirror_move, FEATURE_LEN};
+use crate::game::{Evaluator, Player, ENDGAME_WIN, WIN_SCORE};
 use crate::mcts::PolicyValue;
 use crate::state::State;
+use crate::wallchess::{side_to_player, WallChess};
 
 // ---------------------------------------------------------------------------
 // Public loader: auto-detects MLP vs CNN from the safetensors keys
@@ -27,6 +29,7 @@ use crate::state::State;
 pub struct NetEvaluator {
     inner: NetArch,
     device: Device,
+    score_scale: f32,
 }
 
 enum NetArch {
@@ -59,7 +62,59 @@ impl NetEvaluator {
         } else {
             NetArch::Mlp(MlpNet::from_tensors(&mut tensors)?)
         };
-        Ok(NetEvaluator { inner, device })
+        Ok(NetEvaluator {
+            inner,
+            device,
+            score_scale: net_eval_scale(),
+        })
+    }
+
+    fn value_stm(&self, state: &State) -> candle_core::Result<f32> {
+        let feats = encode(state);
+        match &self.inner {
+            NetArch::Mlp(m) => m.value(&feats, &self.device),
+            NetArch::Cnn(c) => c.value(&feats, &self.device),
+            NetArch::ResT(r) => r.value(&feats, &self.device),
+        }
+    }
+}
+
+fn net_eval_scale() -> f32 {
+    std::env::var("NET_EVAL_SCALE")
+        .ok()
+        .and_then(|v| v.parse::<f32>().ok())
+        .filter(|v| v.is_finite() && *v > 0.0)
+        .unwrap_or(350.0)
+}
+
+fn value_to_score(value: f32, scale: f32) -> i32 {
+    let v = value.clamp(-0.999, 0.999);
+    let score = 0.5 * ((1.0 + v) / (1.0 - v)).ln() * scale;
+    score
+        .round()
+        .clamp(-(ENDGAME_WIN - 1) as f32, (ENDGAME_WIN - 1) as f32) as i32
+}
+
+impl Evaluator for NetEvaluator {
+    type G = WallChess;
+
+    fn eval(&self, state: &State, p: Player) -> i32 {
+        if let Some(winner) = state.winner {
+            return if side_to_player(winner) == p {
+                WIN_SCORE
+            } else {
+                -WIN_SCORE
+            };
+        }
+        let value = self
+            .value_stm(state)
+            .expect("net value forward pass failed");
+        let pov = if side_to_player(state.turn) == p {
+            value
+        } else {
+            -value
+        };
+        value_to_score(pov, self.score_scale)
     }
 }
 
@@ -91,6 +146,10 @@ fn to_output(state: &State, logits: Tensor, v: Tensor) -> candle_core::Result<(f
         priors[action_index(abs)] = p;
     }
     Ok((value, priors))
+}
+
+fn scalar_value(v: Tensor) -> candle_core::Result<f32> {
+    Ok(v.flatten_all()?.to_vec1::<f32>()?[0])
 }
 
 // ---------------------------------------------------------------------------
@@ -139,16 +198,26 @@ impl MlpNet {
             self.value.forward(&h)?.tanh()?,
         )
     }
+
+    fn value(&self, feats: &[f32], device: &Device) -> candle_core::Result<f32> {
+        let x = Tensor::from_slice(feats, (1, FEATURE_LEN), device)?;
+        let h = self.l1.forward(&x)?.relu()?;
+        let h = self.l2.forward(&h)?.relu()?;
+        scalar_value(self.value.forward(&h)?.tanh()?)
+    }
 }
 
 // ---------------------------------------------------------------------------
 // CNN architecture — WallNetCNN
 //
-// Board tensor channels (me-frame, 4 × 9×9):
-//   ch0  my pawn one-hot      feats[0..81]    row-major
-//   ch1  opp pawn one-hot     feats[81..162]
-//   ch2  h-walls 8×8          feats[162..226] placed in top-left 8×8 of 9×9
-//   ch3  v-walls 8×8          feats[226..290]
+// Board tensor channels (me-frame, 7 × 9×9):
+//   ch0  my pawn one-hot          feats[0..81]    row-major
+//   ch1  opp pawn one-hot         feats[81..162]
+//   ch2  h-walls 8×8              feats[162..226] placed in top-left 8×8 of 9×9
+//   ch3  v-walls 8×8              feats[226..290]
+//   ch4  my BFS distance map      feats[300..381]
+//   ch5  opp BFS distance map     feats[381..462]
+//   ch6  side-to-move/bias plane  feats[292], broadcast
 //
 // Scalar features (7):
 //   feats[290] my_walls/10,  feats[291] opp_walls/10
@@ -168,7 +237,7 @@ struct CnnNet {
 }
 
 const BOARD_SIZE: usize = 9;
-const CNN_IN_CH: usize = 4;
+const CNN_IN_CH: usize = 7;
 const SCALAR_LEN: usize = 7;
 const HEAD_HIDDEN: usize = 256;
 const SCALAR_HIDDEN: usize = 32;
@@ -178,8 +247,8 @@ impl CnnNet {
         let ch = {
             let dims = get_tensor(tensors, "conv1.weight")?.dims();
             match dims {
-                [c, _, 3, 3] => *c,
-                other => bail!("conv1.weight shape {other:?}; expected [ch, 4, 3, 3]"),
+                [c, CNN_IN_CH, 3, 3] => *c,
+                other => bail!("conv1.weight shape {other:?}; expected [ch, {CNN_IN_CH}, 3, 3]"),
             }
         };
         let board_flat = (ch / 2) * BOARD_SIZE * BOARD_SIZE;
@@ -238,6 +307,21 @@ impl CnnNet {
             self.value.forward(&h)?.tanh()?,
         )
     }
+
+    fn value(&self, feats: &[f32], device: &Device) -> candle_core::Result<f32> {
+        let board = build_board_tensor(feats, device)?;
+        let scalars = build_scalar_tensor(feats, device)?;
+
+        let h = self.conv1.forward(&board)?.relu()?;
+        let h = self.conv2.forward(&h)?.relu()?;
+        let h = self.conv3.forward(&h)?.relu()?;
+        let h = self.conv_out.forward(&h)?.relu()?;
+        let h_flat = h.flatten_from(1)?;
+        let s = self.fc_scalar.forward(&scalars)?.relu()?;
+        let combined = Tensor::cat(&[h_flat, s], 1)?;
+        let h = self.fc_head.forward(&combined)?.relu()?;
+        scalar_value(self.value.forward(&h)?.tanh()?)
+    }
 }
 
 fn build_board_tensor(feats: &[f32], device: &Device) -> candle_core::Result<Tensor> {
@@ -257,6 +341,11 @@ fn build_board_tensor(feats: &[f32], device: &Device) -> candle_core::Result<Ten
         for c in 0..8usize {
             board[3 * 81 + r * BOARD_SIZE + c] = feats[226 + r * 8 + c];
         }
+    }
+    board[4 * 81..5 * 81].copy_from_slice(&feats[300..381]);
+    board[5 * 81..6 * 81].copy_from_slice(&feats[381..462]);
+    for x in &mut board[6 * 81..7 * 81] {
+        *x = feats[292];
     }
     Tensor::from_vec(board, (1, CNN_IN_CH, BOARD_SIZE, BOARD_SIZE), device)
 }
@@ -546,6 +635,25 @@ impl ResTNet {
             self.policy.forward(&h)?,
             self.value.forward(&h)?.tanh()?,
         )
+    }
+
+    fn value(&self, feats: &[f32], device: &Device) -> candle_core::Result<f32> {
+        let board = build_board_tensor(feats, device)?;
+        let scalars = build_scalar_tensor(feats, device)?;
+
+        let mut h = self
+            .stem_bn
+            .forward(&self.stem_conv.forward(&board)?)?
+            .relu()?;
+        for blk in &self.tower {
+            h = blk.forward(&h)?;
+        }
+        let h = self.conv_out.forward(&h)?.relu()?;
+        let h_flat = h.flatten_from(1)?;
+        let s = self.fc_scalar.forward(&scalars)?.relu()?;
+        let combined = Tensor::cat(&[h_flat, s], 1)?;
+        let h = self.fc_head.forward(&combined)?.relu()?;
+        scalar_value(self.value.forward(&h)?.tanh()?)
     }
 }
 

@@ -1,9 +1,14 @@
-import { type CSSProperties, useState } from 'react'
+import {
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  useRef,
+  useState,
+} from 'react'
 import {
   type Cell,
   type GameState,
   type Move,
-  type Orientation,
   type Side,
   type Wall,
   SIZE,
@@ -11,14 +16,60 @@ import {
 
 const STEP = 100 / SIZE // one cell as a % of the board
 const WALL_TH = 2.6 // wall bar thickness, % of board
-const HIT_CROSS = 6 // hit-strip cross-axis thickness, % of board
-const HIT_LEN = STEP * 0.9 // hit-strip length along the wall (<1 cell → no overlap)
+const WALL_INTENT_MARGIN = 0.1 // board cells; avoids accidental walls near move targets
 
 const ROWS = Array.from({ length: SIZE }, (_, i) => SIZE - i) // 9..1 top→bottom
 const COLS = Array.from({ length: SIZE }, (_, i) => i + 1) // 1..9
 
 function sameCell(a: Cell, b: Cell) {
   return a.r === b.r && a.c === b.c
+}
+
+type BoardIntent =
+  | { type: 'move'; cell: Cell }
+  | { type: 'wall'; wall: Wall }
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n))
+}
+
+export function boardIntentAt(x: number, y: number): BoardIntent {
+  const col0 = clamp(Math.floor(x), 0, SIZE - 1)
+  const row0 = clamp(Math.floor(y), 0, SIZE - 1)
+  const centerX = col0 + 0.5
+  const centerY = row0 + 0.5
+  const centerDist = Math.hypot(x - centerX, y - centerY)
+
+  const lineX = clamp(Math.round(x), 1, SIZE - 1)
+  const lineY = clamp(Math.round(y), 1, SIZE - 1)
+  const dx = Math.abs(x - lineX)
+  const dy = Math.abs(y - lineY)
+  const gapDist = Math.min(dx, dy)
+
+  if (gapDist + WALL_INTENT_MARGIN < centerDist) {
+    return {
+      type: 'wall',
+      wall: {
+        r: SIZE - lineY,
+        c: lineX,
+        o: dx < dy ? 'v' : 'h',
+      },
+    }
+  }
+
+  return { type: 'move', cell: { r: SIZE - row0, c: col0 + 1 } }
+}
+
+function eventIntent(
+  e: ReactMouseEvent<HTMLDivElement> | ReactPointerEvent<HTMLDivElement>,
+  el: HTMLDivElement | null,
+): BoardIntent | null {
+  if (!el) return null
+  const rect = el.getBoundingClientRect()
+  if (rect.width <= 0 || rect.height <= 0) return null
+  const x = ((e.clientX - rect.left) / rect.width) * SIZE
+  const y = ((e.clientY - rect.top) / rect.height) * SIZE
+  return boardIntentAt(x, y)
 }
 
 // Geometry: board is a square; row 9 sits at the top, column 1 at the left.
@@ -43,28 +94,9 @@ function wallStyle(w: Wall, thickness: number): CSSProperties {
   }
 }
 
-// Click target for placing a wall. Every wall is centred on its grid
-// intersection (c*STEP, (SIZE-r)*STEP); the hit area is a short strip there —
-// under one cell long, so neighbouring slots abut instead of overlapping (the
-// 2-cell visual bar would intercept adjacent clicks).
-function hitStyle(w: Wall): CSSProperties {
-  const cx = w.c * STEP
-  const cy = (SIZE - w.r) * STEP
-  const along = `${HIT_LEN}%`
-  const cross = `${HIT_CROSS}%`
-  return {
-    left: `${cx}%`,
-    top: `${cy}%`,
-    width: w.o === 'h' ? along : cross,
-    height: w.o === 'h' ? cross : along,
-    transform: 'translate(-50%, -50%)',
-  }
-}
 
 type BoardProps = {
   state: GameState
-  actionMode: 'move' | 'wall'
-  orientation: Orientation
   legalTargets: Cell[]
   interactive: boolean
   canPlace: (wall: Wall) => boolean
@@ -77,8 +109,6 @@ type BoardProps = {
 
 export default function Board({
   state,
-  actionMode,
-  orientation,
   legalTargets,
   interactive,
   canPlace,
@@ -88,17 +118,41 @@ export default function Board({
   goalBottomLabel,
   bestMove,
 }: BoardProps) {
+  const boardRef = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<Wall | null>(null)
-  const placing = interactive && actionMode === 'wall'
+  const canTryWall = interactive && state.wallsLeft[state.turn] > 0
+  const hoverValid = hover ? canPlace(hover) : false
 
-  // wall slots: anchors r,c in 1..8 for the chosen orientation
-  const slots: Wall[] = []
-  if (placing) {
-    for (let r = 1; r <= SIZE - 1; r++) {
-      for (let c = 1; c <= SIZE - 1; c++) slots.push({ r, c, o: orientation })
+
+  function handlePointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!canTryWall) {
+      setHover((h) => (h ? null : h))
+      return
+    }
+    const intent = eventIntent(e, boardRef.current)
+    const next = intent?.type === 'wall' ? intent.wall : null
+    setHover((h) =>
+      (h?.r === next?.r && h?.c === next?.c && h?.o === next?.o) || (!h && !next)
+        ? h
+        : next,
+    )
+  }
+
+  function handleClick(e: ReactMouseEvent<HTMLDivElement>) {
+    if (!interactive || e.detail === 0) return
+    const intent = eventIntent(e, boardRef.current)
+    if (!intent) return
+    e.preventDefault()
+    e.stopPropagation()
+    if (intent.type === 'move') {
+      if (legalTargets.some((t) => sameCell(t, intent.cell))) onMove(intent.cell)
+      return
+    }
+    if (canPlace(intent.wall)) {
+      onPlaceWall(intent.wall)
+      setHover(null)
     }
   }
-  const hoverValid = hover ? canPlace(hover) : false
 
   return (
     <div className="border bg-card text-card-foreground shadow-sm flex h-full flex-col rounded-[1.75rem] p-3">
@@ -108,6 +162,10 @@ export default function Board({
         </p>
       )}
       <div
+        ref={boardRef}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={() => setHover(null)}
+        onClickCapture={handleClick}
         className="relative min-h-0 flex-1 overflow-hidden rounded-xl border-4"
         style={{ borderColor: 'var(--board-frame)' }}
       >
@@ -121,10 +179,7 @@ export default function Board({
               const cell = { r, c }
               const isSouth = sameCell(state.pawns.south, cell)
               const isNorth = sameCell(state.pawns.north, cell)
-              const isTarget =
-                interactive &&
-                actionMode === 'move' &&
-                legalTargets.some((t) => sameCell(t, cell))
+              const isTarget = interactive && legalTargets.some((t) => sameCell(t, cell))
               const isBestMoveDest = bestMove?.type === 'move' && sameCell(bestMove.to, cell)
               const isLightSq = (r + c) % 2 === 0
               const isGoal = r === SIZE || r === 1
@@ -133,8 +188,11 @@ export default function Board({
                 <button
                   key={`${r}-${c}`}
                   type="button"
-                  disabled={!isTarget}
-                  onClick={() => isTarget && onMove(cell)}
+                  aria-disabled={!isTarget}
+                  tabIndex={isTarget ? 0 : -1}
+                  onClick={(e) => {
+                    if (e.detail === 0 && isTarget) onMove(cell)
+                  }}
                   aria-label={`${isGoal ? 'Goal row, ' : ''}cell row ${r} column ${c}`}
                   className={[
                     'relative flex items-center justify-center transition',
@@ -176,8 +234,8 @@ export default function Board({
           )}
         </div>
 
-        {/* wall-mode grid hint — faint lines at cell boundaries */}
-        {placing && (
+        {/* wall grid hint — faint lines at wall gaps */}
+        {canTryWall && (
           <div className="pointer-events-none absolute inset-0">
             {Array.from({ length: SIZE - 1 }, (_, i) => (
               <div
@@ -237,28 +295,6 @@ export default function Board({
           )}
         </div>
 
-        {/* wall placement hit-strips */}
-        {placing && (
-          <div className="absolute inset-0">
-            {slots.map((w) => (
-              <button
-                key={`slot-${w.o}-${w.r}-${w.c}`}
-                type="button"
-                aria-label={`Place ${w.o === 'h' ? 'horizontal' : 'vertical'} wall at ${w.r},${w.c}`}
-                onPointerEnter={() => setHover(w)}
-                onPointerLeave={() => setHover((h) => (h === w ? null : h))}
-                onClick={() => {
-                  if (canPlace(w)) {
-                    onPlaceWall(w)
-                    setHover(null)
-                  }
-                }}
-                className="absolute cursor-pointer bg-transparent touch-none"
-                style={hitStyle(w)}
-              />
-            ))}
-          </div>
-        )}
       </div>
       {goalBottomLabel && (
         <p className="mt-1 text-left text-[0.6rem] font-bold uppercase tracking-widest text-muted-foreground opacity-50">

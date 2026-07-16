@@ -1,102 +1,94 @@
-# Wall Chess self-play training loop
+# Gameboard trainer
 
-Replaces the depth-2 negamax teacher (a permanent ceiling) with MCTS self-play:
-search quality scales with simulations + a learned policy, so the net can
-surpass the heuristic instead of regressing to it.
+Python training utilities for policy/value nets that consume Rust-emitted JSONL.
 
-```
- ┌─ selfplay_data ──► selfplay.jsonl ──► train.py ──► wallnet.safetensors ─┐
- │  (Rust, MCTS)        (state, π, z)     (PyTorch)      (candle weights)   │
- └──────────────────  next iteration uses the new net  ◄────────────────────┘
-```
+Wall Chess remains the only complete training loop. International Draughts now has trainer-side encoding helpers and dimensional contracts, but no data emitter or learned evaluator yet.
 
-Each JSONL record is one move from a self-play game, in the side-to-move
-**me-frame**:
+## Data contract
 
-- `f`  — feature vector, length `FEATURE_LEN` (293). See `encoding.py` /
-  `core/src/features.rs`.
-- `pi` — MCTS visit-count policy, sparse `[[action_index, prob], ...]` over the
-  `ACTION_COUNT` (209) action space. See `core/src/action.rs`.
-- `z`  — game outcome from that state's POV: `+1` win, `-1` loss, `0` draw.
+Each JSONL record is one move from a self-play or search-labelled game in side-to-move me-frame:
 
-The Rust action/feature layouts in `core/src/{action,features}.rs` and the
-Python copies in `encoding.py` **must stay identical**; the net reads garbage
-otherwise.
+- `f`: dense feature vector.
+- `pi`: sparse policy target as `[[action_index, probability], ...]`.
+- `z`: game outcome from that state's side-to-move point of view: `+1`, `-1`, or `0`.
 
-## One iteration
+Current specs in `encoding.py`:
+
+| Game | `--game` | Feature length | Action count | Status |
+| --- | --- | ---: | ---: | --- |
+| Wall Chess | `wallchess` | 462 | 209 | Spatial CNN loop landed. |
+| International Draughts | `checkers` | 308 | 2500 | Encoder/action trainer helpers landed; data generation and NN inference deferred. |
+
+The Rust layouts and Python copies must stay identical. A mismatch silently trains weights that score the wrong moves.
+
+## Wall Chess loop
 
 ```bash
-# 0. build the Rust tools
-cd core
-cargo build --release --bin selfplay_data                 # heuristic bootstrap
-cargo build --release --bin expert_data                   # fast alpha-beta traces
-cargo build --release --bin search_data                   # supervised search labels
-cargo build --release --bin counter_book                  # compact anti-heuristic book
-cargo build --release --features net --bin selfplay_data   # net-driven (iter ≥1)
+# 0. build Rust data tools
+cd ../core
+cargo build --release --bin selfplay_data
+cargo build --release --bin expert_data
+cargo build --release --bin search_data
+cargo build --release --bin counter_book
+cargo build --release --features net --bin selfplay_data
 cargo build --release --features net --bin bestmove_net
 
-# 1. generate self-play data
-#    iter 0 — heuristic bootstrap (no weights arg):
+# 1. generate data
 ./target/release/selfplay_data 200 200 ../selfplay.jsonl
-#    iter ≥1 — drive self-play with the previous net:
-./target/release/selfplay_data 200 200 ../selfplay.jsonl ../wallnet.safetensors
-#    optional — seed games from a precomputed opening graph:
-OPENING_GRAPH=../opening_graph.jsonl ./target/release/selfplay_data 200 200 ../selfplay.jsonl
-#    optional — make heuristic bootstrap labels stronger but slower:
-HEURISTIC_DEPTH=2 OPENING_GRAPH=../opening_graph.jsonl ./target/release/selfplay_data 50 80 ../selfplay-hd2.jsonl
-
-#    fast baseline-imitation data from exact alpha-beta traces:
 OPENING_GRAPH=../opening_graph.jsonl ./target/release/expert_data 100 2 ../expert-depth2.jsonl 140
-
-#    stronger local teacher labels over pruned candidate moves:
 OPENING_GRAPH=../opening_graph.jsonl ./target/release/search_data 1000 3 ../search-depth3.jsonl 0 350 70 8
 
-#    compact opening/counter book against the heuristic arena opponent:
-./target/release/counter_book ../webui/public/counter-book.jsonl 4 5 2 140
-
-# 2. train (uv manages the env)
+# 2. train
 cd ../trainer
-uv run train.py --data ../selfplay.jsonl --out ../wallnet.safetensors --epochs 20
-# smaller/faster candidate:
-uv run train.py --data ../selfplay.jsonl --out ../wallnet-h128.safetensors --epochs 20 --hidden 128
-# mixed-data candidate:
-uv run train.py --data ../expert-depth2.jsonl ../selfplay.jsonl ../search-depth3.jsonl --out ../wallnet-h128-mix.safetensors --epochs 28 --hidden 128
+uv run train.py --game wallchess --data ../selfplay.jsonl --out ../wallnet.safetensors --epochs 20
+uv run train.py --game wallchess --data ../expert-depth2.jsonl ../selfplay.jsonl ../search-depth3.jsonl --out ../wallnet-h128-mix.safetensors --epochs 28 --hidden 128
 
-# 3. sanity-check the net inside MCTS
+# 3. inspect inside Rust MCTS
 cd ../core
 cargo run --release --features net --bin bestmove_net -- ../wallnet.safetensors 400
-
-# 4. go to step 1 with the new weights. Repeat.
 ```
 
-`bestmove_net` prints the top moves by visit count — eyeball that the net plays
-sensibly before spending compute on the next data round.
+`train.py --data` accepts multiple JSONL files and concatenates them in memory. `--value-data` adds value-only rows with policy loss disabled.
 
-## Notes / next steps
+## Autonomous Wall Chess CNN loop
 
-- The bootstrap heuristic always lets South win, so iter-0 value targets are
-  near-degenerate (`z≈+1`). Diversity appears once the net drives self-play
-  (games start drawing / both sides win) — that is the loop working.
-- `win_prob`'s `k` (display calibration in `core/src/eval.rs`) can be fit to the
-  `z` outcomes here once enough games accumulate.
-- `OPENING_GRAPH=/path/to/opening_graph.jsonl` makes `selfplay_data` sample start
-  states from `core/src/bin/opening_graph.rs` node records instead of uniform
-  random opening plies. Use this to parallelize and rebalance hard opening
-  branches.
-- `expert_data` is the cheap baseline-imitation stage: one alpha-beta move per
-  turn, final race-scored `z`. It is useful when MCTS bootstrap is too expensive
-  at higher heuristic depths.
-- `search_data` emits supervised labels from a stronger search over a pruned
-  candidate set. It is much cheaper than scoring every legal wall at depth 3+,
-  but still should be sharded with `SEARCH_DATA_SEED` for larger runs.
-- `counter_book` stores side-to-move book actions as `state_key -> action_index`
-  JSONL. Runtime lookup happens before net MCTS, keeping the strong opening line
-  effectively free; `net_arena` reads the same format via `MOVE_BOOK=...`.
-- `train.py --data` accepts multiple JSONL files and concatenates them in memory,
-  so shards can be mixed without creating temporary merged files.
-- `--hidden` controls the MLP width. The Rust `NetEvaluator` infers the width
-  from safetensors shapes, so candidates smaller than the default 256-hidden net
-  can be evaluated without a Rust/WASM architecture edit.
-- wasm wiring: `NetEvaluator::from_buffer` already takes raw safetensors bytes
-  (no filesystem), so exposing a `wasm-bindgen` entry that accepts the fetched
-  buffer + runs MCTS is the remaining browser integration step.
+```bash
+uv run python autoloop.py
+```
+
+Default mode runs forever and resumes from `../runs/wallchess-cnn-loop/state.json`.
+Each iteration builds data from heuristic alpha-beta/search labels plus
+previous-net MCTS self-play, trains a CNN policy+value model
+(`--policy-loss-weight 0.25` by default), gates it with MCTS `net_arena`,
+and atomically promotes only passing candidates to
+`../runs/wallchess-cnn-loop/best/current.safetensors`.
+
+Each candidate warm-starts from the previous candidate (or promoted best model) and trains on the current data plus the recent replay window (`--replay-iters`, default 8), so learning compounds without lowering the promotion gate.
+
+Data generation is parallelized across search/expert/self-play jobs; self-play and arena gates are sharded by `--selfplay-shards` and `--arena-shards` without changing total game counts.
+
+## Checkers readiness
+
+Available now:
+
+- `CHECKERS = GameSpec("checkers", feature_len=308, action_count=2500)`.
+- `checkers_encode(state)` mirrors `impl Encoder for Checkers`.
+- `checkers_action_index(move)` and `checkers_index_to_move(index)` use `from*50 + to`.
+- `checkers_mirror_move(move)` mirrors endpoints and captured squares with `i ↔ 49-i`.
+- `checkers_state_key(state)` / `checkers_parse_state_key(key)` use `white.black.kings.stm.idle` hex format.
+- `SelfPlayDataset(..., spec=CHECKERS)` validates draughts feature/action dimensions.
+- `train.py --game checkers --arch mlp ...` can train from compatible JSONL once a data emitter exists.
+
+Deferred before a real draughts NN:
+
+1. Emit checkers training JSONL from Rust search/self-play.
+2. Add a Rust/WASM learned-evaluator path for checkers.
+3. Promote the Rust `FEATURE_LEN=308` / `ACTION_COUNT=2500` comments from provisional after golden-vector parity is generated from real data.
+
+## Focused self-checks
+
+```bash
+uv run python checkers_selfcheck.py
+```
+
+This checks the trainer-side checkers encoding contract without running training.

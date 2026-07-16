@@ -511,7 +511,15 @@ impl<'a, E: Evaluator> Search<'a, E> {
             .into_iter()
             .map(|mv| {
                 let child = <Gm<E> as Game>::apply(state, mv);
-                let s = -self.negamax(&child, depth.saturating_sub(1), -beta, -alpha, 1, true, true);
+                let s = -self.negamax(
+                    &child,
+                    depth.saturating_sub(1),
+                    -beta,
+                    -alpha,
+                    1,
+                    true,
+                    true,
+                );
                 (mv, s)
             })
             .collect();
@@ -705,8 +713,15 @@ impl<'a, E: Evaluator> Search<'a, E> {
                 }
             } else {
                 // PVS: scout with a null window, widening only when it pays off.
-                let mut s =
-                    -self.negamax(&child, reduced_depth, -alpha - 1, -alpha, ply + 1, false, true);
+                let mut s = -self.negamax(
+                    &child,
+                    reduced_depth,
+                    -alpha - 1,
+                    -alpha,
+                    ply + 1,
+                    false,
+                    true,
+                );
                 if !self.stopped && reduced_depth < new_depth && s > alpha {
                     // Reduced scout beat alpha: re-search full depth, null window.
                     s = -self.negamax(&child, new_depth, -alpha - 1, -alpha, ply + 1, false, true);
@@ -732,8 +747,9 @@ impl<'a, E: Evaluator> Search<'a, E> {
             if alpha >= beta {
                 // Beta cutoff: update killers + history.
                 self.update_killers(mv, safe_ply);
-                self.history[<Gm<E> as Game>::move_order_index(mv)] =
-                    self.history[<Gm<E> as Game>::move_order_index(mv)].saturating_add((depth as i32) * (depth as i32));
+                self.history[<Gm<E> as Game>::move_order_index(mv)] = self.history
+                    [<Gm<E> as Game>::move_order_index(mv)]
+                .saturating_add((depth as i32) * (depth as i32));
                 break;
             }
         }
@@ -955,7 +971,9 @@ mod tests {
         };
         for state in sample_states(12) {
             for depth in 3..=6u8 {
-                let sa = Search::with_config(&eval, plain).search(&state, depth).score;
+                let sa = Search::with_config(&eval, plain)
+                    .search(&state, depth)
+                    .score;
                 let sb = Search::with_config(&eval, pvs_asp)
                     .search(&state, depth)
                     .score;
@@ -974,13 +992,7 @@ mod tests {
         let c = SearchConfig::default();
         assert!(c.tt && c.lmr);
         assert!(
-            !(c.pvs
-                || c.aspiration
-                || c.null_move
-                || c.rfp
-                || c.razoring
-                || c.futility
-                || c.lmp)
+            !(c.pvs || c.aspiration || c.null_move || c.rfp || c.razoring || c.futility || c.lmp)
         );
         assert_eq!(c.lmr_min_depth, 4);
         assert_eq!(c.lmr_full_moves, 4);

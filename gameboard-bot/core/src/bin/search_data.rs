@@ -52,7 +52,7 @@ fn main() {
         .filter(|s| *s != 0)
         .unwrap_or(0xf00d_cafe_1234_5678);
     let mut rng = Rng(seed);
-    let heuristic = Heuristic::default();
+    let heuristic = Heuristic::from_env();
     let mut search = Search::new(&heuristic);
     let file = File::create(&out).expect("create search-data output");
     let mut w = BufWriter::new(file);

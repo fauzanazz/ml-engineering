@@ -32,7 +32,11 @@ fn parse_state(line: &str) -> Option<State> {
     let p1 = Cell::new(f[4].parse().ok()?, f[5].parse().ok()?);
     let wl0: u8 = f[6].parse().ok()?;
     let wl1: u8 = f[7].parse().ok()?;
-    let turn = if f[8] == "0" { Side::South } else { Side::North };
+    let turn = if f[8] == "0" {
+        Side::South
+    } else {
+        Side::North
+    };
     Some(State {
         pawns: [p0, p1],
         h_walls,

@@ -9,14 +9,10 @@ import {
   History,
   Lightbulb,
   Loader2,
-  Move as MoveIcon,
   Pause,
   Play,
   PlusSquare,
-  RectangleHorizontal,
-  RectangleVertical,
   RotateCcw,
-  Square,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -30,7 +26,6 @@ import {
   type Cell,
   type GameState,
   type Move,
-  type Orientation,
   type Side,
   type Wall,
   GOAL_ROW,
@@ -84,8 +79,6 @@ function raceWinner(s: GameState): Side {
 function Game() {
   const { mode } = Route.useSearch()
   const [state, setState] = useState<GameState>(initialState)
-  const [actionMode, setActionMode] = useState<'move' | 'wall'>('move')
-  const [orientation, setOrientation] = useState<Orientation>('h')
   const [thinking, setThinking] = useState(false)
   const [botError, setBotError] = useState<string | null>(null)
   const [showHelp, setShowHelp] = useState(false)
@@ -122,7 +115,6 @@ function Game() {
   const isAutoTurn = !state.winner && autoSides.includes(state.turn)
   const isHumanTurn = mode !== 'arena' && (mode === 'friend' || state.turn !== BOT_SIDE)
   const interactive = !state.winner && !thinking && isHumanTurn
-  const wallsLeft = state.wallsLeft[state.turn]
 
   // Auto turn: ask the engine for a move, then apply it. In arena both sides are
   // engines (net vs heuristic), paced by a short delay so it's watchable.
@@ -212,25 +204,13 @@ function Game() {
     }
   }, [state])
 
-  // Keyboard shortcuts: M=move, W=wall, H/V=orientation, R=reset, ?=help
+  // Keyboard shortcuts: R=reset, ?=help.
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.ctrlKey || e.metaKey || e.altKey) return
       switch (e.key) {
-        case 'm': case 'M':
-          if (interactive) setActionMode('move')
-          break
-        case 'w': case 'W':
-          if (interactive && wallsLeft > 0) setActionMode('wall')
-          break
-        case 'h': case 'H':
-          if (interactive && actionMode === 'wall') setOrientation('h')
-          break
-        case 'v': case 'V':
-          if (interactive && actionMode === 'wall') setOrientation('v')
-          break
         case 'r': case 'R':
           reset()
           setShowHelp(false)
@@ -242,7 +222,7 @@ function Game() {
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [interactive, actionMode, wallsLeft])
+  }, [])
 
   // Warn before browser refresh/close mid-game.
   useEffect(() => {
@@ -317,14 +297,12 @@ function Game() {
   function handleMove(to: Cell) {
     pushFrame(state, { type: 'move', to })
     setState((s) => applyMove(s, { type: 'move', to }))
-    setActionMode('move')
     setMovesMade((n) => n + 1)
   }
 
   function handlePlaceWall(wall: Wall) {
     pushFrame(state, { type: 'wall', wall })
     setState((s) => applyMove(s, { type: 'wall', wall }))
-    setActionMode('move')
     setMovesMade((n) => n + 1)
   }
 
@@ -335,7 +313,6 @@ function Game() {
     gameStartedAtRef.current = new Date().toISOString()
     setSavedReplay(null)
     setState(initialState())
-    setActionMode('move')
     setThinking(false)
     setBotError(null)
     setMovesMade(0)
@@ -568,8 +545,6 @@ function Game() {
             >
               <Board
                 state={replayMode ? replayBoardState! : state}
-                actionMode={actionMode}
-                orientation={orientation}
                 legalTargets={replayMode ? [] : legalTargets}
                 interactive={replayMode ? false : interactive}
                 canPlace={replayMode ? () => false : canPlace}
@@ -626,43 +601,6 @@ function Game() {
             </div>
           ) : (
             <div className="flex flex-col flex-shrink-0 gap-2 lg:hidden">
-              {/* action controls */}
-              <div className="flex flex-shrink-0 flex-wrap items-center justify-center gap-2">
-                <div className="inline-flex overflow-hidden rounded-full border border-border">
-                  <ToggleBtn
-                    active={actionMode === 'move'}
-                    disabled={!interactive}
-                    onClick={() => setActionMode('move')}
-                  >
-                    <MoveIcon size={14} /> Move
-                  </ToggleBtn>
-                  <ToggleBtn
-                    active={actionMode === 'wall'}
-                    disabled={!interactive || wallsLeft <= 0}
-                    onClick={() => setActionMode('wall')}
-                  >
-                    <Square size={14} /> Wall
-                  </ToggleBtn>
-                </div>
-
-                {actionMode === 'wall' && interactive && (
-                  <div className="inline-flex overflow-hidden rounded-full border border-border">
-                    <ToggleBtn
-                      active={orientation === 'h'}
-                      onClick={() => setOrientation('h')}
-                    >
-                      <RectangleHorizontal size={14} /> Horiz
-                    </ToggleBtn>
-                    <ToggleBtn
-                      active={orientation === 'v'}
-                      onClick={() => setOrientation('v')}
-                    >
-                      <RectangleVertical size={14} /> Vert
-                    </ToggleBtn>
-                  </div>
-                )}
-              </div>
-
               {mode === 'bot' && (
                 <div className="flex flex-shrink-0 flex-wrap items-center justify-center gap-2">
                   <div className="flex items-center gap-1.5">
@@ -686,20 +624,12 @@ function Game() {
               )}
 
               <p className="flex-shrink-0 text-center text-xs text-muted-foreground">
-                {actionMode === 'move'
-                  ? 'Tap a highlighted square to move.'
-                  : 'Tap a grid line to place a wall.'}
+                Tap near a highlighted square center to move; tap near a grid gap to place a wall.
               </p>
               <span className="sr-only" aria-live="polite" aria-atomic="true">
-                {actionMode === 'wall' ? 'Wall placement mode. Select a grid line to place a wall.' : ''}
+                Board controls infer moves from square centers and walls from grid gaps.
               </span>
               <p className="flex-shrink-0 text-center text-xs text-muted-foreground">
-                <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">M</kbd>
-                {' '}move{' · '}
-                <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">W</kbd>
-                {' '}wall{' · '}
-                <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">H/V</kbd>
-                {' '}orient{' · '}
                 <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">R</kbd>
                 {' '}reset{' · '}
                 <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">?</kbd>
@@ -765,26 +695,6 @@ function Game() {
                 <ArenaConfig bots={arenaBots} onChange={handleArenaBot} compact />
               ) : (
                 <>
-                  <div className="inline-flex overflow-hidden rounded-full border border-border">
-                    <ToggleBtn compact active={actionMode === 'move'} disabled={!interactive} onClick={() => setActionMode('move')}>
-                      <MoveIcon size={13} /> Move
-                    </ToggleBtn>
-                    <ToggleBtn compact active={actionMode === 'wall'} disabled={!interactive || wallsLeft <= 0} onClick={() => setActionMode('wall')}>
-                      <Square size={13} /> Wall
-                    </ToggleBtn>
-                  </div>
-
-                  {actionMode === 'wall' && interactive && (
-                    <div className="inline-flex overflow-hidden rounded-full border border-border">
-                      <ToggleBtn compact active={orientation === 'h'} onClick={() => setOrientation('h')}>
-                        <RectangleHorizontal size={13} /> Horiz
-                      </ToggleBtn>
-                      <ToggleBtn compact active={orientation === 'v'} onClick={() => setOrientation('v')}>
-                        <RectangleVertical size={13} /> Vert
-                      </ToggleBtn>
-                    </div>
-                  )}
-
                   {mode === 'bot' && (
                     <div className="flex w-full items-center gap-1.5">
                       <Bot size={13} className="flex-shrink-0 text-muted-foreground" />
@@ -809,20 +719,12 @@ function Game() {
                   )}
 
                   <p className="text-center text-xs text-muted-foreground">
-                    {actionMode === 'move'
-                      ? 'Tap a highlighted square to move.'
-                      : 'Tap a grid line to place a wall.'}
+                    Click near a highlighted square center to move; click near a grid gap to place a wall.
                   </p>
                   <span className="sr-only" aria-live="polite" aria-atomic="true">
-                    {actionMode === 'wall' ? 'Wall placement mode. Select a grid line to place a wall.' : ''}
+                    Board controls infer moves from square centers and walls from grid gaps.
                   </span>
                   <p className="text-center text-xs text-muted-foreground leading-relaxed">
-                    <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">M</kbd>
-                    {' '}move{' · '}
-                    <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">W</kbd>
-                    {' '}wall{' · '}
-                    <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">H/V</kbd>
-                    {' '}orient{' · '}
                     <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">R</kbd>
                     {' '}reset{' · '}
                     <kbd className="rounded border border-border bg-secondary px-1 font-mono text-[0.65rem] font-semibold">?</kbd>

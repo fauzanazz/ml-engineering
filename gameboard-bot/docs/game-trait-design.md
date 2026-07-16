@@ -149,11 +149,11 @@ pub const ENDGAME_WIN: i32 = WIN_SCORE - 1000;     // 999_000 — provably resol
 
 | Game | `ID` | `ACTION_COUNT` | `FEATURE_LEN` | `MOVE_INDEX_SPACE` |
 |------|------|----------------|---------------|--------------------|
-| Wall Chess | `"wallchess"` | 209 | 300 | 384 |
+| Wall Chess | `"wallchess"` | 209 | 462 | 384 |
 | Draughts | `"checkers"` | 2500 | 308 | 2500 |
 
 Derivations from the code:
-- **Wall Chess** (`wallchess.rs`): re-exports `ACTION_COUNT` (209), `FEATURE_LEN` (300) from `action`/`features`; `MOVE_INDEX_SPACE = HISTORY_SIZE = 384`. History layout: `Pawn(to)` → `to.r*16 + to.c` (0..=153), `Wall(r,c,H)` → 256..=319, `Wall(r,c,V)` → 320..=383.
+- **Wall Chess** (`wallchess.rs`): re-exports `ACTION_COUNT` (209), `FEATURE_LEN` (462) from `action`/`features`; `MOVE_INDEX_SPACE = HISTORY_SIZE = 384`. History layout: `Pawn(to)` → `to.r*16 + to.c` (0..=153), `Wall(r,c,H)` → 256..=319, `Wall(r,c,V)` → 320..=383.
 - **Draughts** (`checkers.rs`, all *provisional*, revisited when training starts): `ACTION_COUNT = N*N = 2500` (from×to = 50×50); `FEATURE_LEN = 6*N + 8 = 308` (six 50-wide planes + an 8-scalar tail); `MOVE_INDEX_SPACE = N*N = 2500` (`from*50 + to`). `move_order_index` = `from*50 + to`; distinct capture *targets* from the same square share a history slot — acceptable for move ordering.
 
 ---

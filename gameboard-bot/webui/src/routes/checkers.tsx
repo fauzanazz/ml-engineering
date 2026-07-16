@@ -124,6 +124,12 @@ function Checkers() {
     !thinking && !status.terminal && state.stm === humanColor && legal.length > 0
   const mustCapture = legal.length > 0 && legal.every((m) => m.captured.length > 0)
 
+  const detail = status.terminal
+    ? status.draw
+      ? 'Draw by the 25 king-only quiet-move rule.'
+      : `${state.stm === 'white' ? 'White' : 'Black'} has no legal move.`
+    : null
+
   let banner: string
   if (status.terminal) {
     banner = status.draw
@@ -134,7 +140,7 @@ function Checkers() {
   } else if (thinking) {
     banner = 'Bot is thinking…'
   } else if (state.stm === humanColor) {
-    banner = mustCapture ? 'Your move — capture is mandatory' : 'Your move'
+    banner = mustCapture ? 'Capture is mandatory' : 'Your move'
   } else {
     banner = 'Bot to move'
   }
@@ -146,6 +152,7 @@ function Checkers() {
         <h1 className="display-title text-3xl font-bold text-foreground sm:text-4xl">
           {banner}
         </h1>
+        {detail && <p className="mt-2 text-sm font-medium text-muted-foreground">{detail}</p>}
       </div>
 
       <div className="flex w-full max-w-3xl flex-col items-stretch gap-5 sm:flex-row sm:items-start">
@@ -160,6 +167,13 @@ function Checkers() {
             onSelect={setSelected}
             onMove={handleMove}
           />
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            {mustCapture
+              ? 'Select a highlighted piece, then choose one of its capture landings.'
+              : interactive
+                ? 'Select a highlighted piece, then choose a legal landing square.'
+                : 'The board locks while the bot searches.'}
+          </p>
         </div>
 
         <aside className="flex shrink-0 flex-col gap-4 sm:w-56">

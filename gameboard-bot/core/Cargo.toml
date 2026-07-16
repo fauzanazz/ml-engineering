@@ -27,6 +27,11 @@ name = "net_arena"
 path = "src/bin/net_arena.rs"
 required-features = ["net"]
 
+
+[[bin]]
+name = "net_search_arena"
+path = "src/bin/net_search_arena.rs"
+required-features = ["net"]
 [[bin]]
 name = "rest_probe"
 path = "src/bin/rest_probe.rs"

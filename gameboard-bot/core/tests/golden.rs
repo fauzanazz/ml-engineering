@@ -126,7 +126,13 @@ fn deployed_search_is_byte_identical() {
     for (i, (got, want)) in lines.iter().zip(exp_lines.iter()).enumerate() {
         // Round-trip the key so a parse regression also trips here.
         let key = got.split('\t').next().unwrap();
-        assert!(parse_state_key(key).is_some(), "position {i} key unparseable: {key}");
-        assert_eq!(got, want, "GOLDEN MISMATCH at position {i}\n  got:  {got}\n  want: {want}");
+        assert!(
+            parse_state_key(key).is_some(),
+            "position {i} key unparseable: {key}"
+        );
+        assert_eq!(
+            got, want,
+            "GOLDEN MISMATCH at position {i}\n  got:  {got}\n  want: {want}"
+        );
     }
 }

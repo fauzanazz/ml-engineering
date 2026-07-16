@@ -91,13 +91,34 @@ export default function CheckersBoard({
             lastMove != null &&
             (idx === lastMove.from || idx === lastMove.to)
 
+          let piece = 'empty'
+          if (isWhite) {
+            piece = isKing ? 'white king' : 'white man'
+          } else if (isBlack) {
+            piece = isKing ? 'black king' : 'black man'
+          }
+
+          let marker: string | null = null
+          if (isTarget) {
+            marker = 'legal landing'
+          } else if (isOrigin) {
+            marker = 'selectable piece'
+          } else if (isSelected) {
+            marker = 'selected piece'
+          } else if (inLastMove) {
+            marker = 'last move'
+          }
+          const label = marker
+            ? `square ${idx + 1}, ${piece}, ${marker}`
+            : `square ${idx + 1}, ${piece}`
+
           return (
             <button
               key={`${dr}-${dc}`}
               type="button"
               disabled={!dark || (!isOrigin && !isTarget && !isSelected)}
               onClick={() => dark && clickSquare(idx)}
-              aria-label={dark ? `square ${idx + 1}` : undefined}
+              aria-label={dark ? label : undefined}
               className="relative flex items-center justify-center p-0"
               style={{
                 background: dark ? 'var(--board-dark)' : 'var(--board-light)',
@@ -116,13 +137,6 @@ export default function CheckersBoard({
                 <span
                   className="pointer-events-none absolute inset-0"
                   style={{ background: 'var(--selection)' }}
-                />
-              )}
-              {/* capture marker on a jumped square */}
-              {isCapture && !isWhite && !isBlack && (
-                <span
-                  className="pointer-events-none absolute h-1/5 w-1/5 rounded-full"
-                  style={{ background: 'var(--destructive)', opacity: 0.55 }}
                 />
               )}
 
@@ -151,6 +165,14 @@ export default function CheckersBoard({
                   )}
                 </span>
               )}
+              {/* captured square marker */}
+              {isCapture && (
+                <span
+                  className="pointer-events-none absolute inset-[18%] rounded-full"
+                  style={{ boxShadow: '0 0 0 3px var(--destructive)' }}
+                />
+              )}
+
 
               {/* empty legal destination dot */}
               {isTarget && !isWhite && !isBlack && (

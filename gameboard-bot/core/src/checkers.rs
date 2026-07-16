@@ -59,7 +59,11 @@ const BLACK_FWD: [usize; 2] = [DOWN_LEFT, DOWN_RIGHT];
 const fn idx_to_rc(i: usize) -> (i32, i32) {
     let r = (i / 5) as i32;
     let within = (i % 5) as i32;
-    let c = if r % 2 == 0 { within * 2 + 1 } else { within * 2 };
+    let c = if r % 2 == 0 {
+        within * 2 + 1
+    } else {
+        within * 2
+    };
     (r, c)
 }
 
@@ -275,14 +279,7 @@ pub struct Move {
 /// the original occupancy minus the origin square; captured pieces stay in it
 /// (they block landings until the move resolves) and are tracked in `captured`
 /// (so they cannot be jumped twice).
-fn extend_man(
-    from: u8,
-    cur: u8,
-    enemy: u64,
-    blockers: u64,
-    captured: u64,
-    out: &mut Vec<Move>,
-) {
+fn extend_man(from: u8, cur: u8, enemy: u64, blockers: u64, captured: u64, out: &mut Vec<Move>) {
     let mut extended = false;
     for dir in 0..4 {
         let over = nb(cur as i32, dir);
@@ -319,14 +316,7 @@ fn extend_man(
 /// Recursively extend a *flying king* capture. Along each diagonal it scans past
 /// empties to the first occupied square; if that is an un-captured enemy with at
 /// least one empty square beyond, every such landing square branches a capture.
-fn extend_king(
-    from: u8,
-    cur: u8,
-    enemy: u64,
-    blockers: u64,
-    captured: u64,
-    out: &mut Vec<Move>,
-) {
+fn extend_king(from: u8, cur: u8, enemy: u64, blockers: u64, captured: u64, out: &mut Vec<Move>) {
     let mut extended = false;
     for dir in 0..4 {
         // Scan to the first occupied square along the ray.

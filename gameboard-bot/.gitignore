@@ -9,6 +9,7 @@ node_modules/
 
 # Self-play data / training scratch
 *.jsonl
+/runs/
 
 # OS
 .DS_Store
