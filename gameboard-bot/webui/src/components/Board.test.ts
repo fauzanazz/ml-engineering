@@ -129,6 +129,22 @@ describe('Board pointer clicks', () => {
     },
   )
 
+  it('places the wall shown by the hover ghost across its full visual span', () => {
+    const { boardEl, onMove, onPlaceWall } = mount()
+    fireEvent.pointerMove(boardEl, { clientX: 460, clientY: 802 })
+    clickAt(boardEl, 5.6, 8.02)
+    expect(onPlaceWall).toHaveBeenCalledWith({ r: 1, c: 5, o: 'h' })
+    expect(onMove).not.toHaveBeenCalled()
+  })
+
+  it('lets a legal pawn click override a stale wall ghost', () => {
+    const { boardEl, onMove, onPlaceWall } = mount()
+    fireEvent.pointerMove(boardEl, { clientX: 460, clientY: 802 })
+    clickAt(boardEl, 4.5, 7.5)
+    expect(onMove).toHaveBeenCalledWith({ r: 2, c: 5 })
+    expect(onPlaceWall).not.toHaveBeenCalled()
+  })
+
   it('does not call onMove for a center click outside the legal targets', () => {
     const { boardEl, onMove, onPlaceWall } = mount()
     clickAt(boardEl, 0.5, 0.5) // cell r9,c1 — nowhere near south's legal steps

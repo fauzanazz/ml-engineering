@@ -140,8 +140,12 @@ export default function Board({
 
   function handleClick(e: ReactMouseEvent<HTMLDivElement>) {
     if (!interactive || e.detail === 0) return
-    const intent = eventIntent(e, boardRef.current)
-    if (!intent) return
+    const eventBasedIntent = eventIntent(e, boardRef.current)
+    if (!eventBasedIntent) return
+    const intent: BoardIntent =
+      hover && eventBasedIntent.type === 'wall'
+        ? { type: 'wall', wall: hover }
+        : eventBasedIntent
     e.preventDefault()
     e.stopPropagation()
     if (intent.type === 'move') {
