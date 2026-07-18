@@ -1,5 +1,17 @@
 # Serving Runbook
 
+## Verify and train
+
+```bash
+uv run pytest
+uv run python -m {{package_name}}.train
+```
+
+Training writes `artifacts/reports/training-summary.json` and
+`artifacts/reports/metrics.json`. It does not change the live model: the
+generated service deliberately keeps deterministic dummy inference until
+`{{package_name}}/predict.py` is replaced.
+
 ## Start
 
 ```bash
@@ -20,6 +32,13 @@ curl http://127.0.0.1:8000/health
 curl -X POST http://127.0.0.1:8000/predict \
   -H "Content-Type: application/json" \
   -d '{"features":{"feature_a":1.0,"feature_b":-0.25}}'
+```
+
+## Build
+
+```bash
+uv build
+docker build -t {{package_name}} .
 ```
 
 ## Operate

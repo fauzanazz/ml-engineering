@@ -6,6 +6,22 @@ The service is intentionally model-free: `/predict` uses a deterministic dummy
 implementation that returns a boolean. Replace `{{package_name}}/predict.py`
 when you add a real model.
 
+The default preset resolves `training`, `evaluation`, `api`, `deployment`,
+`quality-gate`, `monitoring`, `docker`, and `ci`. The generator records that
+selection in `ml-struct.yaml` and adds the corresponding tests, training and
+evaluation modules, monitoring job, Dockerfile, and GitHub Actions workflow.
+
+## Test and train
+
+```bash
+uv run pytest
+uv run python -m {{package_name}}.train
+```
+
+Training writes `artifacts/reports/training-summary.json` and
+`artifacts/reports/metrics.json`. Serving remains a deterministic dummy seam:
+training does not load or replace the model behind `/predict`.
+
 ## Run locally
 
 ```bash
@@ -21,10 +37,9 @@ curl -X POST http://127.0.0.1:8000/predict \
   -d '{"features":{"feature_a":1.0,"feature_b":-0.25}}'
 ```
 
-## Test and build
+## Build the package
 
 ```bash
-uv run pytest
 uv build
 ```
 

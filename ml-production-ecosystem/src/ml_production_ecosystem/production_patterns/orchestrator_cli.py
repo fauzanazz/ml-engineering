@@ -24,7 +24,7 @@ DOCTOR_REQUIRED_PATHS = (
     Path("artifacts/foundation"),
     Path("artifacts/reports/production-patterns"),
     Path("src/ml_production_ecosystem"),
-    Path("templates/scaffold"),
+    Path("src/ml_production_ecosystem/templates/scaffold"),
 )
 
 CommandHandler = Callable[[argparse.Namespace], int]
@@ -404,6 +404,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+    sys.exit(args.handler(args))
+
+
+def create_main() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["new", *sys.argv[1:]])
     sys.exit(args.handler(args))
 
 

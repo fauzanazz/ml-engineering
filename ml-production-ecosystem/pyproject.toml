@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "confluent-kafka>=2.5.0",
     "fastapi>=0.115.0",
+    "httpx>=0.28.0",
     "psycopg[binary]>=3.2.0",
     "PyYAML>=6.0.2",
     "questionary>=2.0.0",
@@ -16,6 +17,7 @@ dependencies = [
 [project.scripts]
 ml-struct = "ml_production_ecosystem.production_patterns.orchestrator_cli:main"
 mle = "ml_production_ecosystem.production_patterns.orchestrator_cli:main"
+create-ml-struct = "ml_production_ecosystem.production_patterns.orchestrator_cli:create_main"
 foundation-prepare-data = "ml_production_ecosystem.recommendation.data:main"
 foundation-train-recommender = "ml_production_ecosystem.recommendation.train:main"
 foundation-train-from-config = "ml_production_ecosystem.recommendation.train:config_main"
@@ -70,7 +72,6 @@ reasoning-post-training = "ml_production_ecosystem.reasoning_post_training.cli:m
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.0",
     "pytest>=8.0.0",
 ]
 
@@ -85,6 +86,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+ml_production_ecosystem = ["templates/scaffold/**/*"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

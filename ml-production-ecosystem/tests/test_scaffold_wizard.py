@@ -9,6 +9,7 @@ import tomllib
 
 from fastapi.testclient import TestClient
 import pytest
+import yaml
 
 from ml_production_ecosystem.production_patterns import orchestrator_cli
 from ml_production_ecosystem.production_patterns.orchestrator_cli import build_parser, run_new
@@ -17,6 +18,7 @@ from ml_production_ecosystem.production_patterns.scaffold import (
     SUPPORTED_INFRA,
     SUPPORTED_PRESETS,
     ScaffoldRequest,
+    TEMPLATE_ROOT,
     package_name_from_project,
     scaffold_project,
 )
@@ -308,6 +310,21 @@ def test_served_model_scaffold_includes_api_and_dockerfile(tmp_path: Path) -> No
 
     assert (target / "churn_api" / "api.py").exists()
     assert "uvicorn" in (target / "Dockerfile").read_text()
+
+
+def test_served_model_metadata_matches_default_generated_paths(tmp_path: Path) -> None:
+    target = tmp_path / "served-contract"
+    result = scaffold_project(
+        ScaffoldRequest(preset="served-model", name="Churn API", target=target)
+    )
+    metadata = yaml.safe_load(
+        (TEMPLATE_ROOT / "served-model" / "template.yaml").read_text()
+        .replace("{{package_name}}", result.package_name)
+    )
+
+    assert set(metadata["contract"]["generated_paths"]) == {
+        path.relative_to(target).as_posix() for path in result.written_paths
+    }
 
 
 def test_served_model_scaffold_generates_a_working_health_and_predict_api(tmp_path: Path, monkeypatch) -> None:
@@ -824,6 +841,30 @@ def test_parser_accepts_no_input_and_list_presets() -> None:
 
     assert no_input_args.no_input is True
     assert list_args.list_presets is True
+
+
+def test_create_main_accepts_project_name_without_new(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "create-ml-struct",
+            "churn-api",
+            "--preset",
+            "served-model",
+            "--no-input",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        orchestrator_cli.create_main()
+
+    assert exit_info.value.code == 0
+    assert "Project Scaffolded" in capsys.readouterr().out
+    assert (tmp_path / "churn-api" / "churn_api" / "api.py").exists()
 
 
 def test_run_new_prints_next_command(tmp_path: Path, capsys) -> None:

@@ -1,185 +1,113 @@
 # ML Production Ecosystem
 
-Local-first toolkit untuk belajar, mencontoh, dan men-generate project ML yang siap bergerak dari eksperimen ke production workflow.
+Published Python generator for local-first ML project scaffolds, plus repository-only lifecycle examples for production ML engineering.
 
-Use this command first: `ml-struct new <project-name>`.
+## Generate a served model
 
-Repo ini punya dua fungsi utama:
+Prerequisites: Python 3.11+ and `uv`. Docker is required only for the container step.
 
-- **Scaffold wizard**: bikin boilerplate project ML untuk Kaggle, served model, ASR, atau enterprise pipeline.
-- **Production playground**: contoh local workflow untuk training, registry, serving, validation, monitoring, rollback, reliability, dan provider boundary.
+From any directory outside this checkout:
 
-Tujuannya bukan bikin platform besar dari awal. Tujuannya bikin starting point yang rapi, bisa dites lokal, dan gampang dinaikkan levelnya sesuai kebutuhan project.
+```bash
+uvx --refresh --from ml-production-ecosystem==0.1.0 create-ml-struct churn-api --preset served-model --no-input
+```
 
-## Use Cases
+That single command only generates the project. Testing, training, serving, prediction, and container building remain explicit commands inside the generated project:
 
-| Use case | Command | Output |
-|---|---|---|
-| Kaggle competition | `uv run ml-struct new house-prices --preset kaggle` | training baseline, feature module, submission script, docs, tests |
-| Model served as API | `uv run ml-struct new churn-api --preset served-model` | FastAPI app, prediction contract, Dockerfile, smoke-testable package |
-| Generic classifier | `uv run ml-struct new churn-model --preset generic-classifier` | features, predict seam, train summary, accuracy gate |
-| Batch inference | `uv run ml-struct new nightly-scorer --preset batch-inference` | batch processing seam without API assumptions |
-| Existing model wrapper | `uv run ml-struct new asr-wrapper --preset existing-model-wrapper` | config + adapter around existing train/eval commands |
-| Recommendation | `uv run ml-struct new recommender --preset recommendation` | candidate ranking seam and recommendation metric gate |
-| LLM post-training | `uv run ml-struct new reasoner --preset llm-post-training` | dataset/evaluator seams for reasoning/LLM workflows |
-| ASR served model | `uv run ml-struct new banking-asr --preset asr-served-model` | speech-to-text contract, WER/CER quality gate, FastAPI app, train/eval seam |
-| Enterprise ML pipeline | `uv run ml-struct new fraud-pipeline --preset enterprise-pipeline` | ingestion-to-rollback skeleton, quality gate, runbook, tests |
-| Learn production lifecycle | `uv run ml-struct quickstart` | local train → validate → approve → deploy demo → monitor evidence |
+```bash
+cd churn-api
+uv run pytest
+uv run python -m churn_api.train
+PORT=18080 uv run serve
+```
 
-## Quickstart
+In another terminal:
+
+```bash
+curl http://127.0.0.1:18080/health
+curl -X POST http://127.0.0.1:18080/predict \
+  -H "Content-Type: application/json" \
+  -d '{"features":{"a":1.0,"b":2.0}}'
+docker build -t churn-api .
+```
+
+The default `served-model` preset resolves `training`, `evaluation`, `api`, `deployment`, `quality-gate`, `monitoring`, `docker`, and `ci`.
+
+```mermaid
+flowchart LR
+    A[PyPI package] --> B[create-ml-struct]
+    B --> C[generated project]
+    C --> D[tests and train]
+    D --> E[FastAPI health and predict]
+    E --> F[Docker image]
+```
+
+## Generated served-model tree
+
+```text
+churn-api/
+├── .github/workflows/ci.yml
+├── Dockerfile
+├── README.md
+├── configs/project.yaml
+├── data/README.md
+├── docs/
+│   ├── infra-checklist.md
+│   └── runbook.md
+├── ml-struct.yaml
+├── orchestration/monitoring_job.py
+├── pyproject.toml
+├── tests/
+│   ├── test_deployment.py
+│   ├── test_evaluate.py
+│   ├── test_scaffold.py
+│   └── test_training.py
+└── churn_api/
+    ├── __init__.py
+    ├── api.py
+    ├── deployment.py
+    ├── evaluate.py
+    ├── predict.py
+    └── train.py
+```
+
+After training, these evidence files are created:
+
+```text
+artifacts/reports/training-summary.json
+artifacts/reports/metrics.json
+```
+
+The starter contract is intentionally honest: training writes deterministic evidence only. `/predict` remains a dummy threshold seam and does not load the training artifact. Replace `churn_api/predict.py` and its API contract when integrating a real model.
+
+## Other presets
+
+```bash
+uvx --from ml-production-ecosystem==0.1.0 create-ml-struct --list-presets
+```
+
+Available presets: `kaggle`, `generic-classifier`, `served-model`, `asr-served-model`, `recommendation`, `batch-inference`, `existing-model-wrapper`, `llm-post-training`, and `enterprise-pipeline`.
+
+The full wizard remains available as `ml-struct` or `mle`. It can select task, model type, backend, provider, and repeatable infrastructure components. Component dependencies are auto-added and recorded in `ml-struct.yaml`.
+
+## Repository-only development
+
+Clone the repository only to work on the generator or run its broader lifecycle examples:
 
 ```bash
 cd ml-production-ecosystem
-uv run ml-struct
-```
-
-Non-interactive path:
-
-```bash
 uv run ml-struct doctor
 uv run ml-struct quickstart
-uv run ml-struct status
-uv run ml-struct explain
+./scripts/validate-production-patterns.sh
+./scripts/validate-served-model-release.sh
 ```
 
-## Create New Project
-
-Interactive wizard:
-
-```bash
-uv run ml-struct new
-```
-
-Preset commands:
-
-```bash
-uv run ml-struct new house-prices --preset kaggle
-uv run ml-struct new churn-api --preset served-model
-uv run ml-struct new churn-model --preset generic-classifier
-uv run ml-struct new banking-asr --preset asr-served-model
-uv run ml-struct new asr-wrapper --preset existing-model-wrapper
-uv run ml-struct new recommender --preset recommendation
-uv run ml-struct new nightly-scorer --preset batch-inference
-uv run ml-struct new reasoner --preset llm-post-training
-uv run ml-struct new fraud-pipeline --preset enterprise-pipeline
-uv run ml-struct new --list-presets
-```
-
-Generated projects follow same baseline shape:
-
-```text
-project/
-  README.md
-  pyproject.toml
-  configs/project.yaml
-  data/README.md
-  docs/runbook.md
-  <package>/
-  tests/
-```
-
-
-Bun commands after publishing `create-ml-struct` to npm:
-
-```bash
-# Bun create convention: resolves create-ml-struct
-bun create ml-struct
-
-# Direct package execution
-bunx create-ml-struct
-```
-
-
-## Modular Wizard
-
-`preset` is only starter shape. The wizard then asks for task, model type, backend, provider, and selectable components. Component dependencies are auto-added so generated projects do not miss required pieces.
-
-- `--task`: classification, regression, object-detection, segmentation, text-generation, recommendation, speech-to-text, nlp, computer-vision, forecasting, llm-post-training, batch-inference, existing-model
-- `--model-type`: sklearn, xgboost, pytorch, transformers, whisper, llm, rules, external
-- `--backend`: local, fastapi, batch, spark, airflow, metaflow, kubernetes, serverless, external-command
-- `--provider`: local, aws, gcp, azure
-- `--infra`: repeatable component flag: training, evaluation, api, deployment, batch, registry, quality-gate, monitoring, drift, retraining, rollback, docker, kubernetes, secrets, ci
-
-Example: wrap existing ASR repo without moving its code:
-
-```bash
-uv run ml-struct new asr-wrapper \
-  --preset existing-model-wrapper \
-  --task speech-to-text \
-  --model-type whisper \
-  --backend external-command \
-  --infra registry \
-  --infra quality-gate \
-  --infra monitoring
-```
-
-Generated projects include `ml-struct.yaml` and `docs/infra-checklist.md`.
-
-## Architecture
-
-| Area | Folder | Purpose |
+| Area | Path | Purpose |
 |---|---|---|
-| Runtime Package | `src/ml_production_ecosystem/` | importable Python code for recommendation, production patterns, reliability, reasoning, and shared contracts |
-| Scaffold Templates | `templates/scaffold/` | template-first project assets with `template.yaml` metadata contracts per preset |
-| Examples | `examples/samples/` | runnable sample data and command-trained example models, separate from packaged runtime code |
-| Runtime State | `artifacts/`, `logs/`, `registry/` | generated local outputs kept outside source code |
-| Configs | `configs/` | lifecycle, deployment, alert, platform, and provider config files |
-| Docs | `docs/domains/` | moved domain READMEs and runbooks, replacing old numbered folders |
-| Reasoning Data | `examples/data/reasoning-post-training/` | local reasoning SFT/RL-style sample data |
+| Runtime package | `src/ml_production_ecosystem/` | Importable generator and local MLOps examples |
+| Scaffold templates | `src/ml_production_ecosystem/templates/scaffold/` | Packaged template resources used by source, wheel, and sdist installs |
+| Examples | `examples/samples/` | Repository-only runnable samples |
+| Runtime state | `artifacts/`, `logs/`, `registry/` | Generated local evidence outside source code |
+| Configs | `configs/` | Repository lifecycle and provider-boundary examples |
 
-## Design Rules
-
-- Local-first: core workflow runs without cloud credentials.
-- Model-agnostic: models plug in through stable input/output contracts.
-- Provider-agnostic: AWS/GCP/Azure logic belongs in adapters, not core lifecycle code.
-- Evidence-driven: production readiness means generated reports, manifests, tests, and runbooks.
-- Small pieces: boilerplate should teach useful boundaries without becoming framework lock-in.
-
-## Common Commands
-
-```bash
-uv run production-lifecycle-demo --config configs/local-lifecycle-demo.yaml
-uv run production-goal-readiness
-uv run reasoning-post-training --config configs/reasoning-local-smoke.yaml
-uv run pytest
-```
-
-Expected test result:
-
-```text
-318 passed, 3 skipped (RT warehouse integration)
-```
-
-Tip:
-RT warehouse integration tests (`tests/test_rt_warehouse_foundation.py`) are skipped unless services are available. Enable and run with explicit dependency services if needed:
-
-```bash
-ML_ECOSYSTEM_RUN_RT_WAREHOUSE_TESTS=1 uv run pytest tests/test_rt_warehouse_foundation.py
-```
-
-Run full-suite with services in one command:
-
-```bash
-./scripts/validate-full-suite.sh
-```
-
-Run enterprise evidence chain in one command:
-
-```bash
-./scripts/validate-enterprise-readiness.sh
-```
-
-
-## Docs
-
-- Local lifecycle: `docs/lifecycle-easy-path.md`
-- Local runbook: `docs/local-lifecycle-runbook.md`
-- Production patterns: `docs/domains/production-patterns/README.md`
-- Reasoning post-training: `docs/domains/reasoning-post-training/reasoning-post-training.md`
-- Feature history: `docs/features/`
-
-## Current Scope
-
-Included: local lifecycle demo, model registry, FastAPI serving, metrics/logging, Dockerized API, batch inference, retraining, quality gate, monitoring loop, scheduled retraining, rollback, release summary, SLO/load simulations, platform boundary checks, and scaffold wizard.
-
-Not included yet: real managed cloud deployment, real Kubernetes runtime, managed secrets, distributed load execution, production Alertmanager/paging runtime, and real million-traffic autoscaling.
+The repository is local-first. It does not claim managed cloud deployment, a real Kubernetes runtime, production paging, or automatic use of a trained artifact by generated serving code.

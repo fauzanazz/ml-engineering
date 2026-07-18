@@ -5,7 +5,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_ROOT = ROOT / "src" / "ml_production_ecosystem"
-TEMPLATE_ROOT = ROOT / "templates" / "scaffold"
+TEMPLATE_ROOT = RUNTIME_ROOT / "templates" / "scaffold"
 
 
 def test_runtime_code_lives_under_src_package() -> None:
@@ -40,6 +40,12 @@ def test_scaffold_templates_have_metadata_contracts() -> None:
             "preset",
         ]
         assert "generated_paths" in metadata["contract"]
+
+    assert not (ROOT / "templates" / "scaffold").exists()
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert pyproject["tool"]["setuptools"]["package-data"]["ml_production_ecosystem"] == [
+        "templates/scaffold/**/*"
+    ]
 
 
 def test_examples_are_not_packaged_runtime_code() -> None:

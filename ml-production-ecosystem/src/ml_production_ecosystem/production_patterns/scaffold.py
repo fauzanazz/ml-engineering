@@ -7,8 +7,7 @@ from pathlib import Path
 import json
 import re
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-TEMPLATE_ROOT = PROJECT_ROOT / "templates" / "scaffold"
+TEMPLATE_ROOT = Path(__file__).resolve().parents[1] / "templates" / "scaffold"
 SUPPORTED_PRESETS = ("kaggle", "generic-classifier", "served-model", "asr-served-model", "recommendation", "batch-inference", "existing-model-wrapper", "llm-post-training", "enterprise-pipeline")
 METADATA_FILE = "template.yaml"
 SUPPORTED_TASKS = (

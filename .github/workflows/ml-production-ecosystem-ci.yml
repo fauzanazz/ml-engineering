@@ -5,10 +5,12 @@ on:
     paths:
       - 'ml-production-ecosystem/**'
       - '.github/workflows/ml-production-ecosystem-ci.yml'
+      - '.github/workflows/ml-production-ecosystem-publish.yml'
   pull_request:
     paths:
       - 'ml-production-ecosystem/**'
       - '.github/workflows/ml-production-ecosystem-ci.yml'
+      - '.github/workflows/ml-production-ecosystem-publish.yml'
 
 jobs:
   production-patterns:
@@ -31,3 +33,24 @@ jobs:
         run: |
           cd ml-production-ecosystem
           ./scripts/validate-production-patterns.sh
+
+  served-model-e2e:
+    name: Served model end to end
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Validate served-model release
+        run: |
+          cd ml-production-ecosystem
+          ./scripts/validate-served-model-release.sh
