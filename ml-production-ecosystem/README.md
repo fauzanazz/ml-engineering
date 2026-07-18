@@ -110,4 +110,7 @@ uv run ml-struct quickstart
 | Runtime state | `artifacts/`, `logs/`, `registry/` | Generated local evidence outside source code |
 | Configs | `configs/` | Repository lifecycle and provider-boundary examples |
 
+The examples are model-agnostic and provider-agnostic: model and cloud details
+belong behind explicit contracts and adapters.
+
 The repository is local-first. It does not claim managed cloud deployment, a real Kubernetes runtime, production paging, or automatic use of a trained artifact by generated serving code.

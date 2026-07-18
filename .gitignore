@@ -25,6 +25,9 @@ artifacts/
 # Datasets
 *.csv
 !**/tests/**/*.csv
+!ml-production-ecosystem/examples/samples/generic_classifier/data.csv
+!ml-production-ecosystem/examples/samples/recommendation/movies.csv
+!ml-production-ecosystem/examples/samples/recommendation/ratings.csv
 
 # uv
 .uv/
