@@ -1,0 +1,105 @@
+{
+  "router": "keyword_router_v1",
+  "split": "test",
+  "datasets": {
+    "all": {
+      "rows": 511
+    },
+    "banking_synthetic": {
+      "rows": 156,
+      "sources": [
+        "template_gemini"
+      ]
+    },
+    "real_general": {
+      "rows": 355,
+      "sources": [
+        "BabelSpeech/40hours_Indonesian_Colloquial_ASR_Speech_Dataset"
+      ]
+    }
+  },
+  "routing": {
+    "banking_routed": 153,
+    "banking_missed": 3,
+    "real_routed": 12,
+    "real_kept_general": 343
+  },
+  "pipelines": {
+    "baseline_v2": {
+      "all": {
+        "rows": 511,
+        "word_errors": 1134,
+        "reference_words": 9179,
+        "wer": 0.12354286959363765,
+        "entity_errors": 9,
+        "entities": 480,
+        "entity_error_rate": 0.01875,
+        "errors_by_type": {
+          "AMOUNT": 6,
+          "ACCOUNT_NUMBER": 3
+        }
+      },
+      "banking_synthetic": {
+        "rows": 156,
+        "word_errors": 137,
+        "reference_words": 1398,
+        "wer": 0.09799713876967096,
+        "entity_errors": 9,
+        "entities": 480,
+        "entity_error_rate": 0.01875,
+        "errors_by_type": {
+          "AMOUNT": 6,
+          "ACCOUNT_NUMBER": 3
+        }
+      },
+      "real_general": {
+        "rows": 355,
+        "word_errors": 997,
+        "reference_words": 7781,
+        "wer": 0.12813263076725356,
+        "entity_errors": 0,
+        "entities": 0,
+        "entity_error_rate": 0.0,
+        "errors_by_type": {}
+      }
+    },
+    "keyword_router_v1_v2": {
+      "all": {
+        "rows": 511,
+        "word_errors": 1042,
+        "reference_words": 9179,
+        "wer": 0.11351999128445364,
+        "entity_errors": 8,
+        "entities": 480,
+        "entity_error_rate": 0.016666666666666666,
+        "errors_by_type": {
+          "ACCOUNT_NUMBER": 6,
+          "PRODUCT_NAME": 2
+        }
+      },
+      "banking_synthetic": {
+        "rows": 156,
+        "word_errors": 52,
+        "reference_words": 1398,
+        "wer": 0.03719599427753934,
+        "entity_errors": 8,
+        "entities": 480,
+        "entity_error_rate": 0.016666666666666666,
+        "errors_by_type": {
+          "ACCOUNT_NUMBER": 6,
+          "PRODUCT_NAME": 2
+        }
+      },
+      "real_general": {
+        "rows": 355,
+        "word_errors": 990,
+        "reference_words": 7781,
+        "wer": 0.127233003469991,
+        "entity_errors": 0,
+        "entities": 0,
+        "entity_error_rate": 0.0,
+        "errors_by_type": {}
+      }
+    }
+  }
+}

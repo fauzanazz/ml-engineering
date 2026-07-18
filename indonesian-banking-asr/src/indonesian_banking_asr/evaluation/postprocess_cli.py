@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from indonesian_banking_asr.evaluation.postprocess import postprocess_transcript
+from indonesian_banking_asr.evaluation.postprocess import postprocess_prediction_row
 from indonesian_banking_asr.synthetic.audit import write_jsonl
 
 
@@ -15,17 +15,9 @@ def main() -> None:
     args = parser.parse_args()
 
     rows = _read_jsonl(args.predictions_path)
-    write_jsonl(args.output_path, [_postprocess_prediction_row(row) for row in rows])
+    write_jsonl(args.output_path, [postprocess_prediction_row(row) for row in rows])
 
 
-def _postprocess_prediction_row(row: dict) -> dict:
-    raw_hypothesis = row["hypothesis"]
-    return {
-        **row,
-        "raw_hypothesis": raw_hypothesis,
-        "hypothesis": postprocess_transcript(raw_hypothesis),
-        "postprocess": "banking_entity_v2",
-    }
 
 
 def _read_jsonl(path: Path) -> list[dict]:

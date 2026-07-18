@@ -1,147 +1,113 @@
 # Indonesian Banking ASR
 
-Indonesian Banking ASR adalah project eksperimen ML Engineering untuk membangun speech-to-text domain perbankan Indonesia. Fokus utama: transkripsi support call yang tahan terhadap istilah banking, code-switching Bahasa Indonesia + English, dan audio call yang noisy/degraded.
+A keyword-routed Whisper pipeline that improves Indonesian banking transcription while preserving a strong general-Indonesian path.
 
-## Tujuan Project
+## Measured outcomes
 
-Project ini menjawab pertanyaan utama:
+Recorded on a 511-row test split: **156 synthetic banking** utterances plus **355 real non-banking Indonesian** utterances from BabelSpeech.
 
-- Bagaimana membuat dataset ASR banking Indonesia ketika real call-center data sulit dipakai karena privacy?
-- Bagaimana memastikan istilah penting seperti `rekening`, `cicilan`, `suku bunga`, nominal uang, dan nomor rekening tidak salah transkripsi?
-- Bagaimana mensimulasikan audio call center dari synthetic clean speech?
-- Bagaimana mengukur WER dengan penalti lebih besar pada entity banking?
+| Slice | Baseline + `banking_entity_v2` | Routed pipeline | Change |
+|---|---:|---:|---:|
+| All — WER | 12.35% | **11.35%** | 8.1% relative reduction |
+| Synthetic banking — WER | 9.80% | **3.72%** | 62.0% relative reduction |
+| Real general — WER | 12.81% | **12.72%** | 0.09 pp lower |
+| Synthetic banking — entity error | 1.88% | **1.67%** | 0.21 pp lower |
 
-Metric utama:
+Source: [`reports/portfolio-test-evaluation.json`](reports/portfolio-test-evaluation.json). The test split was inspected during experimentation and model selection, so these are reproducible project results—not a blind production benchmark.
 
-- **Banking-term WER reduction** — target >15% relative reduction vs baseline Whisper.
-- **Entity error rate** — target <5% untuk `AMOUNT` dan `ACCOUNT_NUMBER`.
-- **Entity-aware WER** — error pada nominal, nomor rekening, dan product name diberi penalti lebih besar.
+## Architecture
 
-## Dataset Strategy
-
-Keputusan Step 1: dataset dibuat secara sintetis dengan **template + Gemini API**.
-
-Alasan:
-
-- Dataset ASR Indonesia publik tidak spesifik domain banking.
-- Real support-call banking mengandung data sensitif dan sulit dipakai sejak awal.
-- Synthetic generation memberi kontrol penuh atas entity penting: nominal, nomor rekening, product name, interest rate, due date.
-- Evaluation bisa dibuat entity-balanced sejak awal.
-
-High-level flow:
-
-```text
-banking templates
-  -> deterministic entity sampling
-  -> Gemini paraphrase with entity preservation
-  -> validation / rejection
-  -> TTS generation
-  -> call audio augmentation
-  -> manifest with entity labels
+```mermaid
+flowchart LR
+    A[Audio] --> B[Baseline Whisper large-v3]
+    B --> C[banking_entity_v2]
+    C --> D{keyword_router_v1}
+    D -->|banking keyword match| E[Step37 banking model]
+    E --> F[banking_entity_v2]
+    F --> G[Final transcript]
+    D -->|no match| G
 ```
 
-## Project Steps
+The baseline transcript is normalized before routing. `keyword_router_v1` runs the Step37 LoRA-merged checkpoint only when a banking keyword matches; non-matches keep the general-model result and avoid a second inference pass. Offline evaluation and the live demo share the same runtime in [`evaluation/router.py`](src/indonesian_banking_asr/evaluation/router.py).
 
-| Step | Tanggal | Judul | Ringkasan |
-|---:|---|---|---|
-| 1 | 2026-05-13 | Synthetic Banking Dataset Design | Menetapkan strategi dataset sintetis berbasis template + Gemini API, entity schema, validation rules, dan referensi riset. |
-| 2 | 2026-05-13 | Synthetic Text Generator & Validator | Implementasi awal template renderer, entity span labeler, paraphrase validator, manifest builder, dan pilot CLI. |
-| 3 | 2026-05-13 | YAML Catalog, Entity Sampler & Gemini Prompt Test | Tambah YAML catalog 12 intents, deterministic entity sampler, deterministic split, multi-row manifest pipeline, dan Gemini prompt/parser tests. |
-| 4 | 2026-05-13 | Gemini Paraphrase Integration & Audit Outputs | Tambah Gemini env config, dry-run/live paraphrase modes, entity validation, accepted/rejected audit JSONL, dan live smoke test. |
-| 5 | 2026-05-13 | Gemini Retry, Continue-on-Error & Raw Audit | Tambah retry/backoff, continue-on-error per row, raw audit JSONL, dan CLI flags untuk live batch resilience. |
-| 6 | 2026-05-13 | Rate Limiter, Resume & Batch Summary | Tambah fixed-delay rate limiter, resume mode, batch summary JSONL, dan CLI flags untuk batch generation lebih aman. |
-| 7 | 2026-05-15 | Audio Manifest, QA & Dataset Assembly | Tambah TTS audio manifest, audio QA, augmentation, merge clean+augmented manifests, dataset QA, dan dataset summary. |
-| 8 | 2026-05-15 | Edge TTS, Gemini TTS & Resumable TTS | Tambah real TTS providers dengan Edge TTS sebagai jalur utama, Gemini TTS untuk smoke test, WAV conversion, dan TTS resume/delay. |
-| 9 | 2026-05-15 | 9Router Edge TTS & Generation Scaling | Tambah provider 9Router untuk Edge TTS via HTTP dan `--samples-per-template` untuk scale canonical generation melewati 12 template. |
-| 10 | 2026-05-16 | Whisper Baseline & Banking Post-processing | Jalankan MLX Whisper large-v3 baseline di Apple Silicon dan turunkan entity error rate pilot ke 0% lewat post-processing domain banking. |
-| 11 | 2026-05-16 | Augmented Whisper Evaluation | Evaluasi MLX Whisper large-v3 pada 450 clean+augmented rows dan konfirmasi post-processing mempertahankan entity error rate 0%. |
-| 12 | 2026-05-16 | BabelSpeech Real-data Grounding | Tambah converter BabelSpeech ke manifest project, jalankan sample MLX Whisper baseline, dan rancang training mix real+synthetic. |
-| 13 | 2026-05-16 | Combined Training Manifest | Buat manifest training gabungan 70/20/10 dari BabelSpeech train, synthetic banking clean, dan synthetic banking augmented. |
-| 14 | 2026-05-16 | Whisper Tiny Combined Fine-tune Smoke | Jalankan fine-tune smoke 10-step pada manifest gabungan memakai `openai/whisper-tiny` di MPS. |
-| 15 | 2026-05-16 | MLX Whisper Large-v3 Combined Fine-tune Smoke | Tambah training loop MLX-native dan jalankan decoder-only 1-step pada `mlx-community/whisper-large-v3-mlx`. |
-| 16 | 2026-05-16 | MLX Whisper Large-v3 Scale-up Experiments | Scale-up decoder-only SGD ke 10/50/200 steps; stabil tetapi belum ada gain WER pada held-out smoke slices. |
-| 17 | 2026-05-16 | Muon Optimizer Probe | Coba Muon dan hybrid Muon+SGD; keduanya tidak stabil pada decoder-only Whisper large-v3 setup saat ini. |
-| 18 | 2026-05-16 | Guarded Optimizer Experiments | Tambah partial unfreeze, warmup, dan gradient clipping; Muon/AdamW tetap NaN, guarded SGD stabil di LR lebih tinggi. |
-| 19 | 2026-05-16 | Whisper-style AdamW Schedule Probe | Coba AdamW mengikuti pola paper Whisper: warmup, linear decay, β2 0.98, ε 1e-6, WD 0.1, dan clip 1.0. |
-| 20 | 2026-05-16 | Guarded SGD Scale-up Evaluation | Scale guarded SGD ke 200 steps dan evaluasi non-train real+synthetic; training stabil tetapi output ASR identik dengan baseline. |
-| 21 | 2026-05-16 | 10h 80/20 Data Procurement | Procure kandidat dataset 10.1 jam: 8.0 jam BabelSpeech non-banking dan 2.1 jam synthetic banking dry-run Edge TTS. |
-| 22 | 2026-05-16 | 10h Baseline Evaluation | Jalankan MLX Whisper large-v3 baseline pada validation/test kandidat 10h; WER 12-13%, entity error rate banking 14-17%. |
-| 23 | 2026-05-16 | Entity-aware Post-processing on 10h Baseline | Tambah CLI post-processing prediksi dan turunkan entity error rate banking ke 1.44% validation / 3.33% test. |
-| 24 | 2026-05-16 | MLX Whisper LoRA Smoke | Tambah train scope LoRA query/value decoder last blocks, merge checkpoint, dan jalankan 10-step smoke yang stabil. |
+## Evaluation methodology
 
-Detail tiap step:
+The recorded test evaluation combines:
 
-- [Step 1: Synthetic Banking Dataset](docs/features/step-1-synthetic-banking-dataset.md)
-- [Step 2: Synthetic Text Generator & Validator](docs/features/step-2-synthetic-text-generator-and-validator.md)
-- [Step 3: YAML Catalog, Entity Sampler & Gemini Prompt Test](docs/features/step-3-yaml-catalog-entity-sampler-gemini-prompt.md)
-- [Step 4: Gemini Paraphrase Integration & Audit Outputs](docs/features/step-4-gemini-paraphrase-integration-audit.md)
-- [Step 5: Gemini Retry, Continue-on-Error & Raw Audit](docs/features/step-5-gemini-retry-continue-raw-audit.md)
-- [Step 6: Rate Limiter, Resume & Batch Summary](docs/features/step-6-rate-limiter-resume-summary.md)
-- [Step 7: Audio Manifest, QA & Dataset Assembly](docs/features/step-7-audio-manifest-qa-dataset-assembly.md)
-- [Step 8: Edge TTS, Gemini TTS & Resumable TTS](docs/features/step-8-edge-gemini-tts-resume.md)
-- [Step 9: 9Router Edge TTS & Generation Scaling](docs/features/step-9-9router-edge-tts-scaling.md)
-- [Step 10: Whisper Baseline & Banking Post-processing](docs/features/step-10-whisper-baseline-postprocessing.md)
-- [Step 11: Augmented Whisper Evaluation](docs/features/step-11-augmented-whisper-evaluation.md)
-- [Step 12: BabelSpeech Real-data Grounding](docs/features/step-12-babelspeech-real-data-grounding.md)
-- [Step 13: Combined Training Manifest](docs/features/step-13-combined-training-manifest.md)
-- [Step 14: Whisper Tiny Combined Fine-tune Smoke](docs/features/step-14-whisper-tiny-combined-finetune.md)
-- [Step 15: MLX Whisper Large-v3 Combined Fine-tune Smoke](docs/features/step-15-mlx-large-v3-combined-finetune.md)
-- [Step 16: MLX Whisper Large-v3 Scale-up Experiments](docs/features/step-16-mlx-large-v3-scaleup-experiments.md)
-- [Step 17: Muon Optimizer Probe](docs/features/step-17-muon-optimizer-probe.md)
-- [Step 18: Guarded Optimizer Experiments](docs/features/step-18-guarded-optimizer-experiments.md)
-- [Step 19: Whisper-style AdamW Schedule Probe](docs/features/step-19-whisper-style-adamw-schedule.md)
-- [Step 20: Guarded SGD Scale-up Evaluation](docs/features/step-20-guarded-sgd-scaleup-evaluation.md)
-- [Step 21: 10h 80/20 Data Procurement](docs/features/step-21-10h-80-20-data-procurement.md)
-- [Step 22: 10h Baseline Evaluation](docs/features/step-22-10h-baseline-evaluation.md)
-- [Step 23: Entity-aware Post-processing on 10h Baseline](docs/features/step-23-entity-aware-postprocessing-10h.md)
-- [Step 24: MLX Whisper LoRA Smoke](docs/features/step-24-mlx-whisper-lora-smoke.md)
+- **156 synthetic banking rows** generated from controlled templates with banking entity labels.
+- **355 real non-banking Indonesian rows** from `BabelSpeech/40hours_Indonesian_Colloquial_ASR_Speech_Dataset`.
 
-## Current Plan
+Both the baseline and routed outputs use `banking_entity_v2`. WER is the strict, case-sensitive whitespace-token corpus WER implemented in [`metrics.py`](src/indonesian_banking_asr/evaluation/metrics.py). Entity error rate applies to the labeled synthetic banking rows; it is not reported as evidence for BabelSpeech because those manifest rows have no entity labels.
 
-Current planned flow:
 
-```text
-template bank utterance
-  -> sample entities deterministically
-  -> generate canonical text
-  -> ask Gemini for paraphrases/code-switch variants
-  -> validate exact entity preservation
-  -> write JSONL manifest
-  -> generate TTS audio with Edge TTS / 9Router Edge TTS
-  -> audio QA
-  -> apply call-noise augmentation profiles
-  -> evaluate MLX Whisper large-v3 baseline
-  -> post-process banking entities
-  -> evaluate augmented audio and future fine-tuning target
+## Local demo
+
+Requirements:
+
+- macOS on Apple Silicon
+- Python 3.11+
+- [`uv`](https://docs.astral.sh/uv/)
+- The local Step37 merged checkpoint (about 3.19 GB) at the default path below
+
+```bash
+uv sync
+uv run banking-asr-demo \
+  --banking-model models/mlx-whisper-large-v3-fullmix-200step-lora-last8-r4-a8-lr1e-4-merged \
+  --server-name 127.0.0.1 \
+  --server-port 7860
 ```
 
-Important leakage rules:
+Open <http://127.0.0.1:7860> and use the included banking example or upload Indonesian audio. MLX Whisper downloads the general `mlx-community/whisper-large-v3-mlx` model automatically when first needed. The Step37 banking checkpoint is not bundled or downloaded by the demo; create it with the command documented in [Step37](docs/features/step-37-fullmix-rank4-lora-regularization.md). Startup fails clearly if its local directory is absent.
 
-- Test template families held out from train.
-- Account numbers and amount values held out from train.
-- Gemini cannot create ground-truth entities freely.
-- Entity labels come from deterministic generator, not LLM output.
-- Test set must include manually reviewed banking utterances.
+## Reproducible evaluation
 
-## Known Risks
+The tracked JSON report is readable from a clean clone. Reproducing it requires the local, gitignored experiment manifests and prediction artifacts created by the [10-hour data procurement](docs/features/step-21-10h-80-20-data-procurement.md) and [Step37 training](docs/features/step-37-fullmix-rank4-lora-regularization.md) workflows:
 
-Generation and audio pipeline resilience improved after Step 9:
+```bash
+uv run banking-asr-evaluate-router \
+  --manifest-path artifacts/combined_10h_test_manifest.jsonl \
+  --banking-manifest-path artifacts/combined_10h_test_banking_manifest.jsonl \
+  --real-manifest-path artifacts/combined_10h_test_real_manifest.jsonl \
+  --baseline-predictions-path artifacts/mlx_whisper_large_v3_baseline_combined_10h_test_predictions.jsonl \
+  --banking-predictions-path artifacts/mlx_whisper_large_v3_fullmix_200step_lora_last8_r4_a8_lr1e-4_merged_test_predictions.jsonl \
+  --split test \
+  --output-path reports/portfolio-test-evaluation.json
+```
 
-- Retry/backoff exists for retryable Gemini failures.
-- Continue-on-error exists for live text generation.
-- Raw Gemini response audit exists.
-- TTS resume keeps existing audio manifest rows and generates only pending rows.
-- Audio QA validates WAV presence, sample rate, duration tolerance, and silent audio.
+## Project structure
 
-Remaining operational risks:
+```text
+src/indonesian_banking_asr/
+├── demo.py                       # Gradio interface
+├── evaluation/
+│   ├── router.py                 # routing, live inference, report CLI
+│   ├── postprocess.py            # banking_entity_v2 normalization
+│   ├── whisper.py                # MLX Whisper inference
+│   └── metrics.py                # corpus WER and entity metrics
+├── synthetic/                    # text, TTS, augmentation, QA, manifests
+├── real_data/                    # BabelSpeech conversion
+└── training/                     # combined data and LoRA training
+examples/audio/                   # redistributable synthetic demo audio
+reports/                          # tracked machine-readable results
+tests/evaluation/                 # runtime and metric contracts
+docs/features/                    # experiment record
+```
 
-- Rate limiter is fixed delay, not adaptive from provider quota headers.
-- Gemini TTS free-tier quota is too low for dataset generation; main path is Edge TTS or 9Router Edge TTS.
-- Edge TTS / 9Router are online services; rate limits and service policy should be respected.
-- Summary is JSONL only, not a human-readable report table yet.
-- Raw audit stores prompts; keep generated audit files under ignored `data/synthetic/` unless reviewed.
+## Experiment trail
+
+The project progressed from synthetic data generation and real-data grounding through MLX Whisper LoRA experiments, postprocessing ablations, and router selection. The concise decision record is in [Step 49: Final Model-Selection Summary](docs/features/step-49-final-model-selection-summary.md); implementation and artifact coverage are in [Step 50: Completion Audit](docs/features/step-50-completion-audit.md).
+
+## Limitations
+
+- There is no real banking-call evaluation set; banking results are synthetic, while BabelSpeech measures real non-banking robustness.
+- The test split influenced experiment and model selection, so production performance remains unproven.
+- Keyword routing depends on the baseline transcript and can miss banking utterances whose domain terms are mistranscribed or absent from the fixed keyword set.
+- Account-number digit deletion is not repaired heuristically because inventing financial identifiers is unsafe.
+- Live inference requires macOS Apple Silicon and the local Step37 checkpoint.
 
 ## References
 
-- [FraudZen Dataset: Realistic Ground Truth CDRs of Bypass Fraud Techniques in Mobile Networks](https://zenodo.org/records/15706356)
-- [TeleAntiFraud-28k: An Audio-Text Slow-Thinking Dataset for Telecom Fraud Detection](https://arxiv.org/html/2503.24115v2)
+- [Robust Speech Recognition via Large-Scale Weak Supervision (Whisper)](https://arxiv.org/abs/2212.04356)
+- [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685)
+- [MLX Whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper)
+- [BabelSpeech Indonesian Colloquial ASR dataset](https://huggingface.co/datasets/BabelSpeech/40hours_Indonesian_Colloquial_ASR_Speech_Dataset)

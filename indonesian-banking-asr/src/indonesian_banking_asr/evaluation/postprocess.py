@@ -36,6 +36,16 @@ def postprocess_transcript(transcript: str) -> str:
     return processed
 
 
+def postprocess_prediction_row(row: dict) -> dict:
+    raw_hypothesis = row["hypothesis"]
+    return {
+        **row,
+        "raw_hypothesis": raw_hypothesis,
+        "hypothesis": postprocess_transcript(raw_hypothesis),
+        "postprocess": "banking_entity_v2",
+    }
+
+
 def _collapse_hyphenated_digits(text: str) -> str:
     pattern = re.compile(r"(?<!\d)(?:\d+-)+\d+(?!\d)")
     return pattern.sub(lambda match: match.group(0).replace("-", ""), text)
