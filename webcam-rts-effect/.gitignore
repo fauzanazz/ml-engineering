@@ -1,12 +1,15 @@
 *.DS_Store
+.peace_sign_calibration.json
 
 # Model weights (downloaded artifacts)
 *.pt
+!models/kicau-classifier/best.pt
 
 assets/.effect_versions/
 datasets/
 runs/
 scratch/
+outputs/
 
 webui/node_modules/
 webui/dist/

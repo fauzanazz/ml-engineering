@@ -1,16 +1,22 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from webcam_effect.hand_tracking import (
     FINGERTIP_LANDMARKS,
     HandLandmark,
     HandTrackFrame,
     MediaPipeHandTracker,
+    PeaceSignCalibration,
     TrackedHand,
     fingertip_spread,
     remap_hand_track_frame,
     hand_box,
     hand_center,
     hand_flapped,
+    is_peace_sign,
+    load_peace_sign_calibration,
+    save_peace_sign_calibration,
     handedness_label,
 )
 from webcam_effect.tracking import BoundingBox
@@ -83,6 +89,35 @@ class HandTrackingTest(unittest.TestCase):
 
         self.assertAlmostEqual(fingertip_spread(hand), 0.5)
 
+    def test_peace_sign_requires_two_extended_separated_fingers(self):
+        self.assertTrue(is_peace_sign(peace_sign_hand()))
+
+    def test_peace_sign_rejects_open_palm(self):
+        self.assertFalse(is_peace_sign(peace_sign_hand({16: (0.68, 0.1), 20: (0.8, 0.15)})))
+
+    def test_peace_sign_rejects_close_fingertips(self):
+        self.assertFalse(is_peace_sign(peace_sign_hand({12: (0.27, 0.1)})))
+
+    def test_peace_sign_rejects_incomplete_landmarks(self):
+        self.assertFalse(is_peace_sign(peace_sign_hand(landmark_count=20)))
+
+    def test_peace_calibration_learns_midpoint_between_two_labels(self):
+        positive = peace_sign_hand()
+        negative = peace_sign_hand({16: (0.68, 0.1), 20: (0.8, 0.15)})
+        calibration = PeaceSignCalibration().add(positive, positive=True).add(negative, positive=False)
+
+        self.assertTrue(calibration.ready)
+        self.assertTrue(is_peace_sign(positive, calibration))
+        self.assertFalse(is_peace_sign(negative, calibration))
+
+    def test_peace_calibration_round_trips_samples(self):
+        calibration = PeaceSignCalibration().add(peace_sign_hand(), positive=True)
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "peace.json"
+            save_peace_sign_calibration(path, calibration)
+
+            self.assertEqual(load_peace_sign_calibration(path), calibration)
+
     def test_remap_hand_track_frame_moves_crop_landmarks_to_full_frame(self):
         crop_hand = TrackedHand(
             "right",
@@ -102,6 +137,33 @@ class HandTrackingTest(unittest.TestCase):
         hand = remapped.hands[0]
         self.assertEqual(hand.landmarks[0], HandLandmark(0.5, 0.5))
         self.assertEqual(hand.box, BoundingBox(110, 70, 130, 90, 0.9))
+
+
+def peace_sign_hand(
+    overrides: dict[int, tuple[float, float]] | None = None,
+    landmark_count: int = 21,
+) -> TrackedHand:
+    landmarks = [HandLandmark(0.5, 0.5) for _ in range(landmark_count)]
+    coordinates = {
+        0: (0.5, 0.9),
+        5: (0.4, 0.6),
+        6: (0.35, 0.45),
+        8: (0.25, 0.1),
+        9: (0.5, 0.6),
+        10: (0.52, 0.42),
+        12: (0.6, 0.08),
+        13: (0.6, 0.6),
+        14: (0.65, 0.45),
+        16: (0.55, 0.55),
+        17: (0.7, 0.62),
+        18: (0.75, 0.5),
+        20: (0.68, 0.62),
+    }
+    coordinates.update(overrides or {})
+    for index, (x, y) in coordinates.items():
+        if index < landmark_count:
+            landmarks[index] = HandLandmark(x, y)
+    return TrackedHand("right", 0.9, tuple(landmarks), BoundingBox(0, 0, 1, 1, 0.9))
 
 
 def hand_with_center(label: str, y: float) -> TrackedHand:

@@ -1,13 +1,23 @@
 from dataclasses import dataclass
+import json
+from math import dist
 from pathlib import Path
 
 from webcam_effect.tracking import BoundingBox
 
 WRIST_LANDMARK = 0
+INDEX_MCP_LANDMARK = 5
+INDEX_PIP_LANDMARK = 6
 THUMB_TIP_LANDMARK = 4
 INDEX_TIP_LANDMARK = 8
+MIDDLE_MCP_LANDMARK = 9
+MIDDLE_PIP_LANDMARK = 10
 MIDDLE_TIP_LANDMARK = 12
+RING_MCP_LANDMARK = 13
+RING_PIP_LANDMARK = 14
 RING_TIP_LANDMARK = 16
+PINKY_MCP_LANDMARK = 17
+PINKY_PIP_LANDMARK = 18
 PINKY_TIP_LANDMARK = 20
 FINGERTIP_LANDMARKS = (
     THUMB_TIP_LANDMARK,
@@ -16,6 +26,9 @@ FINGERTIP_LANDMARKS = (
     RING_TIP_LANDMARK,
     PINKY_TIP_LANDMARK,
 )
+PEACE_EXTENSION_RATIO = 1.1
+PEACE_SEPARATION_RATIO = 0.35
+PEACE_FEATURE_COUNT = 5
 
 
 @dataclass(frozen=True)
@@ -172,6 +185,121 @@ def fingertip_spread(hand: TrackedHand) -> float:
     xs = [landmark.x for landmark in fingertips]
     ys = [landmark.y for landmark in fingertips]
     return ((max(xs) - min(xs)) ** 2 + (max(ys) - min(ys)) ** 2) ** 0.5
+
+
+@dataclass(frozen=True)
+class PeaceSignCalibration:
+    positive_samples: tuple[tuple[float, ...], ...] = ()
+    negative_samples: tuple[tuple[float, ...], ...] = ()
+
+    @property
+    def ready(self) -> bool:
+        return bool(self.positive_samples and self.negative_samples)
+
+    def add(self, hand: TrackedHand, positive: bool) -> "PeaceSignCalibration":
+        features = peace_sign_features(hand)
+        if features is None:
+            return self
+        if positive:
+            return PeaceSignCalibration(self.positive_samples + (features,), self.negative_samples)
+        return PeaceSignCalibration(self.positive_samples, self.negative_samples + (features,))
+
+    def matches(self, hand: TrackedHand) -> bool:
+        features = peace_sign_features(hand)
+        if features is None:
+            return False
+        if not self.ready:
+            return _matches_default_peace_thresholds(features)
+
+        positive_center = _feature_center(self.positive_samples)
+        negative_center = _feature_center(self.negative_samples)
+        return _squared_distance(features, positive_center) <= _squared_distance(features, negative_center)
+
+
+def load_peace_sign_calibration(path: Path) -> PeaceSignCalibration:
+    if not path.exists():
+        return PeaceSignCalibration()
+
+    data = json.loads(path.read_text())
+    return PeaceSignCalibration(
+        positive_samples=_calibration_samples(data.get("positive", [])),
+        negative_samples=_calibration_samples(data.get("negative", [])),
+    )
+
+
+def save_peace_sign_calibration(path: Path, calibration: PeaceSignCalibration) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "positive": calibration.positive_samples,
+                "negative": calibration.negative_samples,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+
+def peace_sign_features(hand: TrackedHand) -> tuple[float, ...] | None:
+    if len(hand.landmarks) < 21:
+        return None
+
+    landmarks = hand.landmarks
+
+    def point(index: int) -> tuple[float, float, float]:
+        landmark = landmarks[index]
+        return landmark.x, landmark.y, landmark.z
+
+    wrist = point(WRIST_LANDMARK)
+    palm_width = dist(point(INDEX_MCP_LANDMARK), point(PINKY_MCP_LANDMARK))
+    pip_distances = tuple(
+        dist(point(index), wrist)
+        for index in (INDEX_PIP_LANDMARK, MIDDLE_PIP_LANDMARK, RING_PIP_LANDMARK, PINKY_PIP_LANDMARK)
+    )
+    if palm_width == 0 or 0 in pip_distances:
+        return None
+
+    return (
+        dist(point(INDEX_TIP_LANDMARK), wrist) / pip_distances[0],
+        dist(point(MIDDLE_TIP_LANDMARK), wrist) / pip_distances[1],
+        dist(point(RING_TIP_LANDMARK), wrist) / pip_distances[2],
+        dist(point(PINKY_TIP_LANDMARK), wrist) / pip_distances[3],
+        dist(point(INDEX_TIP_LANDMARK), point(MIDDLE_TIP_LANDMARK)) / palm_width,
+    )
+
+
+def _calibration_samples(samples) -> tuple[tuple[float, ...], ...]:
+    parsed = tuple(tuple(float(value) for value in sample) for sample in samples)
+    if any(len(sample) != PEACE_FEATURE_COUNT for sample in parsed):
+        raise ValueError(f"peace calibration samples must contain {PEACE_FEATURE_COUNT} features")
+    return parsed
+
+
+def _feature_center(samples: tuple[tuple[float, ...], ...]) -> tuple[float, ...]:
+    return tuple(sum(values) / len(samples) for values in zip(*samples))
+
+
+def _squared_distance(left: tuple[float, ...], right: tuple[float, ...]) -> float:
+    return sum((left_value - right_value) ** 2 for left_value, right_value in zip(left, right))
+
+
+def _matches_default_peace_thresholds(features: tuple[float, ...]) -> bool:
+    index, middle, ring, pinky, separation = features
+    return (
+        index > PEACE_EXTENSION_RATIO
+        and middle > PEACE_EXTENSION_RATIO
+        and ring <= PEACE_EXTENSION_RATIO
+        and pinky <= PEACE_EXTENSION_RATIO
+        and separation >= PEACE_SEPARATION_RATIO
+    )
+
+
+def is_peace_sign(hand: TrackedHand, calibration: PeaceSignCalibration | None = None) -> bool:
+    if calibration is not None:
+        return calibration.matches(hand)
+    features = peace_sign_features(hand)
+    return features is not None and _matches_default_peace_thresholds(features)
 
 
 def remap_hand_track_frame(hands: HandTrackFrame, box: BoundingBox, frame_width: int, frame_height: int) -> HandTrackFrame:

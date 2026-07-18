@@ -23,6 +23,7 @@ from webcam_effect.effects import (
     save_effect_definition,
     save_effect_library,
 )
+from webcam_effect.runtime_status import read_runtime_status
 
 MISSING_WEBUI_MESSAGE = b"Run `cd webui && npm run build` or use Vite dev server on port 5173.\n"
 
@@ -150,7 +151,7 @@ def make_handler(effect_path: Path):
                 self._json({"assets": list_assets()})
                 return
             if self.path == "/api/runtime/status":
-                self._json({"connected": False, "label": "manual", "confidence": 0.0, "fps": 0.0, "active_effect": None})
+                self._json(read_runtime_status())
                 return
             if self.path == "/api/effects/export":
                 self._send_zip(export_effect_pack(load_effect_library(effect_path)))

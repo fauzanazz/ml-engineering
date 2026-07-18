@@ -3,6 +3,8 @@ from pathlib import Path
 import time
 
 from webcam_effect.camera import CameraSource, parse_resolution
+from webcam_effect.mediapipe_assets import require_model_paths
+from webcam_effect.runtime_status import RuntimeStatus, RuntimeStatusWriter
 from webcam_effect.video_filters.base import FilterAssets, asset_path
 from webcam_effect.video_filters.drawing import draw_text
 from webcam_effect.video_filters.mediapipe_tasks import MediaPipeDetectionProvider, MediaPipeTaskPaths
@@ -51,6 +53,8 @@ def run_video_filter_app(
 ) -> None:
     import cv2
 
+    model_paths = [Path(face_model), Path(hand_model), Path(pose_model), Path(segmenter_model)]
+    require_model_paths(model_paths)
     width, height = parse_resolution(resolution)
     try:
         capture = CameraSource(camera, width=width, height=height).open()
@@ -72,11 +76,16 @@ def run_video_filter_app(
     writer = create_video_writer(record_output, width, height) if record_output else None
     fps_meter = FpsMeter()
     started_at = time.monotonic()
+    dropped_frames = 0
+    status = RuntimeStatus(connected=True, active_filter=filters[selected_key].spec.name, recording=writer is not None)
+    status_writer = RuntimeStatusWriter()
+    status_writer.update(status, force=True)
 
     try:
         while True:
             ok, frame = capture.read()
             if not ok:
+                dropped_frames += 1
                 print("camera frame read failed")
                 break
 
@@ -86,6 +95,10 @@ def run_video_filter_app(
             active_filter = filters[selected_key]
             output = active_filter.process(frame, timestamp_ms)
             output = draw_runtime_overlay(output, selected_key, active_filter.spec.name, fps_meter, provider, now)
+            status.active_filter = active_filter.spec.name
+            status.processing_fps = fps_meter.fps
+            status.dropped_frames = dropped_frames
+            status_writer.update(status)
 
             if writer is not None:
                 writer.write(output)
@@ -109,6 +122,7 @@ def run_video_filter_app(
         if writer is not None:
             writer.release()
         provider.close()
+        status_writer.close(status)
         capture.release()
         cv2.destroyAllWindows()
 

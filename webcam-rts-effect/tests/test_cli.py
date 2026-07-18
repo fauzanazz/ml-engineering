@@ -10,7 +10,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.command, "run")
         self.assertEqual(args.camera, "0")
         self.assertEqual(args.detector, "yolo26n-seg.pt")
-        self.assertEqual(args.classifier, "runs/classify/kicau_yolo26s_masked_aug/weights/best.pt")
+        self.assertEqual(args.classifier, "models/kicau-classifier/best.pt")
         self.assertEqual(args.data, "coco8.yaml")
         self.assertEqual(args.segmenter, "yolo-seg")
         self.assertEqual(args.classifier_backend, "yolo")

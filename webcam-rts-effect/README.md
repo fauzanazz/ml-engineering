@@ -115,6 +115,7 @@ Development controls:
 - `d`: toggle debug overlay while running.
 - `[` / `]`: decrease/increase activation threshold.
 - `-` / `=`: decrease/increase sticker scale.
+- `c`: enter/exit peace-sign calibration mode. While active, show exactly one hand and press `y` for peace sign or `n` for not peace. Samples are saved to `.peace_sign_calibration.json`; once both labels exist, detection uses the midpoint between their feature centers.
 
 Persist or seed runtime tuning with JSON:
 

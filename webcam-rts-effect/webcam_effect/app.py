@@ -12,13 +12,23 @@ from webcam_effect.config import apply_runtime_config, load_runtime_config, upda
 from webcam_effect.debug_overlay import DebugInfo, draw_debug_overlay
 from webcam_effect.effects import StickerEffect, load_effect_definition, load_effect_library
 from webcam_effect.frame_window import FrameWindow
-from webcam_effect.hand_tracking import MediaPipeHandTracker
+from webcam_effect.hand_tracking import (
+    HandTrackFrame,
+    MediaPipeHandTracker,
+    PeaceSignCalibration,
+    is_peace_sign,
+    load_peace_sign_calibration,
+    save_peace_sign_calibration,
+)
 from webcam_effect.mediapipe_models import MediaPipeKicauWindowClassifier, MediaPipeUserSegmenter
 from webcam_effect.outputs import create_video_output
+from webcam_effect.runtime_status import RuntimeStatus, RuntimeStatusWriter
 from webcam_effect.state import PoseStateMachine
 from webcam_effect.yolo_models import YoloFrameClassifier, YoloPersonDetector, YoloPersonSegmenter
 
 HAND_TRACK_INPUTS = ("auto", "bbox", "full")
+PEACE_CALIBRATION_KEY = ord("c")
+PEACE_CALIBRATION_PATH = Path(".peace_sign_calibration.json")
 
 
 @dataclass
@@ -95,6 +105,8 @@ def run_live_effect(
     frame_window = FrameWindow(size=3)
     runtime_config_file = Path(runtime_config_path) if runtime_config_path else None
     runtime_config = load_runtime_config(runtime_config_file)
+    peace_calibration = load_peace_sign_calibration(PEACE_CALIBRATION_PATH)
+    peace_calibration_mode = False
     if debug:
         runtime_config = replace(runtime_config, debug=True)
     apply_runtime_config(state, runtime_config)
@@ -139,11 +151,15 @@ def run_live_effect(
     benchmark_start_time = last_frame_time
     frame_count = 0
     missed_frame_count = 0
+    dropped_frame_count = 0
     fps = 0.0
     analysis = AnalysisResult(predictions=[], active=False, crop_visible=False, crop=None)
     hand_tracker = None
     hand_tracker_failed = False
     benchmark_timer = BenchmarkTimer()
+    status = RuntimeStatus(connected=True, recording=video_output == "ffmpeg")
+    status_writer = RuntimeStatusWriter()
+    status_writer.update(status, force=True)
 
     try:
         while True:
@@ -156,6 +172,7 @@ def run_live_effect(
             ok, frame = capture.read()
             if not ok:
                 missed_frame_count += 1
+                dropped_frame_count += 1
                 if missed_frame_count >= 30:
                     break
                 time.sleep(0.01)
@@ -225,6 +242,8 @@ def run_live_effect(
                     hand_tracker_failed = True
             else:
                 benchmark_timer.add_hand(0.0, "skipped")
+            if not peace_calibration_mode:
+                output = apply_peace_sign_blur(output, hands, peace_calibration)
             if runtime_config.debug:
                 output = draw_debug_overlay(
                     output,
@@ -240,13 +259,39 @@ def run_live_effect(
                         hands=hands,
                     ),
                 )
+            if peace_calibration_mode:
+                output = draw_peace_calibration_overlay(output, hands, peace_calibration)
             output_started_at = time.perf_counter()
             output_sink.write(output)
             benchmark_timer.add_output(time.perf_counter() - output_started_at)
             benchmark_timer.frame_count += 1
+            prediction = max(analysis.predictions, key=lambda item: item.confidence, default=None)
+            status.active_effect = effect_definition.name if effect_active else None
+            status.label = prediction.label if prediction is not None else "none"
+            status.confidence = prediction.confidence if prediction is not None else 0.0
+            status.processing_fps = fps
+            status.dropped_frames = dropped_frame_count
+            status_writer.update(status)
             key = cv2.waitKey(1) & 0xFF
             if key == ord("q"):
                 break
+            new_calibration_mode, new_peace_calibration = handle_peace_calibration_key(
+                peace_calibration_mode,
+                peace_calibration,
+                hands,
+                key,
+            )
+            if new_peace_calibration != peace_calibration:
+                peace_calibration = new_peace_calibration
+                save_peace_sign_calibration(PEACE_CALIBRATION_PATH, peace_calibration)
+                print(
+                    f"peace calibration samples: "
+                    f"yes={len(peace_calibration.positive_samples)} "
+                    f"no={len(peace_calibration.negative_samples)}"
+                )
+            if new_calibration_mode != peace_calibration_mode:
+                peace_calibration_mode = new_calibration_mode
+                print(f"peace calibration {'on' if peace_calibration_mode else 'off'}")
             if key == preview_key_code:
                 preview_active = not preview_active
             new_runtime_config = update_runtime_config(runtime_config, key)
@@ -266,6 +311,7 @@ def run_live_effect(
             hand_tracker.close()
         audio.close()
         output_sink.close()
+        status_writer.close(status)
         capture.release()
         cv2.destroyAllWindows()
 
@@ -297,6 +343,59 @@ def track_hands_for_analysis(
     if hand_track_input == "bbox":
         return None, "skipped"
     return hand_tracker.track(frame), "full"
+
+
+def apply_peace_sign_blur(
+    frame,
+    hands: HandTrackFrame | None,
+    calibration: PeaceSignCalibration | None = None,
+):
+    if hands is None or not any(is_peace_sign(hand, calibration) for hand in hands.hands):
+        return frame
+
+    import cv2
+
+    height, width = frame.shape[:2]
+    small_width = max(1, int(width * 0.25))
+    small_height = max(1, int(height * 0.25))
+    small = cv2.resize(frame, (small_width, small_height), interpolation=cv2.INTER_AREA)
+    small_blur = cv2.GaussianBlur(small, (15, 15), 0)
+    return cv2.resize(small_blur, (width, height), interpolation=cv2.INTER_LINEAR)
+
+
+def handle_peace_calibration_key(
+    active: bool,
+    calibration: PeaceSignCalibration,
+    hands: HandTrackFrame | None,
+    key: int,
+) -> tuple[bool, PeaceSignCalibration]:
+    if key == PEACE_CALIBRATION_KEY:
+        return not active, calibration
+    if not active or key not in (ord("y"), ord("n")) or hands is None or len(hands.hands) != 1:
+        return active, calibration
+    return active, calibration.add(hands.hands[0], positive=key == ord("y"))
+
+
+def draw_peace_calibration_overlay(
+    frame,
+    hands: HandTrackFrame | None,
+    calibration: PeaceSignCalibration,
+):
+    import cv2
+
+    if hands is not None and len(hands.hands) == 1:
+        current = "peace" if calibration.matches(hands.hands[0]) else "not peace"
+    else:
+        current = "show exactly one hand"
+    lines = (
+        "PEACE CALIBRATION: Y=yes  N=no  C=finish",
+        f"yes={len(calibration.positive_samples)} no={len(calibration.negative_samples)} current={current}",
+    )
+    for index, line in enumerate(lines):
+        y = frame.shape[0] - 40 + index * 24
+        cv2.putText(frame, line, (16, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 4, cv2.LINE_AA)
+        cv2.putText(frame, line, (16, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (40, 255, 120), 1, cv2.LINE_AA)
+    return frame
 
 
 def preview_key_to_code(preview_key: str) -> int:

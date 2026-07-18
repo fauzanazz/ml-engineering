@@ -1,14 +1,23 @@
 import unittest
 from dataclasses import replace
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 
 from webcam_effect.analyzer import AnalysisResult
-from webcam_effect.app import BenchmarkTimer, audio_for_effect_definition, preview_key_to_code, track_hands_for_analysis
+from webcam_effect.app import (
+    BenchmarkTimer,
+    PEACE_CALIBRATION_KEY,
+    apply_peace_sign_blur,
+    audio_for_effect_definition,
+    handle_peace_calibration_key,
+    preview_key_to_code,
+    track_hands_for_analysis,
+)
 from webcam_effect.audio import NullAudio
 from webcam_effect.components import ComponentSettings
 from webcam_effect.effects import EffectDefinition
-from webcam_effect.hand_tracking import HandTrackFrame
+from webcam_effect.hand_tracking import HandTrackFrame, PeaceSignCalibration
 from webcam_effect.tracking import BoundingBox
 
 class SpyHandTracker:
@@ -96,6 +105,55 @@ class AppTest(unittest.TestCase):
         self.assertIsNone(hands)
         self.assertEqual(mode, "skipped")
         self.assertEqual(tracker.calls, [])
+
+    @patch("webcam_effect.app.is_peace_sign", return_value=True)
+    def test_peace_sign_blurs_frame(self, _is_peace_sign):
+        checkerboard = ((np.indices((64, 64)).sum(axis=0) % 2) * 255).astype(np.uint8)
+        frame = np.repeat(checkerboard[:, :, None], 3, axis=2)
+        hands = HandTrackFrame(hands=(object(),))
+
+        blurred = apply_peace_sign_blur(frame, hands)
+
+        self.assertEqual(blurred.shape, frame.shape)
+        self.assertIsNot(blurred, frame)
+        self.assertEqual(blurred.dtype, frame.dtype)
+        self.assertLess(blurred.var(), frame.var())
+
+    def test_peace_sign_blur_reuses_frame_without_hands(self):
+        frame = np.zeros((4, 4, 3), dtype=np.uint8)
+
+        self.assertIs(apply_peace_sign_blur(frame, HandTrackFrame(hands=())), frame)
+
+    def test_peace_calibration_shortcut_toggles_mode(self):
+        calibration = PeaceSignCalibration()
+
+        active, unchanged = handle_peace_calibration_key(
+            False,
+            calibration,
+            HandTrackFrame(hands=()),
+            PEACE_CALIBRATION_KEY,
+        )
+
+        self.assertTrue(active)
+        self.assertIs(unchanged, calibration)
+
+    def test_peace_calibration_shortcuts_label_current_hand(self):
+        hand = object()
+        for key, expected in (("y", True), ("n", False)):
+            with self.subTest(key=key):
+                calibration = MagicMock()
+                calibration.add.return_value = calibration
+
+                active, updated = handle_peace_calibration_key(
+                    True,
+                    calibration,
+                    HandTrackFrame(hands=(hand,)),
+                    ord(key),
+                )
+
+                self.assertTrue(active)
+                self.assertIs(updated, calibration)
+                calibration.add.assert_called_once_with(hand, positive=expected)
 
     def test_benchmark_timer_reports_average_milliseconds(self):
         timer = BenchmarkTimer(frame_count=2)

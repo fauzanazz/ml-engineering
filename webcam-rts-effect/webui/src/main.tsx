@@ -56,7 +56,7 @@ type EffectLibrary = { selected_id: string; effects: Record<string, EffectDefini
 type AssetItem = { path: string; name: string; type: AssetKind; tag?: string };
 type FieldError = { field: string; message: string };
 type VersionItem = { created_at: string; effect: EffectDefinition };
-type RuntimeStatus = { connected: boolean; label: string; confidence: number; fps: number; active_effect: string | null };
+type RuntimeStatus = { connected: boolean; label: string; confidence: number; fps: number; processing_fps: number; dropped_frames: number; active_effect: string | null; active_filter: string | null; recording: boolean };
 
 const defaultAssets: AssetItem[] = [
   { path: "assets/nick.gif", name: "nick.gif", type: "image" },
@@ -214,7 +214,8 @@ function App() {
   useEffect(() => {
     loadLibrary();
     loadAssets();
-    const interval = window.setInterval(loadRuntimeStatus, 1500);
+    loadRuntimeStatus();
+    const interval = window.setInterval(loadRuntimeStatus, 1000);
     return () => {
       window.clearInterval(interval);
       stopCamera();
@@ -702,7 +703,7 @@ function PreviewPane({ effect, selectedLayerId, activePreview, setActivePreview,
         <video ref={videoRef} className="camera-feed" autoPlay playsInline muted />
         {!effect.layers.length ? <div className="empty-state">Drop a GIF or choose one below</div> : null}
         {effect.layers.map((layer) => <StickerPreview key={layer.id} layer={layer} activePreview={activePreview} selected={layer.id === selectedLayerId} selectLayer={selectLayer} updateLayer={updateLayer} />)}
-        <div className="debug-overlay"><span>{runtimeStatus?.connected ? "Runtime" : "Manual"}</span><span>{runtimeStatus?.label ?? "manual"}</span><span>{Math.round((runtimeStatus?.confidence ?? 0) * 100)}%</span><span>{Math.round(runtimeStatus?.fps ?? 0)} fps</span></div>
+        <div className="debug-overlay"><span>{runtimeStatus?.connected ? "Runtime" : "Manual"}</span><span>{runtimeStatus?.label ?? "manual"} {Math.round((runtimeStatus?.confidence ?? 0) * 100)}%</span><span>{Math.round(runtimeStatus?.processing_fps ?? runtimeStatus?.fps ?? 0)} fps</span><span>Dropped {runtimeStatus?.dropped_frames ?? 0}</span><span>{runtimeStatus?.active_effect ?? runtimeStatus?.active_filter ?? "No effect"}</span><span>{runtimeStatus?.recording ? "Recording" : "Not recording"}</span></div>
       </div>
     </div>
   );

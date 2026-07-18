@@ -7,7 +7,7 @@ from webcam_effect.training import CLASSIFIER_TRAIN_DEFAULTS
 
 
 DEFAULT_CAMERA = "0"
-DEFAULT_CLASSIFIER = "runs/classify/kicau_yolo26s_masked_aug/weights/best.pt"
+DEFAULT_CLASSIFIER = "models/kicau-classifier/best.pt"
 DEFAULT_DATA = "coco8.yaml"
 DEFAULT_DATASET_ROOT = "datasets/kicau_mania"
 DEFAULT_DETECTOR = "yolo26n-seg.pt"
@@ -119,6 +119,44 @@ def build_parser() -> argparse.ArgumentParser:
     youtube_parser.add_argument("--url", required=True)
     youtube_parser.add_argument("--output", default="assets/youtube-audio.mp3")
 
+    evaluate_parser = subparsers.add_parser("evaluate")
+    evaluate_parser.add_argument(
+        "--models",
+        nargs="+",
+        default=[
+            "runs/classify/kicau_yolo26s_masked_aug/weights/best.pt",
+            "runs/classify/kicau_yolo26s_masked_aug-3/weights/best.pt",
+        ],
+    )
+    evaluate_parser.add_argument("--dataset-root", default="datasets/kicau_mania_holdout")
+    evaluate_parser.add_argument("--detector", default=DEFAULT_DETECTOR)
+    evaluate_parser.add_argument("--device", default=DEFAULT_DEVICE)
+    evaluate_parser.add_argument("--output", default="outputs/webcam-evaluation.json")
+    evaluate_parser.add_argument("--export", default=DEFAULT_CLASSIFIER)
+
+    doctor_parser = subparsers.add_parser("doctor")
+    doctor_parser.add_argument("--assets-dir", default="assets")
+    doctor_parser.add_argument("--classifier", default=DEFAULT_CLASSIFIER)
+
+    download_parser = subparsers.add_parser("download-models")
+    download_parser.add_argument("--assets-dir", default="assets")
+
+    benchmark_parser = subparsers.add_parser("benchmark")
+    benchmark_parser.add_argument("--duration", type=int, default=60)
+    benchmark_parser.add_argument("--camera", default=DEFAULT_CAMERA)
+    benchmark_parser.add_argument("--resolution", choices=("640x480", "1280x720"), default=DEFAULT_FILTER_RESOLUTION)
+    benchmark_parser.add_argument("--classifier", default=DEFAULT_CLASSIFIER)
+    benchmark_parser.add_argument("--detector", default=DEFAULT_DETECTOR)
+    benchmark_parser.add_argument("--device", default=DEFAULT_DEVICE)
+    benchmark_parser.add_argument("--output-dir", default="outputs/benchmarks")
+
+    holdout_parser = subparsers.add_parser("record-holdout")
+    holdout_parser.add_argument("--camera", default=DEFAULT_CAMERA)
+    holdout_parser.add_argument("--resolution", choices=("640x480", "1280x720"), default=DEFAULT_FILTER_RESOLUTION)
+    holdout_parser.add_argument("--seconds-per-session", type=int, default=8)
+    holdout_parser.add_argument("--countdown", type=int, default=5)
+    holdout_parser.add_argument("--output-root", default="datasets/kicau_mania_holdout")
+
     return parser
 
 def add_train_arguments(train_parser: argparse.ArgumentParser) -> None:
@@ -229,6 +267,75 @@ def main(argv: list[str] | None = None) -> None:
         from webcam_effect.assets import download_youtube_audio
 
         download_youtube_audio(url=args.url, output=Path(args.output))
+        return
+
+    if args.command == "evaluate":
+        from pathlib import Path
+
+        from webcam_effect.evaluation import evaluate_models
+
+        report = evaluate_models(
+            [Path(model) for model in args.models],
+            dataset_root=Path(args.dataset_root),
+            detector_path=args.detector,
+            device=args.device,
+            output_path=Path(args.output),
+            export_path=Path(args.export),
+        )
+        print(f"winner={report['winner']} report={args.output}")
+        return
+
+    if args.command == "download-models":
+        from pathlib import Path
+
+        from webcam_effect.mediapipe_assets import download_models
+
+        downloaded = download_models(Path(args.assets_dir))
+        print("MediaPipe models ready" if not downloaded else "downloaded: " + ", ".join(str(path) for path in downloaded))
+        return
+
+    if args.command == "doctor":
+        from pathlib import Path
+
+        from webcam_effect.mediapipe_assets import doctor
+
+        problems = doctor(Path(args.classifier), Path(args.assets_dir))
+        if problems:
+            raise SystemExit("doctor failed:\n- " + "\n- ".join(problems))
+        print("doctor ok: classifier, effect assets, and all MediaPipe models are ready")
+        return
+
+    if args.command == "benchmark":
+        from pathlib import Path
+
+        from webcam_effect.benchmark import run_benchmark
+
+        results = run_benchmark(
+            duration_seconds=args.duration,
+            camera=args.camera,
+            resolution=args.resolution,
+            classifier_path=args.classifier,
+            detector_path=args.detector,
+            device=args.device,
+            output_dir=Path(args.output_dir),
+        )
+        for result in results:
+            print(f"{result['scenario']}: {result['average_fps']:.2f} fps, p95={result['p95_frame_time_ms']:.2f} ms, dropped={result['dropped_frames']}")
+        return
+
+    if args.command == "record-holdout":
+        from pathlib import Path
+
+        from webcam_effect.holdout_recorder import record_holdout
+
+        sessions = record_holdout(
+            camera=args.camera,
+            resolution=args.resolution,
+            seconds_per_session=args.seconds_per_session,
+            countdown_seconds=args.countdown,
+            output_root=Path(args.output_root),
+        )
+        print(f"recorded {len(sessions)} holdout sessions under {args.output_root}")
         return
 
     raise ValueError(f"unknown command: {args.command}")
