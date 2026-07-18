@@ -11,7 +11,7 @@ Production-oriented ML engineering workspace. target repo ini jadi kumpulan proj
 | [kaggle-comp/house-prices-advanced-regression-techniques](./kaggle-comp/house-prices-advanced-regression-techniques/) | Kaggle House Prices regression framework dengan fitur engineering, multiple models, dan artifact/submission logging. | **Inactive** |
 | [kaggle-comp/neurogolf-2026](./kaggle-comp/neurogolf-2026/) | Kaggle ARC-like ARC task workspace untuk ONNX model constraints dan submission pipeline. | **Inactive** |
 | [gameboard-bot](./gameboard-bot/) | Self-play loop + training pipeline untuk bot Wall Chess/Quoridor, fokus distillation ke evaluator cepat untuk Rust/Browser. | **Active (R&D)** |
-| [webcam-rts-effect](./webcam-rts-effect/) | Webcam realtime effects (segmentation/classification/hand tracking), training dan web editor untuk eksperimen. | **Active (WIP)** |
+| [webcam-rts-effect](./webcam-rts-effect/) | Webcam realtime effects dengan segmentation, classification, hand tracking, web editor, serta tooling runtime untuk holdout recording, evaluasi model, benchmark, dan diagnostics. | **Active (Runtime Evaluation)** |
 | [ml-production-ecosystem](./ml-production-ecosystem/) | Toolkit scaffold dan production-playground untuk generate project ML lifecycle starter (serving, monitoring, retraining, rollback). | **Active / Foundation** |
 
 ## Status sync
