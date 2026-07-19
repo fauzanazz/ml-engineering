@@ -2,6 +2,8 @@
 
 TanStack Start app for the `gameboard-bot` playable demos.
 
+**Live demo:** <https://wallchess-webui.mfauzan-az23.workers.dev> — play Wall Chess and International Draughts in the browser, no install.
+
 ## Routes
 
 | Route | Purpose |
