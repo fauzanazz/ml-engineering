@@ -110,6 +110,17 @@ class HandTrackingTest(unittest.TestCase):
         self.assertTrue(is_peace_sign(positive, calibration))
         self.assertFalse(is_peace_sign(negative, calibration))
 
+    def test_peace_calibration_rejects_open_thumb(self):
+        tucked = peace_sign_hand()
+        open_thumb = peace_sign_hand({4: (0.15, 0.45), 3: (0.3, 0.6)})
+        calibration = (
+            PeaceSignCalibration()
+            .add(tucked, positive=True)
+            .add(open_thumb, positive=False)
+        )
+        self.assertTrue(is_peace_sign(tucked, calibration))
+        self.assertFalse(is_peace_sign(open_thumb, calibration))
+
     def test_peace_calibration_round_trips_samples(self):
         calibration = PeaceSignCalibration().add(peace_sign_hand(), positive=True)
         with TemporaryDirectory() as directory:
@@ -146,6 +157,8 @@ def peace_sign_hand(
     landmarks = [HandLandmark(0.5, 0.5) for _ in range(landmark_count)]
     coordinates = {
         0: (0.5, 0.9),
+        3: (0.45, 0.55),
+        4: (0.5, 0.65),
         5: (0.4, 0.6),
         6: (0.35, 0.45),
         8: (0.25, 0.1),

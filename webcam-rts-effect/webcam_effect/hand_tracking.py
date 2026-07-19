@@ -9,6 +9,7 @@ WRIST_LANDMARK = 0
 INDEX_MCP_LANDMARK = 5
 INDEX_PIP_LANDMARK = 6
 THUMB_TIP_LANDMARK = 4
+THUMB_IP_LANDMARK = 3
 INDEX_TIP_LANDMARK = 8
 MIDDLE_MCP_LANDMARK = 9
 MIDDLE_PIP_LANDMARK = 10
@@ -28,7 +29,8 @@ FINGERTIP_LANDMARKS = (
 )
 PEACE_EXTENSION_RATIO = 1.1
 PEACE_SEPARATION_RATIO = 0.35
-PEACE_FEATURE_COUNT = 5
+PEACE_THUMB_RATIO = 1.1
+PEACE_FEATURE_COUNT = 6
 
 
 @dataclass(frozen=True)
@@ -221,10 +223,13 @@ def load_peace_sign_calibration(path: Path) -> PeaceSignCalibration:
         return PeaceSignCalibration()
 
     data = json.loads(path.read_text())
-    return PeaceSignCalibration(
-        positive_samples=_calibration_samples(data.get("positive", [])),
-        negative_samples=_calibration_samples(data.get("negative", [])),
-    )
+    try:
+        return PeaceSignCalibration(
+            positive_samples=_calibration_samples(data.get("positive", [])),
+            negative_samples=_calibration_samples(data.get("negative", [])),
+        )
+    except ValueError:
+        return PeaceSignCalibration()
 
 
 def save_peace_sign_calibration(path: Path, calibration: PeaceSignCalibration) -> None:
@@ -257,7 +262,8 @@ def peace_sign_features(hand: TrackedHand) -> tuple[float, ...] | None:
         dist(point(index), wrist)
         for index in (INDEX_PIP_LANDMARK, MIDDLE_PIP_LANDMARK, RING_PIP_LANDMARK, PINKY_PIP_LANDMARK)
     )
-    if palm_width == 0 or 0 in pip_distances:
+    thumb_ip_distance = dist(point(THUMB_IP_LANDMARK), wrist)
+    if palm_width == 0 or 0 in pip_distances or thumb_ip_distance == 0:
         return None
 
     return (
@@ -266,6 +272,7 @@ def peace_sign_features(hand: TrackedHand) -> tuple[float, ...] | None:
         dist(point(RING_TIP_LANDMARK), wrist) / pip_distances[2],
         dist(point(PINKY_TIP_LANDMARK), wrist) / pip_distances[3],
         dist(point(INDEX_TIP_LANDMARK), point(MIDDLE_TIP_LANDMARK)) / palm_width,
+        dist(point(THUMB_TIP_LANDMARK), wrist) / thumb_ip_distance,
     )
 
 
@@ -285,13 +292,14 @@ def _squared_distance(left: tuple[float, ...], right: tuple[float, ...]) -> floa
 
 
 def _matches_default_peace_thresholds(features: tuple[float, ...]) -> bool:
-    index, middle, ring, pinky, separation = features
+    index, middle, ring, pinky, separation, thumb = features
     return (
         index > PEACE_EXTENSION_RATIO
         and middle > PEACE_EXTENSION_RATIO
         and ring <= PEACE_EXTENSION_RATIO
         and pinky <= PEACE_EXTENSION_RATIO
         and separation >= PEACE_SEPARATION_RATIO
+        and thumb <= PEACE_THUMB_RATIO
     )
 
 
