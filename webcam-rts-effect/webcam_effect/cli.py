@@ -157,6 +157,8 @@ def build_parser() -> argparse.ArgumentParser:
     holdout_parser.add_argument("--countdown", type=int, default=5)
     holdout_parser.add_argument("--output-root", default="datasets/kicau_mania_holdout")
 
+    subparsers.add_parser("wizard")
+
     return parser
 
 def add_train_arguments(train_parser: argparse.ArgumentParser) -> None:
@@ -180,7 +182,26 @@ def add_train_arguments(train_parser: argparse.ArgumentParser) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    args = build_parser().parse_args(argv)
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if not raw:
+        if not sys.stdin.isatty():
+            print(build_parser().format_help())
+            return
+        from webcam_effect.wizard import run_wizard
+
+        chosen = run_wizard()
+        if chosen is None:
+            return
+        raw = chosen
+    args = build_parser().parse_args(raw)
+
+    if args.command == "wizard":
+        from webcam_effect.wizard import run_wizard
+
+        chosen = run_wizard()
+        if chosen is not None:
+            main(chosen)
+        return
 
     if args.command == "run":
         from webcam_effect.app import run_live_effect

@@ -11,6 +11,7 @@ dependencies = [
     "onnxruntime>=1.26.0; python_version >= '3.11'",
     "onnxslim>=0.1.94",
     "opencv-python>=4.13.0.92",
+    "questionary>=2.1.1",
     "sounddevice>=0.5.3",
     "ultralytics>=8.4.54",
 ]
